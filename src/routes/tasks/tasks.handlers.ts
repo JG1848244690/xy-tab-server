@@ -1,11 +1,9 @@
 
 import type { listRoute } from "./tasks.routes.js";
 import type { AppRouteHandler } from '../../lib/types.js'
-
-export const list: AppRouteHandler<listRoute> = (c) => {
-    return c.json([{
-        name: 'learn hono',
-        done: false
-    }])
+import db from '../../db/index.js'
+export const list: AppRouteHandler<listRoute> = async (c) => {
+    const tasks = await db.query.task.findMany();
+    return c.json(tasks)
 }
 

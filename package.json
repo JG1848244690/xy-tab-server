@@ -5,14 +5,20 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.0",
     "@hono/zod-openapi": "^1.5.1",
+    "@libsql/client": "^0.17.4",
     "@scalar/hono-api-reference": "^0.11.12",
     "dotenv": "^17.4.2",
     "dotenv-expand": "^1000.0.0",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.13.0",
     "hono-pino": "^0.10.3",
     "pino": "^10.3.1",
@@ -22,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2"
   }
