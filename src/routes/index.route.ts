@@ -27,5 +27,6 @@ const router = createRouter()
             }, HttpStatusCodes.OK)
         }
     )
+    // .openapi()
 
 export default router;

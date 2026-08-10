@@ -10,6 +10,8 @@
 | Node 适配 | `@hono/node-server` |
 | OpenAPI + 校验 | `@hono/zod-openapi` + [Zod](https://zod.dev) |
 | API 文档 UI | [`@scalar/hono-api-reference`](https://github.com/scalar/scalar) |
+| ORM | [Drizzle ORM](https://orm.drizzle.team) |
+| 数据库 | [Turso](https://turso.tech)(libSQL)— `@libsql/client` |
 | 日志 | `pino` + `pino-pretty` + `hono-pino` |
 | 配置加载 | `dotenv` + `dotenv-expand` |
 | 脚手架工具 | [stoker](https://github.com/w3cj/stoker) |
@@ -41,8 +43,11 @@ src/
 | `NODE_ENV` | string | `development` | 运行环境 |
 | `PORT` | number | `9999` | 服务端口 |
 | `LOG_LEVEL` | enum | **(必填)** | `fatal` / `error` / `warn` / `info` / `debug` / `trace` |
+| `DATABASE_URL` | string | **(必填)** | Turso/libSQL 数据库连接地址(合法 URL) |
+| `DATABASE_AUTH_TOKEN` | string | _(可选)_ | Turso 访问令牌;**生产环境必填** |
 
 > ⚠️ `LOG_LEVEL` 无默认值,`.env` 不配置会导致启动失败(Fail Fast)。
+> ⚠️ 生产环境下若缺少 `DATABASE_AUTH_TOKEN`,启动校验会失败(`env.ts` 的 refine 规则)。
 
 示例:
 
@@ -50,6 +55,8 @@ src/
 NODE_ENV=development
 PORT=9999
 LOG_LEVEL=debug
+DATABASE_URL=libsql://your-db.turso.io
+DATABASE_AUTH_TOKEN=
 ```
 
 ## 快速开始
@@ -62,6 +69,30 @@ pnpm dev          # 开发模式(热重载)→ http://localhost:9999
 pnpm build        # 编译到 dist/
 pnpm start        # 运行编译产物 node dist/index.js
 ```
+
+## 数据库 (Drizzle)
+
+数据层使用 [Drizzle ORM](https://orm.drizzle.team) 连接 **Turso(libSQL)**。
+
+- Schema 定义:`src/db/schema.ts`
+- 迁移文件输出:`src/db/migrations/`
+- 连接配置:`drizzle.config.ts`(读取 `DATABASE_URL` / `DATABASE_AUTH_TOKEN`)
+
+`package.json` 里预置了四条 `db:*` 脚本(对应 `drizzle-kit` 命令):
+
+| 命令 | 对应 | 作用 |
+|------|------|------|
+| `pnpm db:generate` | `drizzle-kit generate` | 根据 schema 变化**生成 SQL 迁移文件**,不改动数据库 |
+| `pnpm db:migrate` | `drizzle-kit migrate` | 把生成的迁移文件**执行到数据库**,按顺序记账,幂等 |
+| `pnpm db:push` | `drizzle-kit push` | 跳过迁移文件,**直接把 schema 同步到库**(本地快速原型) |
+| `pnpm db:studio` | `drizzle-kit studio` | 打开 Drizzle Studio 可视化管理数据库 |
+
+### 推荐工作流
+
+- **本地快速迭代**:改完 `schema.ts` 直接 `pnpm db:push`,库结构即时同步,无需关心迁移文件。
+- **正式 / 团队协作**:`pnpm db:generate` 产出可 review 的迁移文件 → `pnpm db:migrate` 应用,保留版本化历史。
+
+> ⚠️ `db:push` 会直接改库结构(删列、改类型同样照做),**仅用于本地开发**;生产环境请走 `generate + migrate`。
 
 ## 架构
 
