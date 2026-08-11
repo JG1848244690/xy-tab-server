@@ -1,0 +1,2 @@
+# 占位文件,让 src/db/migrations/ 目录被 git 跟踪
+# 实际部署前请运行 pnpm db:generate 产出真正的迁移文件

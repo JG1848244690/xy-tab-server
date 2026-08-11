@@ -34,8 +34,9 @@ RUN addgroup --system --gid 1001 hono \
 # 拷贝运行时所需:生产 node_modules、编译产物、迁移文件、drizzle 配置、package.json
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build      /app/dist          ./dist
-COPY --from=build      /app/src/db/migrations ./src/db/migrations
 COPY --from=build      /app/drizzle.config.ts ./drizzle.config.ts
+# migrations 目录通过 .gitkeep 占位确保进 git;后续 db:generate 会产出真正的迁移文件
+COPY --from=build      /app/src/db/migrations ./src/db/migrations
 COPY package.json ./
 
 USER hono
