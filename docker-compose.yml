@@ -30,9 +30,9 @@ services:
       start_period: 5s
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # 镜像在 GitHub Actions CI 里 build + push 到 GHCR,服务器只 pull 不 build
+    # 改本地构建请把 image 换成 build: { context: . }
+    image: ghcr.io/jg1848244690/xy-tab-server:latest
     # 同上,用默认命名 tasks-api-app-1
     restart: unless-stopped
     depends_on:
