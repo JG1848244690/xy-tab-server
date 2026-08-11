@@ -82,3 +82,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh api -X PATCH /user/packages/container/xy-tab-server -f visibility=public || true
+
+  deploy:
+    name: deploy to server
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    timeout-minutes: 5
+
+    steps:
+      - name: Deploy via SSH
+        # appleboy/ssh-action:Secrets 加密存服务器私钥,runner 上解密用完即丢
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/tasks-api
+            # 服务器上的 deploy key (GitHub Settings → Deploy keys) 允许 fetch 私有仓库
+            git fetch github pgsql:pgsql --force
+            git reset --hard pgsql
+            # 拉新镜像 + 重启容器(零停机——docker compose up -d 滚动重启)
+            docker compose pull
+            docker compose up -d --remove-orphans
+            echo '=== deploy status ==='
+            docker compose ps

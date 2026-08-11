@@ -2,6 +2,8 @@
 
 基于 **Hono** 的 TypeScript 后端基础架子。核心理念:**用一份 Zod schema,同时驱动「运行时校验 + TypeScript 类型 + OpenAPI 文档」**——契约优先,一处定义,三处复用。
 
+<!-- deploy test marker: 2026-08-11 17:50 -->>
+
 ## 技术栈
 
 | 用途 | 库 |
