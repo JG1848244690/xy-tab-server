@@ -97,7 +97,31 @@ export const patch = createRoute({
 })
 
 
+export const remove = createRoute({
+    path: '/tasks/{id}',
+    method: 'delete',
+    request: {
+        params: IdParamsSchema,
+    },
+    tags,
+    responses: {
+        [HttpStatusCodes.NO_CONTENT]: {
+            description: 'The task was deleted',
+        },
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            'not found'
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(IdParamsSchema),
+            "invalid id error(s)"
+        ),
+    }
+})
+
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
+export type RemoveRoute = typeof remove;

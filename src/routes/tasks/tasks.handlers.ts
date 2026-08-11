@@ -1,5 +1,5 @@
 
-import type { ListRoute, CreateRoute, GetOneRoute, PatchRoute } from "./tasks.routes.js";
+import type { ListRoute, CreateRoute, GetOneRoute, PatchRoute, RemoveRoute } from "./tasks.routes.js";
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { task } from "../../db/schema.js"
@@ -43,4 +43,15 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
         message: HttpStatusPhrases.NOT_FOUND
     }, HttpStatusCodes.NOT_FOUND)
     return c.json(updated, HttpStatusCodes.OK)
+}
+
+export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
+    const { id } = c.req.valid('param')
+    const [deleted] = await db.delete(task)
+        .where(eq(task.id, id))
+        .returning()
+    if (!deleted) return c.json({
+        message: HttpStatusPhrases.NOT_FOUND
+    }, HttpStatusCodes.NOT_FOUND)
+    return c.body(null, HttpStatusCodes.NO_CONTENT)
 }
