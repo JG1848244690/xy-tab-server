@@ -1,8 +1,8 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import * as HttpStatusCodes from 'stoker/http-status-codes'
-import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers'
+import { jsonContent, jsonContentOneOf, jsonContentRequired } from 'stoker/openapi/helpers'
 
-import { selectTasksSchema, insertTaskSchema } from '../../db/schema.js'
+import { selectTasksSchema, insertTaskSchema, patchTasksSchema } from '../../db/schema.js'
 import { createErrorSchema, IdParamsSchema } from 'stoker/openapi/schemas'
 import { notFoundSchema } from '../../lib/constants.js'
 
@@ -66,6 +66,38 @@ export const getOne = createRoute({
 })
 
 
+export const patch = createRoute({
+    path: '/tasks/{id}',
+    method: 'patch',
+    request: {
+        params: IdParamsSchema,
+        body: jsonContentRequired(
+            patchTasksSchema,
+            'the task to updates'
+        )
+    },
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            selectTasksSchema,
+            'The created task',
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            'not found'
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContentOneOf(
+            [
+                createErrorSchema(patchTasksSchema),
+                (createErrorSchema(IdParamsSchema)),
+            ],
+            "The validation error(s)"
+        ),
+    }
+})
+
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
+export type PatchRoute = typeof patch;
