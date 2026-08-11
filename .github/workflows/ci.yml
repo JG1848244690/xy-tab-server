@@ -69,8 +69,16 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/jg1848244690/xy-tab-server:latest
+            ghcr.io/jg1848244690/xy-tab-server:${{ github.sha }}
           # GitHub Actions 自带层缓存,跨 workflow 复用
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Make package public
+        # GHCR 默认 private,设成 public 方便公开拉取(测试项目用)。
+        # 只在 push 时设,PR 跑没意义。
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X PATCH /user/packages/container/xy-tab-server -f visibility=public || true
