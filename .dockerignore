@@ -1,0 +1,20 @@
+node_modules
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# 本地环境/数据库/构建产物
+.env
+.env.*
+!.env.example
+dev.db
+dist
+coverage
+*.log
+
+# 测试与文档(可选,保留 README 进镜像以便容器 inspect)
+*.md.tmp
+CLAUDE.md
+.claude

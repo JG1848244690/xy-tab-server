@@ -1,18 +1,12 @@
-import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { boolean, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-export const task = sqliteTable("tasks", {
-    id: integer("id", { mode: 'number' })
-        .primaryKey({ autoIncrement: true }),
-    name: text('name')
-        .notNull(),
-    done: integer('done', { mode: 'boolean' })
-        .notNull().default(false),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-        .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-        .$defaultFn(() => new Date())
-        .$onUpdate(() => new Date()),
+
+export const task = pgTable("tasks", {
+    id: serial("id").primaryKey(),
+    name: text('name').notNull(),
+    done: boolean('done').notNull().default(false),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
 export const selectTasksSchema = createSelectSchema(task);
@@ -28,4 +22,4 @@ export const insertTaskSchema = createInsertSchema(task, {
         updatedAt: true
     });
 
-export const patchTasksSchema = insertTaskSchema.partial(); 
+export const patchTasksSchema = insertTaskSchema.partial();

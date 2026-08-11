@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  ci:
+    name: install · typecheck · test · build · docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # 给 env.ts 的 zod 校验喂 dummy 值。
+    # test 用 vi.mock 把 db 替换,不会真连 pg(下个 commit 加上)。
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      DATABASE_SSL: 'false'
+      LOG_LEVEL: info
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Test
+        # vitest 默认 watch 模式,加 --run 跑一次就退出
+        run: pnpm test --run
+
+      - name: Build
+        run: pnpm build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: tasks-api:ci-${{ github.sha }}
+          # GitHub Actions 自带层缓存,跨 workflow 复用
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -9,13 +9,8 @@ const EnvSchema = z.object({
     PORT: z.coerce.number().default(9999),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']),
     DATABASE_URL: z.string().url(),
-    DATABASE_AUTH_TOKEN: z.string().optional()
-
-}).refine((input) => {
-    if (input.NODE_ENV === 'production') {
-        return !!input.DATABASE_AUTH_TOKEN;
-    }
-    return true;
+    // 用字符串枚举,避免 z.coerce.boolean() 把 "false" 转成 true 的坑
+    DATABASE_SSL: z.enum(['true', 'false']).default('false'),
 })
 
 export type env = z.infer<typeof EnvSchema>

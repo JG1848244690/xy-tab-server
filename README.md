@@ -11,7 +11,7 @@
 | OpenAPI + 校验 | `@hono/zod-openapi` + [Zod](https://zod.dev) |
 | API 文档 UI | [`@scalar/hono-api-reference`](https://github.com/scalar/scalar) |
 | ORM | [Drizzle ORM](https://orm.drizzle.team) |
-| 数据库 | [Turso](https://turso.tech)(libSQL)— `@libsql/client` |
+| 数据库 | [PostgreSQL](https://www.postgresql.org)— driver: [postgres.js](https://github.com/porsager/postgres) (`postgres` + `drizzle-orm/postgres-js`) |
 | 日志 | `pino` + `pino-pretty` + `hono-pino` |
 | 配置加载 | `dotenv` + `dotenv-expand` |
 | 脚手架工具 | [stoker](https://github.com/w3cj/stoker) |
@@ -43,11 +43,10 @@ src/
 | `NODE_ENV` | string | `development` | 运行环境 |
 | `PORT` | number | `9999` | 服务端口 |
 | `LOG_LEVEL` | enum | **(必填)** | `fatal` / `error` / `warn` / `info` / `debug` / `trace` |
-| `DATABASE_URL` | string | **(必填)** | Turso/libSQL 数据库连接地址(合法 URL) |
-| `DATABASE_AUTH_TOKEN` | string | _(可选)_ | Turso 访问令牌;**生产环境必填** |
+| `DATABASE_URL` | string | **(必填)** | PostgreSQL 连接 URL,如 `postgresql://user:pass@host:5432/db` |
+| `DATABASE_SSL` | boolean | `false` | 是否启用 SSL;连本地 Docker 无需,生产托管 PG 一般要 `true` |
 
 > ⚠️ `LOG_LEVEL` 无默认值,`.env` 不配置会导致启动失败(Fail Fast)。
-> ⚠️ 生产环境下若缺少 `DATABASE_AUTH_TOKEN`,启动校验会失败(`env.ts` 的 refine 规则)。
 
 示例:
 
@@ -55,8 +54,7 @@ src/
 NODE_ENV=development
 PORT=9999
 LOG_LEVEL=debug
-DATABASE_URL=libsql://your-db.turso.io
-DATABASE_AUTH_TOKEN=
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tasks
 ```
 
 ## 快速开始
@@ -72,11 +70,25 @@ pnpm start        # 运行编译产物 node dist/index.js
 
 ## 数据库 (Drizzle)
 
-数据层使用 [Drizzle ORM](https://orm.drizzle.team) 连接 **Turso(libSQL)**。
+数据层使用 [Drizzle ORM](https://orm.drizzle.team) 连接 **PostgreSQL**(driver: [postgres.js](https://github.com/porsager/postgres))。
 
-- Schema 定义:`src/db/schema.ts`
+- Schema 定义:`src/db/schema.ts`(基于 `drizzle-orm/pg-core`)
 - 迁移文件输出:`src/db/migrations/`
-- 连接配置:`drizzle.config.ts`(读取 `DATABASE_URL` / `DATABASE_AUTH_TOKEN`)
+- 连接配置:`drizzle.config.ts`(读取 `DATABASE_URL`,`dialect: "postgresql"`)
+
+### 本地起一个 Postgres
+
+最方便的是 docker:
+
+```bash
+docker run -d --name tasks-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=tasks -p 5432:5432 postgres:17-alpine
+```
+
+然后 `.env` 写:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tasks
+```
 
 `package.json` 里预置了四条 `db:*` 脚本(对应 `drizzle-kit` 命令):
 

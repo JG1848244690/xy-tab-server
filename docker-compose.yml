@@ -1,0 +1,61 @@
+# docker-compose.yml — 一把梭起 app + postgres
+# 用法:
+#   docker compose build           # 构建 app 镜像
+#   docker compose up -d           # 后台启动
+#   docker compose logs -f app     # 看日志
+#   docker compose down            # 停掉服务(保留卷,数据不丢)
+#   docker compose down -v         # 停掉并删卷(危险:会清掉 PG 数据)
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    # 不写 container_name,用 compose 默认命名 tasks-api-postgres-1
+    # 避免跟你本机已经跑的 tasks-pg 容器撞名
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tasks
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    # 临时映射到宿主机 5433,避免与本机已有的 tasks-pg 撞 5432
+    # 生产上线时可注释掉,只让容器内 app 访问
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tasks"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # 同上,用默认命名 tasks-api-app-1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 9999
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 用 compose 服务名作为主机名,容器间走 docker 内置 DNS
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tasks
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+    ports:
+      # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
+      - "${PORT:-9999}:9999"
+    healthcheck:
+      # Hono 没自带 /health,沿用 / 当存活探针
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9999/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pg-data:
+    name: tasks-pg-data
