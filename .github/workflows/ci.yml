@@ -100,9 +100,9 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /opt/tasks-api
-            # 服务器上的 deploy key (GitHub Settings → Deploy keys) 允许 fetch 私有仓库
-            git fetch github pgsql:pgsql --force
-            git reset --hard pgsql
+            # fetch 到 remote-tracking 分支(避免 git 拒绝 fetch 到当前已 checkout 的分支)
+            git fetch github pgsql:refs/remotes/github/pgsql --force
+            git reset --hard github/pgsql
             # 拉新镜像 + 重启容器(零停机——docker compose up -d 滚动重启)
             docker compose pull
             docker compose up -d --remove-orphans
