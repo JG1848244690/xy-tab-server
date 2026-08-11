@@ -17,7 +17,9 @@ export default function configureOpenAPI(app: AppOpenAPI) {
                 clientKey: 'fetch'
             },
             spec: {
-                url: '/doc'
+                // 走 nginx /api/ 反代后,Scalar 的 spec URL 必须带 /api 前缀
+                // 否则浏览器会拉 kskbl.com.cn/doc(没 /api),nginx 无对应 location
+                url: '/api/doc'
             }
         })
     )
