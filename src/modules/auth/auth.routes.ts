@@ -1,7 +1,8 @@
 ﻿/**
  * Auth 路由定义
  *
- *   POST /sync/auth/google   公开,用 code 换 sessionToken
+ *   POST /sync/auth/google   公开,扩展用 chrome.identity 拿 userinfo 后转发
+ *                            后端不做任何 Google API 调用,纯信物模式
  *   POST /sync/auth/logout   Bearer,删除自己的 session
  *   GET  /sync/auth/me       Bearer,查当前用户
  */
@@ -13,6 +14,10 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 const tags = ['Sync Auth'];
 
 // ===== POST /sync/auth/google =====
+// 扩展侧流程:chrome.identity.getAuthToken 拿 token → 扩展自己 fetch
+// https://www.googleapis.com/oauth2/v3/userinfo → 把 userinfo JSON 直接转发过来
+// 后端只校验 email_verified === true,然后 upsert users + 发 sessionToken
+// 不调任何 Google API,适合 NAT 网关屏蔽 HTTPS 出站的部署环境
 export const googleLogin = createRoute({
     path: '/sync/auth/google',
     method: 'post',
@@ -20,10 +25,13 @@ export const googleLogin = createRoute({
     request: {
         body: jsonContentRequired(
             z.object({
-                code: z.string().min(1),
-                redirectUri: z.string().url(),
+                googleSub: z.string().min(1),
+                email: z.string().email(),
+                emailVerified: z.boolean(),
+                name: z.string().nullable().optional(),
+                picture: z.string().url().nullable().optional(),
             }),
-            'authorization code from Google + matching redirect_uri',
+            'Google userinfo JSON(扩展用 chrome.identity.getAuthToken 拿到)',
         ),
     },
     responses: {
@@ -40,13 +48,9 @@ export const googleLogin = createRoute({
             }),
             'session token + user',
         ),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-            z.object({ error: z.string() }),
-            'invalid code or redirect_uri',
-        ),
         [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
             z.object({ error: z.string() }),
-            'Google rejected the code',
+            'email not verified or invalid payload',
         ),
     },
 });

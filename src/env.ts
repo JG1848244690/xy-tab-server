@@ -16,13 +16,11 @@ const EnvSchema = z.object({
     // 本机直连(无反代)留空,spec 里不设 servers,默认用 doc 自身 host。
     OPENAPI_BASE_PATH: z.string().default(''),
 
-    // === 云同步(Google OAuth)===
-    GOOGLE_CLIENT_ID: z.string().min(1, 'GOOGLE_CLIENT_ID is required for sync'),
-    GOOGLE_CLIENT_SECRET: z.string().min(1, 'GOOGLE_CLIENT_SECRET is required for sync'),
-    // 前端发来的 redirect_uri 必须和 Google Console 配置的完全一致
-    // 开发时插件拿到的 redirect_uri 是 https://<EXT_ID>.chromiumapp.org/
-    // 这里给前端做校验用,生产时可放宽
-    GOOGLE_ALLOWED_REDIRECT_REGEX: z.string().default('^https://[a-z]+\.chromiumapp\.org/$'),
+    // 云同步已不需要 GOOGLE_CLIENT_ID/SECRET:
+    //   - 扩展用 chrome.identity.getAuthToken 拿 token
+    //   - 扩展自己 fetch Google userinfo(走用户浏览器出公网)
+    //   - 后端只接 userinfo JSON 颁发 sessionToken,零 Google API 调用
+    // 保留历史 GOOGLE_* 变量为可选(便于审计/旧部署日志),不读取
 })
 
 export type env = z.infer<typeof EnvSchema>

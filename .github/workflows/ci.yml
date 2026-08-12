@@ -14,14 +14,11 @@ jobs:
 
     # 给 env.ts 的 zod 校验喂 dummy 值。
     # test 用 vi.mock 把 db 替换,不会真连 pg。
-    # GOOGLE_* 是公开/占位字符串,只要 min(1) 校验过就行,真值只在服务器 .env 里
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/test
       DATABASE_SSL: 'false'
       LOG_LEVEL: info
       NODE_ENV: test
-      GOOGLE_CLIENT_ID: dummy-client-id-for-ci
-      GOOGLE_CLIENT_SECRET: dummy-secret-for-ci
 
     permissions:
       # GHCR push 需要 packages: write
