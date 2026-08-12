@@ -48,9 +48,9 @@ services:
       # 生产挂在 nginx /api 反代后,告诉 OpenAPI 文档给所有 path 加 /api 前缀
       # 这样 Scalar 里的 curl / Try it out 才会打到 /api/tasks 而非 /tasks
       OPENAPI_BASE_PATH: /api
-      # 云同步已不需要 GOOGLE_CLIENT_ID/SECRET:
-      #   扩展用 chrome.identity.getAuthToken 拿 token,扩展自己 fetch Google userinfo,
-      #   后端只接 userinfo JSON,零 HTTPS 出站
+      # id_token 验签用的 client_id(用于 audience 校验),真值在服务器 .env (.gitignore)
+      # 绝不能进 git / CI log / 镜像
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       - "${PORT:-9999}:9999"

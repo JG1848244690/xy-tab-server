@@ -38,6 +38,9 @@ importers:
       hono-pino:
         specifier: ^0.10.3
         version: 0.10.3(hono@4.13.0)(pino@10.3.1)
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -1115,6 +1118,9 @@ packages:
     resolution: {integrity: sha512-jhunvfHWxd7J5EFfSgH4xsYJzSe/lfqbUCxiyyeaQasUsXeEHXtzVid+7EOGByc5JnFa23SSFL3Y2RV/z1T+eQ==}
     engines: {node: '>=16.9.0'}
 
+  jose@6.2.8:
+    resolution: {integrity: sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -2178,6 +2184,8 @@ snapshots:
       pino: 10.3.1
 
   hono@4.13.0: {}
+
+  jose@6.2.8: {}
 
   joycon@3.1.1: {}
 

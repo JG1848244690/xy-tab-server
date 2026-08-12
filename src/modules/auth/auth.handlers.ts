@@ -13,42 +13,55 @@ import {
     hashEmail,
     expiresAtFromNow,
 } from './session.js';
+import { verifyGoogleIdToken } from './jwt.js';
 
 // ============================================================
 // POST /sync/auth/google — 公开
 // ============================================================
-// 极简模式:扩展用 launchWebAuthFlow 拿到 id_token,解码 payload 拿 email,
-// 只把 email POST 过来。后端不调 Google、不验签,用 email 派生 userId,
-// upsert users,发 sessionToken。
-//
-// ⚠️ 安全警告:任何能 POST 到本端点的人只要知道 email 就能拿到对应用户
-// 的 sessionToken,进而读写 sync_bookmarks / sync_tab_sessions。只适合
-// 个人/小范围使用,生产前必须加防护(apiKey / 签名验证 / IP 白名单 等)。
+// 用 jose + 本地静态 JWKS(google-jwks.json,CI 每月更新)验签 id_token。
+// 服务器零 HTTPS 出站(NAT 网关屏蔽 443)。验证通过后从 payload 拿 sub / email
+// / name / picture,upsert users,发 sessionToken。
 export const googleLogin: AppRouteHandler<GoogleLoginRoute> = async (c) => {
-    const { email, name, picture } = c.req.valid('json');
+    const { idToken, nonce } = c.req.valid('json');
 
-    // googleSub 字段 schema 仍然要求非空,这里用 email 当占位(简化模式下
-    // 不真正从 Google 拿 sub,后续如果升级到验签方案可以补回真 sub)
-    const googleSub = email;
+    // 验签(RS256 + issuer + audience + 签名 + 可选 nonce)
+    let payload;
+    try {
+        payload = await verifyGoogleIdToken(idToken, nonce);
+    } catch (err) {
+        console.error('[Auth] id_token verify failed:', err);
+        return c.json(
+            { error: err instanceof Error ? err.message : 'id_token verify failed' },
+            HttpStatusCodes.UNAUTHORIZED,
+        );
+    }
 
-    const userId = hashEmail(email);
+    if (!payload.email || !payload.sub) {
+        return c.json(
+            { error: 'id_token payload missing email or sub' },
+            HttpStatusCodes.UNAUTHORIZED,
+        );
+    }
+
+    // upsert user —— 同 email 重复登录 = 同一行(sha256(email) 作为主键)
+    const userId = hashEmail(payload.email);
     await db
         .insert(users)
         .values({
             id: userId,
-            email,
-            googleSub,
-            name: name ?? null,
-            picture: picture ?? null,
+            email: payload.email,
+            googleSub: payload.sub,
+            name: payload.name ?? null,
+            picture: payload.picture ?? null,
             lastLoginAt: new Date(),
         })
         .onConflictDoUpdate({
             target: users.id,
             set: {
-                email,
-                googleSub,
-                name: name ?? null,
-                picture: picture ?? null,
+                email: payload.email,
+                googleSub: payload.sub,
+                name: payload.name ?? null,
+                picture: payload.picture ?? null,
                 lastLoginAt: new Date(),
                 updatedAt: new Date(),
             },
@@ -67,10 +80,10 @@ export const googleLogin: AppRouteHandler<GoogleLoginRoute> = async (c) => {
         sessionToken,
         user: {
             id: userId,
-            email,
-            name: name ?? null,
-            picture: picture ?? null,
-            googleSub,
+            email: payload.email,
+            name: payload.name ?? null,
+            picture: payload.picture ?? null,
+            googleSub: payload.sub,
         },
     }, HttpStatusCodes.OK);
 };

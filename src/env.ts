@@ -16,11 +16,10 @@ const EnvSchema = z.object({
     // 本机直连(无反代)留空,spec 里不设 servers,默认用 doc 自身 host。
     OPENAPI_BASE_PATH: z.string().default(''),
 
-    // 云同步已不需要 GOOGLE_CLIENT_ID/SECRET:
-    //   - 扩展用 chrome.identity.getAuthToken 拿 token
-    //   - 扩展自己 fetch Google userinfo(走用户浏览器出公网)
-    //   - 后端只接 userinfo JSON 颁发 sessionToken,零 Google API 调用
-    // 保留历史 GOOGLE_* 变量为可选(便于审计/旧部署日志),不读取
+    // Google OAuth client_id — 用于 id_token 验签时的 audience 校验。
+    // 扩展 launchWebAuthFlow 用同一个 client_id,从 Google Console 注册时拿到。
+    // 真值在服务器 .env (.gitignore),绝不能进 git / CI log / 镜像
+    GOOGLE_CLIENT_ID: z.string().min(1, 'GOOGLE_CLIENT_ID required for id_token audience check'),
 })
 
 export type env = z.infer<typeof EnvSchema>

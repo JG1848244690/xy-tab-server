@@ -1,12 +1,9 @@
 ﻿/**
  * Auth 路由定义
  *
- *   POST /sync/auth/google   公开,扩展用 launchWebAuthFlow 拿到 id_token,
- *                            解码 payload 拿 email 后只发 email 给后端
- *                            后端完全不调 Google、不验签,信任扩展发的 email
- *                            ⚠️ 任何能 POST 到这个端点 + 知道 email 的人
- *                            都能拿到对应用户的 sessionToken —— 仅适合
- *                            个人/小范围使用,生产环境必须加签名验证
+ *   POST /sync/auth/google   公开,扩展用 launchWebAuthFlow 拿 id_token,
+ *                            后端用 jose + 本地 JWKS 验签后再颁发 sessionToken。
+ *                            服务器零 HTTPS 出站(JWKS 静态 hardcode + CI 每月更新)
  *   POST /sync/auth/logout   Bearer,删除自己的 session
  *   GET  /sync/auth/me       Bearer,查当前用户
  */
@@ -18,10 +15,10 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 const tags = ['Sync Auth'];
 
 // ===== POST /sync/auth/google =====
-// 简化版信物模式:扩展用 launchWebAuthFlow 拿 id_token,解 payload 拿 email,
-// 只把 email POST 给后端。后端用 email 派生 userId,upsert users,发 sessionToken。
-// 不调任何 Google API,不验证 id_token 签名,适合 NAT 网关/防火墙屏蔽 HTTPS
-// 出站 + 不在意攻击者伪造 email 拿别人 sessionToken 的部署。
+// 扩展侧流程:launchWebAuthFlow 拿 id_token(隐式流,response_type=id_token)→
+// POST {idToken} 给后端 → 后端用 jose + 本地 JWKS 验签(RS256,校验 iss/aud/exp)
+// → 从 payload 拿 sub/email/name/picture → upsert users → 发 sessionToken。
+// 后端零 HTTPS 出站,适合 NAT 网关屏蔽出站的部署。
 export const googleLogin = createRoute({
     path: '/sync/auth/google',
     method: 'post',
@@ -29,12 +26,11 @@ export const googleLogin = createRoute({
     request: {
         body: jsonContentRequired(
             z.object({
-                email: z.string().email(),
-                // name / picture 扩展可选填,后端会存但不强求
-                name: z.string().nullable().optional(),
-                picture: z.string().url().nullable().optional(),
+                idToken: z.string().min(1),
+                // nonce 扩展生成时附带,后端二次校验防 replay(可选)
+                nonce: z.string().uuid().optional(),
             }),
-            '扩展从 id_token 解码的 email(后端不验签,信任扩展发的值)',
+            'Google id_token from launchWebAuthFlow (隐式流 response_type=id_token)',
         ),
     },
     responses: {
@@ -51,9 +47,9 @@ export const googleLogin = createRoute({
             }),
             'session token + user',
         ),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
             z.object({ error: z.string() }),
-            'invalid email',
+            'id_token 验签失败 / 过期 / aud 不匹配 / email 未验证',
         ),
     },
 });

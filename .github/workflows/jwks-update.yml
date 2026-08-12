@@ -1,0 +1,66 @@
+name: update Google JWKS
+
+# 每月 1 号 03:00 UTC(北京时间 11:00)跑一次,自动抓 Google OAuth 公钥更新到源码
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  # 支持手动触发(便于立刻更新或调试)
+  workflow_dispatch:
+
+permissions:
+  contents: write  # 自动 commit + push 需要写权限
+
+jobs:
+  update-jwks:
+    name: fetch Google JWKS + commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install (无 dev deps 也行,但 fetch script 需要 tsx)
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch JWKS
+        id: fetch
+        run: |
+          pnpm fetch:jwks 2>&1 | tee /tmp/jwks-fetch.log
+
+      - name: Check if file changed
+        id: diff
+        run: |
+          if git diff --quiet src/modules/auth/google-jwks.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "JWKS 没变化,跳过 commit"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "JWKS 有变化,准备 commit"
+            git diff --stat src/modules/auth/google-jwks.json
+          fi
+
+      - name: Configure git
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit + push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git add src/modules/auth/google-jwks.json
+          # commit message 带当前 ISO 月份,便于 git log 看出轮换频率
+          MONTH=$(date -u +'%Y-%m')
+          git commit -m "chore(auth): refresh Google JWKS keys (${MONTH})"
+          git push origin HEAD:pgsql

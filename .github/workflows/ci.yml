@@ -14,11 +14,14 @@ jobs:
 
     # 给 env.ts 的 zod 校验喂 dummy 值。
     # test 用 vi.mock 把 db 替换,不会真连 pg。
+    # GOOGLE_CLIENT_ID 用 dummy,只要非空过 min(1) 校验即可。
+    # 验签时 jwt.ts 还会用 jose 真实校验,但 ci 不发请求所以无所谓。
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/test
       DATABASE_SSL: 'false'
       LOG_LEVEL: info
       NODE_ENV: test
+      GOOGLE_CLIENT_ID: dummy-client-id-for-ci
 
     permissions:
       # GHCR push 需要 packages: write
