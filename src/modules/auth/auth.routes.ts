@@ -1,8 +1,12 @@
 ﻿/**
  * Auth 路由定义
  *
- *   POST /sync/auth/google   公开,扩展用 chrome.identity 拿 userinfo 后转发
- *                            后端不做任何 Google API 调用,纯信物模式
+ *   POST /sync/auth/google   公开,扩展用 launchWebAuthFlow 拿到 id_token,
+ *                            解码 payload 拿 email 后只发 email 给后端
+ *                            后端完全不调 Google、不验签,信任扩展发的 email
+ *                            ⚠️ 任何能 POST 到这个端点 + 知道 email 的人
+ *                            都能拿到对应用户的 sessionToken —— 仅适合
+ *                            个人/小范围使用,生产环境必须加签名验证
  *   POST /sync/auth/logout   Bearer,删除自己的 session
  *   GET  /sync/auth/me       Bearer,查当前用户
  */
@@ -14,10 +18,10 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 const tags = ['Sync Auth'];
 
 // ===== POST /sync/auth/google =====
-// 扩展侧流程:chrome.identity.getAuthToken 拿 token → 扩展自己 fetch
-// https://www.googleapis.com/oauth2/v3/userinfo → 把 userinfo JSON 直接转发过来
-// 后端只校验 email_verified === true,然后 upsert users + 发 sessionToken
-// 不调任何 Google API,适合 NAT 网关屏蔽 HTTPS 出站的部署环境
+// 简化版信物模式:扩展用 launchWebAuthFlow 拿 id_token,解 payload 拿 email,
+// 只把 email POST 给后端。后端用 email 派生 userId,upsert users,发 sessionToken。
+// 不调任何 Google API,不验证 id_token 签名,适合 NAT 网关/防火墙屏蔽 HTTPS
+// 出站 + 不在意攻击者伪造 email 拿别人 sessionToken 的部署。
 export const googleLogin = createRoute({
     path: '/sync/auth/google',
     method: 'post',
@@ -25,13 +29,12 @@ export const googleLogin = createRoute({
     request: {
         body: jsonContentRequired(
             z.object({
-                googleSub: z.string().min(1),
                 email: z.string().email(),
-                emailVerified: z.boolean(),
+                // name / picture 扩展可选填,后端会存但不强求
                 name: z.string().nullable().optional(),
                 picture: z.string().url().nullable().optional(),
             }),
-            'Google userinfo JSON(扩展用 chrome.identity.getAuthToken 拿到)',
+            '扩展从 id_token 解码的 email(后端不验签,信任扩展发的值)',
         ),
     },
     responses: {
@@ -48,9 +51,9 @@ export const googleLogin = createRoute({
             }),
             'session token + user',
         ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
             z.object({ error: z.string() }),
-            'email not verified or invalid payload',
+            'invalid email',
         ),
     },
 });
