@@ -8,6 +8,13 @@
       "when": 1786441170890,
       "tag": "0000_tired_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786506406293,
+      "tag": "0001_deep_moonstone",
+      "breakpoints": true
     }
   ]
 }
