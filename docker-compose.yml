@@ -45,6 +45,9 @@ services:
       # 用 compose 服务名作为主机名,容器间走 docker 内置 DNS
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tasks
       DATABASE_SSL: ${DATABASE_SSL:-false}
+      # 生产挂在 nginx /api 反代后,告诉 OpenAPI 文档给所有 path 加 /api 前缀
+      # 这样 Scalar 里的 curl / Try it out 才会打到 /api/tasks 而非 /tasks
+      OPENAPI_BASE_PATH: /api
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       - "${PORT:-9999}:9999"
