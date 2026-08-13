@@ -4,18 +4,17 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { task } from "../../db/schema.js"
 import { eq } from 'drizzle-orm'
-import * as HttpStatusCodes from 'stoker/http-status-codes'
-import * as HttpStatusPhrases from 'stoker/http-status-phrases'
+import { HttpStatusCodes, HttpStatusPhrases } from '../../lib/openapi.js'
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
     const tasks = await db.query.task.findMany();
-    return c.json(tasks)
+    return c.json(tasks as never)
 }
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-    const body = c.req.valid('json')
+    const body = c.req.valid('json') as never
     const [inserted] = await db.insert(task).values(body).returning()
-    return c.json(inserted, HttpStatusCodes.OK)
+    return c.json(inserted as never)
 }
 
 

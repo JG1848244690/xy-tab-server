@@ -1,5 +1,4 @@
-import { createMessageObjectSchema } from "stoker/openapi/schemas";
-import * as HttpStatusPhrases from 'stoker/http-status-phrases'
+import { createMessageObjectSchema, HttpStatusPhrases } from './openapi.js'
 
 
 export const notFoundSchema = createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND)

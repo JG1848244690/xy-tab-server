@@ -8,11 +8,12 @@
  *
  * payload 用 z.any() 透传,因为插件侧的 ExportData 类型在前端
  *  后端只作为 byte bucket,版本号管理冲突
+ *  注意:不能用 z.unknown(),@hono/zod-openapi 0.19 推 TypedResponse 时
+ *  unknown 会让 _data 变 never,触发 typecheck 报错
  */
 
 import { createRoute, z } from '@hono/zod-openapi';
-import * as HttpStatusCodes from 'stoker/http-status-codes';
-import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
+import { HttpStatusCodes, jsonContent, jsonContentRequired } from '../../lib/openapi.js';
 
 const tags = ['Sync'];
 
@@ -25,7 +26,7 @@ export const getBookmarks = createRoute({
     responses: {
         [HttpStatusCodes.OK]: jsonContent(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 version: z.number(),
                 updatedAt: z.string(),
             }),
@@ -51,7 +52,7 @@ export const putBookmarks = createRoute({
     request: {
         body: jsonContentRequired(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 expectedVersion: z.number().int().nonnegative(),
             }),
             'bookmark snapshot + expected version',
@@ -60,7 +61,7 @@ export const putBookmarks = createRoute({
     responses: {
         [HttpStatusCodes.OK]: jsonContent(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 version: z.number(),
                 updatedAt: z.string(),
             }),
@@ -70,7 +71,7 @@ export const putBookmarks = createRoute({
             z.object({
                 error: z.string(),
                 currentVersion: z.number(),
-                currentPayload: z.unknown().nullable(),
+                currentPayload: z.any().nullable(),
             }),
             'version mismatch',
         ),
@@ -90,7 +91,7 @@ export const getSessions = createRoute({
     responses: {
         [HttpStatusCodes.OK]: jsonContent(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 version: z.number(),
                 updatedAt: z.string(),
             }),
@@ -116,7 +117,7 @@ export const putSessions = createRoute({
     request: {
         body: jsonContentRequired(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 expectedVersion: z.number().int().nonnegative(),
             }),
             'tab sessions snapshot + expected version',
@@ -125,7 +126,7 @@ export const putSessions = createRoute({
     responses: {
         [HttpStatusCodes.OK]: jsonContent(
             z.object({
-                payload: z.unknown(),
+                payload: z.any(),
                 version: z.number(),
                 updatedAt: z.string(),
             }),
@@ -135,7 +136,7 @@ export const putSessions = createRoute({
             z.object({
                 error: z.string(),
                 currentVersion: z.number(),
-                currentPayload: z.unknown().nullable(),
+                currentPayload: z.any().nullable(),
             }),
             'version mismatch',
         ),

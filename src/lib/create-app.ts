@@ -6,8 +6,8 @@ import { pinoLogger } from '../middlewares/pino-logger.js'
 
 import type { AppBindings, AppOpenAPI } from './types.js'
 
-import { notFound, onError, serveEmojiFavicon } from 'stoker/middlewares'
-import { defaultHook } from 'stoker/openapi'
+import { notFound, onError, serveEmojiFavicon } from './middlewares.js'
+import { defaultHook } from './openapi.js'
 
 export function createRouter() {
     return new OpenAPIHono<AppBindings>({

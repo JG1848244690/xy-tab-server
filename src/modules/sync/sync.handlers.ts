@@ -1,5 +1,5 @@
 ﻿import { eq } from 'drizzle-orm';
-import * as HttpStatusCodes from 'stoker/http-status-codes';
+import { HttpStatusCodes } from '../../lib/openapi.js';
 import db from '../../db/index.js';
 import { syncBookmarks, syncTabSessions } from '../../db/schema.js';
 import type {

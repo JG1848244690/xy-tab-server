@@ -15,7 +15,8 @@ export const task = pgTable("tasks", {
 
 export const selectTasksSchema = createSelectSchema(task);
 export const insertTaskSchema = createInsertSchema(task, {
-    name: schema => schema.min(1)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    name: (schema: any) => schema.min(1)
 })
     .required({
         done: true
