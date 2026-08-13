@@ -20,6 +20,12 @@ const EnvSchema = z.object({
     // 扩展 launchWebAuthFlow 用同一个 client_id,从 Google Console 注册时拿到。
     // 真值在服务器 .env (.gitignore),绝不能进 git / CI log / 镜像
     GOOGLE_CLIENT_ID: z.string().min(1, 'GOOGLE_CLIENT_ID required for id_token audience check'),
+
+    // Minimax (token plan) 订阅 key —— 接 deepagents 用的 LLM provider
+    // 走 Anthropic 兼容网关:baseURL=https://api.minimaxi.com/anthropic,model=MiniMax-M3
+    // 见 docs/a社接入tokenplan.md。设为可选:不配就 /sync/agent/* 路由返 503,
+    // 不影响主应用启动。secret,不能进 git / CI log / 镜像
+    MINIMAX_API_KEY: z.string().min(1).optional(),
 })
 
 export type env = z.infer<typeof EnvSchema>
