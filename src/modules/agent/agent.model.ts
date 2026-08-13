@@ -10,15 +10,14 @@
  */
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { createDeepAgent } from 'deepagents'
+import { createDeepAgent, type DeepAgent } from 'deepagents'
 import env from '../../env.js'
 
 const MiniMax_BASE_URL = 'https://api.minimaxi.com/anthropic'
 const MiniMax_MODEL = 'MiniMax-M3'
 
 export interface AgentBundle {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  agent: any
+  agent: DeepAgent
   model: ChatAnthropic
 }
 

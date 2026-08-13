@@ -119,6 +119,25 @@ export const IdParamsSchema = z.object({
 })
 
 // ============================================================
+// JsonValueSchema —— "任意 JSON 值"的真正 schema,不用 z.any()
+// 用在 sync.bookmarks / sync.sessions 的 payload 字段(插件侧的 ExportData,
+// 类型在前端,后端只做 byte bucket,版本号管冲突)
+// 比 z.unknown() 强(会给具体 union 类型),比 z.any() 安全(运行时真校验形状)
+// ============================================================
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue }
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+    z.union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(JsonValueSchema),
+        z.record(z.string(), JsonValueSchema),
+    ]),
+)
+export type { JsonValue }
+
+// ============================================================
 // defaultHook —— zod 校验失败时统一返 422 JSON
 // 替代 stoker/openapi 的 defaultHook
 // ============================================================

@@ -1,5 +1,6 @@
 ﻿import { bigint, boolean, jsonb, pgTable, serial, text, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import type { z } from "zod";
 
 // ============================================================
 // 原 tasks 表(保留)
@@ -15,8 +16,8 @@ export const task = pgTable("tasks", {
 
 export const selectTasksSchema = createSelectSchema(task);
 export const insertTaskSchema = createInsertSchema(task, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    name: (schema: any) => schema.min(1)
+    // drizzle-zod 0.7.1 的 refine callback schema 参数是 ZodString(text 列)
+    name: (schema: z.ZodString) => schema.min(1)
 })
     .required({
         done: true

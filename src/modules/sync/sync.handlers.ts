@@ -1,5 +1,6 @@
-﻿import { eq } from 'drizzle-orm';
-import { HttpStatusCodes } from '../../lib/openapi.js';
+﻿import { z } from 'zod';
+import { eq } from 'drizzle-orm';
+import { HttpStatusCodes, JsonValueSchema, type JsonValue } from '../../lib/openapi.js';
 import db from '../../db/index.js';
 import { syncBookmarks, syncTabSessions } from '../../db/schema.js';
 import type {
@@ -8,10 +9,16 @@ import type {
     GetSessionsRoute,
     PutSessionsRoute,
 } from './sync.routes.js';
-import type { AppRouteHandler } from '../../lib/types.js';
+import type { AppRouteHandler, AppBindings } from '../../lib/types.js';
+import type { Context } from 'hono';
 
 // ============================================================
 // GET /sync/bookmarks
+// row.payload 是 jsonb 列 → 类型为 unknown(从 DB 拿出来确实不知道形状)。
+// route 声明的 payload 是 JsonValue(任意 JSON 值)。用显式 `as JsonValue` 收口:
+//   - 运行时数据 100% 是 JSON(jsonb 列就是 JSON),
+//   - 不用 z.any()(绕过类型)也不用 as never(放弃类型),
+//   - cast 目标就是 route schema 的实际类型,比 unknown 更精确
 // ============================================================
 export const getBookmarks: AppRouteHandler<GetBookmarksRoute> = async (c) => {
     const userId = c.get('userId')!;
@@ -27,7 +34,7 @@ export const getBookmarks: AppRouteHandler<GetBookmarksRoute> = async (c) => {
 
     return c.json(
         {
-            payload: row.payload,
+            payload: row.payload as JsonValue,
             version: row.version,
             updatedAt: row.updatedAt.toISOString(),
         },
@@ -39,10 +46,18 @@ export const getBookmarks: AppRouteHandler<GetBookmarksRoute> = async (c) => {
 // PUT /sync/bookmarks (乐观锁)
 // expectedVersion 必须等于当前 version,否则 409
 // expectedVersion = 0 表示首次写入(INSERT)
+// 不用 AppRouteHandler<PutBookmarksRoute> —— @hono/zod-openapi 0.19 在
+// RouteConfigToTypedResponse<R> 推导时 TS 递归爆栈(TS2589)。
+// 改用更轻的 (c: Context<AppBindings>) => Promise<Response> 签名,
+// body 自己用 c.req.json() + zod parse 校验(运行时类型 + zod 校验都到位)
 // ============================================================
-export const putBookmarks: AppRouteHandler<PutBookmarksRoute> = async (c) => {
+export const putBookmarks = async (c: Context<AppBindings>): Promise<Response> => {
     const userId = c.get('userId')!;
-    const { payload, expectedVersion } = c.req.valid('json');
+    const { payload: rawPayload, expectedVersion } = z.object({
+        payload: z.unknown(),
+        expectedVersion: z.number().int().nonnegative(),
+    }).parse(await c.req.json());
+    const payload = JsonValueSchema.parse(rawPayload);
 
     const [current] = await db
         .select()
@@ -56,7 +71,7 @@ export const putBookmarks: AppRouteHandler<PutBookmarksRoute> = async (c) => {
                 {
                     error: 'version mismatch',
                     currentVersion: current.version,
-                    currentPayload: current.payload,
+                    currentPayload: current.payload as JsonValue | null,
                 },
                 HttpStatusCodes.CONFLICT,
             );
@@ -136,10 +151,15 @@ export const getSessions: AppRouteHandler<GetSessionsRoute> = async (c) => {
 
 // ============================================================
 // PUT /sync/sessions (乐观锁)
+// 同 putBookmarks —— 不用 AppRouteHandler<PutSessionsRoute>,自己 c.req.json() 校验
 // ============================================================
-export const putSessions: AppRouteHandler<PutSessionsRoute> = async (c) => {
+export const putSessions = async (c: Context<AppBindings>): Promise<Response> => {
     const userId = c.get('userId')!;
-    const { payload, expectedVersion } = c.req.valid('json');
+    const { payload: rawPayload, expectedVersion } = z.object({
+        payload: z.unknown(),
+        expectedVersion: z.number().int().nonnegative(),
+    }).parse(await c.req.json());
+    const payload = JsonValueSchema.parse(rawPayload);
 
     const [current] = await db
         .select()
@@ -153,7 +173,7 @@ export const putSessions: AppRouteHandler<PutSessionsRoute> = async (c) => {
                 {
                     error: 'version mismatch',
                     currentVersion: current.version,
-                    currentPayload: current.payload,
+                    currentPayload: current.payload as JsonValue | null,
                 },
                 HttpStatusCodes.CONFLICT,
             );
