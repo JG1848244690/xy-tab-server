@@ -4,7 +4,7 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [master, main]
+    branches: [master, main, hls-api]
 
 jobs:
   ci:
@@ -14,14 +14,13 @@ jobs:
 
     # 给 env.ts 的 zod 校验喂 dummy 值。
     # test 用 vi.mock 把 db 替换,不会真连 pg。
-    # GOOGLE_CLIENT_ID 用 dummy,只要非空过 min(1) 校验即可。
-    # 验签时 jwt.ts 还会用 jose 真实校验,但 ci 不发请求所以无所谓。
+    # JWT_SECRET 用 dummy,只要过 min(16) 校验即可(ci 不发真实登录请求)。
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/test
       DATABASE_SSL: 'false'
       LOG_LEVEL: info
       NODE_ENV: test
-      GOOGLE_CLIENT_ID: dummy-client-id-for-ci
+      JWT_SECRET: dummy-jwt-secret-for-ci-only-32chars
 
     permissions:
       # GHCR push 需要 packages: write
@@ -49,6 +48,11 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
+      - name: Typecheck scripts
+        # 数据迁移脚本不进 dist(根 tsconfig 只含 src),但它要动真实用户数据,
+        # 类型错误必须查出来 —— tsx 运行时不查类型
+        run: pnpm exec tsc -p tsconfig.scripts.json --noEmit
+
       - name: Test
         run: pnpm test --run
 
@@ -72,28 +76,37 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/jg1848244690/xy-tab-server:latest
-            ghcr.io/jg1848244690/xy-tab-server:${{ github.sha }}
+            ghcr.io/jg1848244690/hls-api:latest
+            ghcr.io/jg1848244690/hls-api:${{ github.sha }}
           # GitHub Actions 自带层缓存,跨 workflow 复用
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Make package public
-        # GHCR 默认 private,设成 public 方便公开拉取(测试项目用)。
+        # GHCR 默认 private,设成 public 方便服务器无 token 直接 pull(测试项目用)。
         # 只在 push 时设,PR 跑没意义。
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh api -X PATCH /user/packages/container/xy-tab-server -f visibility=public || true
+        run: gh api -X PATCH /user/packages/container/hls-api -f visibility=public || true
 
   deploy:
     name: deploy to server
     needs: ci
     runs-on: ubuntu-latest
-    # 只在 push pgsql 时部署:feat/* 等其他分支的镜像 :latest 会漂移但 prod 不引用
-    # 如果允许任意分支 deploy,会被 repro 错误地推到生产
-    if: github.event_name == 'push' && github.ref == 'refs/heads/pgsql'
+    # 只在 push hls-api 时部署。
+    # CI 对所有分支都建镜像(方便随时拉),但自动部署只认 hls-api ——
+    # 其它分支的 :latest 会漂移,若也部署就会把测试分支推上生产。
+    if: github.event_name == 'push' && github.ref == 'refs/heads/hls-api'
     timeout-minutes: 5
+
+    env:
+      # hlsEdu 独立部署,与旧 tasks 服务(/opt/tasks-api)并存
+      DEPLOY_DIR: /opt/hls-api
+      BRANCH: hls-api
+      # 服务器上这个仓库的 remote 名。旧 deploy 脚本用的是 github(不是 git clone 的
+      # 默认值 origin),所以这里跟着用 github;若服务器上确实是 origin,改这一行即可。
+      DEPLOY_REMOTE: github
 
     steps:
       - name: Deploy via SSH
@@ -104,14 +117,50 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/tasks-api
+            set -e
+            cd $DEPLOY_DIR
+
+            # .env 存 JWT_SECRET 等,不进 git。缺了 compose 会因
+            # ${JWT_SECRET:?...} 直接失败,所以先明确检查并给出可操作的提示,
+            # 避免部署到一半报一个看不懂的 compose 插值错误。
+            if [ ! -f .env ]; then
+              echo "::error::$DEPLOY_DIR/.env 不存在。首次部署需手动创建:"
+              echo "::error::  cd $DEPLOY_DIR && cp .env.example .env && vi .env"
+              echo "::error::  至少要设 JWT_SECRET(至少 16 字符),生成: openssl rand -base64 32"
+              exit 1
+            fi
+
             # fetch 到 remote-tracking 分支(避免 git 拒绝 fetch 到当前已 checkout 的分支)
-            git fetch github pgsql:refs/remotes/github/pgsql --force
-            git reset --hard github/pgsql
+            git fetch $DEPLOY_REMOTE $BRANCH:refs/remotes/$DEPLOY_REMOTE/$BRANCH --force
+            git reset --hard $DEPLOY_REMOTE/$BRANCH
+
             # 用 commit SHA 作为镜像 tag(:sha 不可变,:latest 会漂移且不可回滚)
             export IMAGE_TAG=$(git rev-parse --short HEAD)
-            # 拉新镜像 + 重启容器(零停机——docker compose up -d 滚动重启)
+            echo "=== 部署 $IMAGE_TAG ==="
+
+            # 拉新镜像 + 重启容器
+            # --remove-orphans 会清掉 compose 文件里已删除的服务(比如旧的 tasks 服务),
+            # 只影响当前 compose 项目内的孤儿容器,不会碰别的项目
             docker compose pull
             docker compose up -d --remove-orphans
-            echo "=== deployed ${IMAGE_TAG} ==="
-            docker compose ps
+
+            # 健康检查:app 容器有 healthcheck,但 compose up 返回时可能还没到 healthy,
+            # 这里显式等一下再判定,免得"部署成功"其实容器起不来
+            echo "=== 等待健康检查 ==="
+            for i in $(seq 1 30); do
+              status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q app) 2>/dev/null || echo "none")
+              if [ "$status" = "healthy" ]; then
+                echo "=== deployed ${IMAGE_TAG} (healthy) ==="
+                docker compose ps
+                exit 0
+              fi
+              if [ "$status" = "unhealthy" ]; then
+                echo "=== deployed ${IMAGE_TAG} 但健康检查失败,最新日志: ==="
+                docker compose logs --tail=50 app
+                exit 1
+              fi
+              sleep 2
+            done
+            echo "::error::等待 60 秒后容器仍未 healthy,最新日志:"
+            docker compose logs --tail=50 app
+            exit 1

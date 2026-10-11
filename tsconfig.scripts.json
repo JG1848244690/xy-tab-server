@@ -1,0 +1,15 @@
+{
+  // 数据迁移脚本的类型检查配置。
+  //
+  // 单独一个 project 而不放进主 tsconfig,是因为主 tsconfig 的 rootDir 是 ./src
+  // (为了 dist 只装 src),把 scripts/ 塞进去构建就会产出一堆 dist/scripts 之外的
+  // 目录结构。但脚本要动真实用户数据,类型错误必须能查出来 —— tsx 跑的时候不做类型检查。
+  //
+  // 校验:pnpm exec tsc -p tsconfig.scripts.json --noEmit
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["scripts"]
+}
