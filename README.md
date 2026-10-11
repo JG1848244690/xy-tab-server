@@ -1,227 +1,203 @@
-# Hono Base
+# hlsEdu API
 
-基于 **Hono** 的 TypeScript 后端基础架子。核心理念:**用一份 Zod schema,同时驱动「运行时校验 + TypeScript 类型 + OpenAPI 文档」**——契约优先,一处定义,三处复用。
+hlsEdu 的后端服务。Hono + Zod OpenAPI + Drizzle ORM + PostgreSQL。
 
-<!-- deploy test marker: 2026-08-11 17:50 -->>
+本分支(`hls-api`)把原来那套 NestJS + MySQL 的服务重写了一遍,目标是能部署到配置吃紧的服务器上,所以数据查询尽量下推到 SQL,不做"全表拉进 Node 内存再过滤分页"。
+
+## 模块范围
+
+本轮实现 4 个模块,**视频模块不迁**:
+
+| 模块 | 说明 |
+|------|------|
+| `auth` | 注册 / 登录 / 登出 / 当前用户。HttpOnly Cookie + JWT,密码 bcrypt(cost 10) |
+| `questions` | 题库 CRUD、提交作答、人工判分、作答历史、练习汇总 |
+| `todos` | 日历打卡,支持跨天事件 |
+| `stats` | 首页概览、练习趋势、标签/难度分布、未完成与最近列表 |
+
+前端契约有两处**不能改**,否则旧 Next.js 前端会崩:
+
+- `GET /auth/me` 的响应必须带 `name` 字段(不是 `username`)。旧 Nest controller 显式做过 `username -> name` 映射,前端 layout 在读。
+- `GET /stats/dashboard` 的 `videos` 必须是结构完整的空对象。前端 `home/page.tsx` 直接读 `stats.videos.totalVideos` 等字段,缺字段会崩。等视频接口做完后,把 `stats.routes.ts` 的 `emptyVideosSchema` 换成真实数据即可,前端不用动。
 
 ## 技术栈
 
 | 用途 | 库 |
-|------|-----|
+|------|----|
 | Web 框架 | [Hono](https://hono.dev) |
 | Node 适配 | `@hono/node-server` |
 | OpenAPI + 校验 | `@hono/zod-openapi` + [Zod](https://zod.dev) |
 | API 文档 UI | [`@scalar/hono-api-reference`](https://github.com/scalar/scalar) |
 | ORM | [Drizzle ORM](https://orm.drizzle.team) |
-| 数据库 | [PostgreSQL](https://www.postgresql.org)— driver: [postgres.js](https://github.com/porsager/postgres) (`postgres` + `drizzle-orm/postgres-js`) |
+| 数据库 | PostgreSQL — driver [postgres.js](https://github.com/porsager/postgres) |
 | 日志 | `pino` + `pino-pretty` + `hono-pino` |
-| 配置加载 | `dotenv` + `dotenv-expand` |
-| 脚手架工具 | [stoker](https://github.com/w3cj/stoker) |
-| 开发 / 构建 | `tsx` + TypeScript |
+| 配置加载 | `dotenv` |
 
-## 目录结构
+## 快速开始
 
+```bash
+pnpm install
+cp .env.example .env      # 填 JWT_SECRET 等
+docker compose up -d postgres
+pnpm db:generate          # 改了 schema.ts 之后才需要
+pnpm db:migrate
+pnpm dev                  # → http://localhost:9999
 ```
-src/
-├── index.ts                    # 入口:启动 HTTP 服务
-├── app.ts                      # 装配:组合路由 + 配置 OpenAPI
-├── env.ts                      # 环境变量(Zod 校验 + 类型化)
-├── lib/
-│   ├── create-app.ts           # 工厂:创建实例 + 挂全局中间件
-│   ├── configure-open-api.ts   # 注册 /doc 与 /reference
-│   └── types.ts                # AppBindings / AppOpenAPI 类型
-├── middlewares/
-│   └── pino-logger.ts          # Pino 日志中间件封装
-└── routes/
-    └── index.route.ts          # 路由定义
+
+`docker-compose.yml` 里除了 postgres 还定义了 app 服务:
+
+```bash
+docker compose up -d --build    # 容器里跑完整服务(启动时会自动跑迁移)
 ```
 
 ## 环境变量
 
-在项目根目录创建 `.env`(已被 `.gitignore` 忽略,不会提交):
+`.env` 已被 `.gitignore` 忽略,不会提交。
 
 | 变量 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `NODE_ENV` | string | `development` | 运行环境 |
 | `PORT` | number | `9999` | 服务端口 |
 | `LOG_LEVEL` | enum | **(必填)** | `fatal` / `error` / `warn` / `info` / `debug` / `trace` |
-| `DATABASE_URL` | string | **(必填)** | PostgreSQL 连接 URL,如 `postgresql://user:pass@host:5432/db` |
-| `DATABASE_SSL` | boolean | `false` | 是否启用 SSL;连本地 Docker 无需,生产托管 PG 一般要 `true` |
+| `DATABASE_URL` | string | **(必填)** | PostgreSQL 连接 URL |
+| `DATABASE_SSL` | boolean | `false` | 连本地 Docker 无需,托管 PG 一般要 `true` |
+| `OPENAPI_BASE_PATH` | string | `''` | 只影响文档里的 `servers`,**不影响实际路由** |
+| `JWT_SECRET` | string | **(必填)** | JWT 签名密钥,至少 16 字符。生成:`openssl rand -base64 32` |
+| `AUTH_COOKIE_NAME` | string | `Authentication` | 登录态 Cookie 名,前端依赖这个默认值 |
+| `AUTH_COOKIE_MAX_AGE` | number | `86400` | Cookie 有效期(秒),同时也决定 token 过期时间 |
 
-> ⚠️ `LOG_LEVEL` 无默认值,`.env` 不配置会导致启动失败(Fail Fast)。
+> ⚠️ `JWT_SECRET` 泄漏 = 任何人都能伪造登录 Cookie。生产环境用 secret 管理,别写进镜像或 CI 日志。
 
-示例:
+> ⚠️ 必填项没配会直接启动失败(Fail Fast),不会带着半截配置跑起来。
 
-```env
-NODE_ENV=development
-PORT=9999
-LOG_LEVEL=debug
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tasks
-```
+## 数据库
 
-## 快速开始
+Schema 在 `src/db/schema.ts`,迁移文件在 `src/db/migrations/`。
 
-前置:Node.js 与 pnpm。
-
-```bash
-pnpm install      # 安装依赖
-pnpm dev          # 开发模式(热重载)→ http://localhost:9999
-pnpm build        # 编译到 dist/
-pnpm start        # 运行编译产物 node dist/index.js
-```
-
-## 数据库 (Drizzle)
-
-数据层使用 [Drizzle ORM](https://orm.drizzle.team) 连接 **PostgreSQL**(driver: [postgres.js](https://github.com/porsager/postgres))。
-
-- Schema 定义:`src/db/schema.ts`(基于 `drizzle-orm/pg-core`)
-- 迁移文件输出:`src/db/migrations/`
-- 连接配置:`drizzle.config.ts`(读取 `DATABASE_URL`,`dialect: "postgresql"`)
-
-### 本地起一个 Postgres
-
-最方便的是 docker:
-
-```bash
-docker run -d --name tasks-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=tasks -p 5432:5432 postgres:17-alpine
-```
-
-然后 `.env` 写:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tasks
-```
-
-`package.json` 里预置了四条 `db:*` 脚本(对应 `drizzle-kit` 命令):
-
-| 命令 | 对应 | 作用 |
-|------|------|------|
-| `pnpm db:generate` | `drizzle-kit generate` | 根据 schema 变化**生成 SQL 迁移文件**,不改动数据库 |
-| `pnpm db:migrate` | `drizzle-kit migrate` | 把生成的迁移文件**执行到数据库**,按顺序记账,幂等 |
-| `pnpm db:push` | `drizzle-kit push` | 跳过迁移文件,**直接把 schema 同步到库**(本地快速原型) |
-| `pnpm db:studio` | `drizzle-kit studio` | 打开 Drizzle Studio 可视化管理数据库 |
-
-### 推荐工作流
-
-- **本地快速迭代**:改完 `schema.ts` 直接 `pnpm db:push`,库结构即时同步,无需关心迁移文件。
-- **正式 / 团队协作**:`pnpm db:generate` 产出可 review 的迁移文件 → `pnpm db:migrate` 应用,保留版本化历史。
-
-> ⚠️ `db:push` 会直接改库结构(删列、改类型同样照做),**仅用于本地开发**;生产环境请走 `generate + migrate`。
-
-## 架构
-
-### 请求流转
-
-```
-请求
-  ↓
-@hono/node-server   HTTP 接入
-  ↓
-serveEmojiFavicon   🔥 favicon
-  ↓
-pinoLogger          记录请求 + 注入 logger 到 context
-  ↓
-prettyJSON          支持 ?pretty 美化 JSON 响应
-  ↓
-cors                跨域处理
-  ↓
-路由匹配            按 createRoute 契约校验入参 / 出参
-  ↓
-handler             业务处理
-  ↓
-notFound / onError  兜底(404 / 500)
-  ↓
-响应
-```
-
-### 关键模块职责
-
-| 模块 | 职责 |
+| 表 | 说明 |
 |------|------|
-| `index.ts` | 用 `@hono/node-server` 的 `serve()` 在 Node 上启动 Hono |
-| `env.ts` | 用 Zod 校验 `process.env`,自动推导类型,启动即校验(Fail Fast) |
-| `lib/create-app.ts` | 创建 `OpenAPIHono` 实例,挂载全局中间件与错误兜底 |
-| `lib/configure-open-api.ts` | 汇总所有路由为 OpenAPI 文档,挂载 Scalar UI |
-| `middlewares/pino-logger.ts` | 开发环境用 `pino-pretty` 美化日志,生产环境输出 JSON |
-| `app.ts` | 把所有路由挂到 `/`,统一配置 OpenAPI |
+| `users` | 账号 |
+| `questions` | 题库,`tags` 是 `jsonb` 且建了 GIN 索引 |
+| `question_stats` | 每用户每题的练习状态,复合主键 `(user_id, question_id)` |
+| `question_attempts` | 作答流水 |
+| `todos` | 日历打卡,`start_date ~ end_date` 支持跨天 |
 
-### 核心理念:契约优先
+三个 `pgEnum`:`question_type` / `difficulty` / `question_status`。
 
-每个路由用 `createRoute({...})` 声明契约,handler 负责真正处理。同一份 Zod schema 在三个地方生效:
+### 迁移工作流
 
+```bash
+pnpm db:generate   # 改完 schema.ts 后生成 SQL 迁移文件
+pnpm db:migrate   # 把迁移应用到数据库(幂等)
+pnpm db:studio    # 可视化查看数据
 ```
-        ┌──→ 运行时校验(请求体/参数不合法 → 直接 400)
-Schema ─┼──→ TypeScript 类型(z.infer 自动推导,handler 全程类型安全)
-        └──→ OpenAPI 文档(自动生成,显示在 /reference)
+
+服务启动时也会自动跑一次迁移(`src/index.ts`)。
+
+> ⚠️ 迁移表名 `hlse_migrations` 与所在 schema `public` 定义在 `src/db/migrations-table.ts`,由 `drizzle.config.ts` 和 `src/index.ts` **共用同一个常量**。不要在任一侧写死 —— 两边不一致会让启动时误判"所有迁移都没跑过",重放整批 SQL 并因 `42710`(CREATE TYPE 已存在)启动失败。
+
+> ⚠️ `db:push` 会直接改库结构,仅用于本地快速迭代,不要在生产用。
+
+### 从旧 MySQL 库搬存量数据
+
+旧后端(NestJS + TypeORM + MySQL `hls_edu`)的数据用 `scripts/migrate-mysql-to-pg.ts` 搬过来:
+
+```bash
+pnpm db:import --dry-run    # 只读:打印行数、id 检查结果、标签分布,不写库
+pnpm db:import              # 实际导入(单事务,失败整体回滚)
+pnpm db:import --truncate   # 导入前先清空目标表(重复导入旧数据时用)
 ```
 
-这就是整套架子选 Zod 的根本原因——校验、类型、文档从来不是三份要分别维护的东西。
+目标库连接串取 `.env` 里的 `DATABASE_URL`。源库连接参数走环境变量,**密码不落盘**:
+
+| 变量 | 默认值 |
+|------|--------|
+| `MYSQL_HOST` | `localhost` |
+| `MYSQL_PORT` | `3306` |
+| `MYSQL_USER` | `root` |
+| `MYSQL_DATABASE` | `hls_edu` |
+| `MYSQL_PASSWORD` | 无 —— 不设则交互式询问(不回显) |
+
+脚本处理的类型差异:
+
+- **主键**:旧代码是 `@PrimaryColumn(varchar 36)`,id 由应用生成,不保证合法。脚本逐个校验,非法的生成新 uuid 并同步改写所有引用(questions.created_by、attempts/stats/todos 的 user_id 等)
+- `json tags` → `jsonb`;`tinyint` → `boolean`;`date` → `date`;`time` → `'HH:mm'` 字符串
+- `password` 原样搬(旧项目就是 bcrypt hash,bcryptjs 直接兼容,老账号不用重置密码)
+- 孤儿外键行(引用了不存在的 user/question)会被**丢弃并打印数量**,不会让整个事务挂掉
+
+视频相关的 3 张表(`videos` / `collections` / `learning_progress`)本轮不迁,新 schema 里也没有对应表。
 
 ## API 文档
 
-启动服务后,直接在浏览器访问:
+- 交互式文档(Scalar):<http://localhost:9999/reference>
+- OpenAPI JSON:<http://localhost:9999/doc>
 
-- **交互式文档(Scalar)**:<http://localhost:9999/reference>
-- **OpenAPI JSON**:<http://localhost:9999/doc>
-
-### 当前端点
+### 端点一览
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/` | 健康检查,返回 `{ "message": "task" }` |
-| `GET` | `/doc` | OpenAPI 3.0 JSON 文档 |
-| `GET` | `/reference` | Scalar 交互式文档 UI |
+| `POST` | `/auth/register` | 注册(不下发登录态,前端注册后再走一次 login) |
+| `POST` | `/auth/login` | 登录,下发 HttpOnly Cookie |
+| `POST` | `/auth/logout` | 登出 |
+| `GET` | `/auth/me` | 当前用户 |
+| `GET` | `/questions` | 分页列表,支持 `type` / `difficulty` / `tag` / `status` / `search` / `ordering` |
+| `POST` | `/questions` | 创建 |
+| `GET` | `/questions/stats` | 当前用户练习汇总 |
+| `GET` | `/questions/{id}` | 详情(含答案,练习页要用) |
+| `PUT` | `/questions/{id}` | 更新(仅创建者) |
+| `DELETE` | `/questions/{id}` | 删除(仅创建者) |
+| `POST` | `/questions/{id}/submit` | 提交作答 |
+| `GET` | `/questions/{id}/attempts` | 该题作答历史 |
+| `PATCH` | `/questions/{id}/attempts/{attemptId}` | 人工判分 |
+| `GET` | `/todos/by-date?date=` | 按日期取(含跨天事件) |
+| `GET` | `/todos/by-month?year=&month=` | 按月取(含跨天事件) |
+| `GET` | `/todos/month-status?year=&month=` | 该月打卡日期,分完成/未完成 |
+| `POST` | `/todos` | 创建 |
+| `PATCH` | `/todos/{id}` | 更新 |
+| `PATCH` | `/todos/{id}/toggle` | 切完成状态 |
+| `DELETE` | `/todos/{id}` | 删除 |
+| `GET` | `/stats/dashboard` | 首页概览 |
+| `GET` | `/stats/practice-trend?days=&type=` | 练习趋势(`frequency` 次数 / `duration` 分钟) |
+| `GET` | `/stats/tag-distribution` | 标签占比 |
+| `GET` | `/stats/difficulty-distribution` | 难度占比 |
+| `GET` | `/stats/incomplete-questions` | 未完成题目 |
+| `GET` | `/stats/recent-added-questions` | 最近添加 |
+| `GET` | `/stats/recent-completed-questions` | 最近完成 |
 
-## 新增路由
+## 路径与鉴权
 
-以 `GET /tasks/:id` 为例,展示带路径参数校验的完整写法:
+**路由不带 `/api` 前缀。** 旧前端的 axios 用 `baseURL: '/api'`,由 Next.js rewrite 剥掉前缀后才打到后端根路径 —— 所以后端必须服务根路径。服务器上的 nginx 也照这个约定配。
 
-```ts
-// src/routes/tasks.route.ts
-import { createRouter } from '../lib/create-app.js'
-import { createRoute } from '@hono/zod-openapi'
-import { jsonContent } from 'stoker/openapi/helpers'
-import * as HttpStatusCodes from 'stoker/http-status-codes'
-import { IdParamsSchema } from 'stoker/openapi/schemas'
-import { z } from 'zod'
+除 `/auth/*` 外全部接口都需要登录态,鉴权走 `middlewares/auth.ts` 的 `cookieAuth`,读 `AUTH_COOKIE_NAME` 指定的 Cookie。
 
-const TaskSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  done: z.boolean(),
-})
+## 契约优先
 
-const router = createRouter().openapi(
-  createRoute({
-    method: 'get',
-    tags: ['Tasks'],
-    path: '/tasks/{id}',
-    request: {
-      params: IdParamsSchema,                      // 校验路径参数 :id
-    },
-    responses: {
-      [HttpStatusCodes.OK]: jsonContent(TaskSchema, '获取成功'),
-      [HttpStatusCodes.NOT_FOUND]: jsonContent(
-        z.object({ message: z.string() }),
-        '任务不存在',
-      ),
-    },
-  }),
-  (c) => {
-    const { id } = c.req.valid('param')            // 已校验、已类型化
-    return c.json({ id, title: '示例任务', done: false }, HttpStatusCodes.OK)
-  },
-)
+每个模块三个文件:
 
-export default router
+```
+src/routes/questions/
+├── questions.routes.ts    # createRoute 契约 —— 校验、类型、文档三处复用
+├── questions.handlers.ts  # 业务逻辑
+└── questions.index.ts     # createRouter().openapi(...) 组装
 ```
 
-然后在 `app.ts` 的 `routes` 数组里挂载:
+同一份 Zod schema 在三个地方生效:运行时校验入参、`z.infer` 推导 TypeScript 类型、自动生成 OpenAPI 文档。
 
-```ts
-import tasks from './routes/tasks.route.js'
+> ⚠️ 有几处 TS 细节绕不过去,改动时注意:
+> - `c.json()` 在 200 和 422 组成 union 时推断会被卡住 —— 成功分支显式传 `HttpStatusCodes.OK` 收窄。
+> - Zod 3.25 没有 `z.uuid()`,用 `z.string().uuid()`。
+> - 每个 routes 文件末尾要 `export type XxxRoute = typeof xxx`,handler 靠它取类型。
 
-const routes = [index, tasks]
+## 测试
+
+```bash
+pnpm test
 ```
 
-重新启动后,新接口会自动出现在 `/reference` 文档页面。
+`src/routes/auth/auth.test.ts` 用 `vi.mock` 把 db 换成链式假对象,不连真实数据库。覆盖登录态契约(`name` 字段、HttpOnly Cookie)和鉴权边界(无 token / 伪造 token / 用户已删除)。
+
+## 部署
+
+`Dockerfile` 是多阶段构建,`docker-compose.yml` 里 app 服务的镜像默认 `ghcr.io/jg1848244690/hls-api:${IMAGE_TAG}`。
+
+CI(`.github/workflows/ci.yml`)在 push / PR 时跑 typecheck → test → build → 构建镜像推 GHCR。`deploy` job 目前只在 push 到 `pgsql` 分支时触发;换成 `hls-api` 分支时记得同步改 `ci.yml` 里的 `if` 条件和脚本里的分支名。
