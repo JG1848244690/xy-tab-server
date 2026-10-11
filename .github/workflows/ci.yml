@@ -90,7 +90,9 @@ jobs:
     name: deploy to server
     needs: ci
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    # 只在 push pgsql 时部署:feat/* 等其他分支的镜像 :latest 会漂移但 prod 不引用
+    # 如果允许任意分支 deploy,会被 repro 错误地推到生产
+    if: github.event_name == 'push' && github.ref == 'refs/heads/pgsql'
     timeout-minutes: 5
 
     steps:
