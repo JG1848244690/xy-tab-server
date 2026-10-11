@@ -116,9 +116,25 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          # 必须显式声明。script 的内容是被原样送到远端执行的,
+          # job 级 env: 只存在于 runner 进程上,远端 shell 看不到 ——
+          # 不加这行的话 $DEPLOY_DIR 在服务器上是空的,
+          # cd $DEPLOY_DIR 会退化成 cd(回 home),然后在 home 里找 .env。
+          envs: DEPLOY_DIR,BRANCH,DEPLOY_REMOTE
           script: |
             set -e
-            cd $DEPLOY_DIR
+
+            # 首次部署时这个目录还不存在(hlsEdu 是新服务,与旧的 /opt/tasks-api 并存)。
+            # 单独检查一下,不然 set -e 会让 cd 失败,报错只有一句干巴巴的
+            # "Process exited with status 1",看不出是目录不存在。
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "::error::$DEPLOY_DIR 不存在。首次部署需先在服务器上建目录并 clone:"
+              echo "::error::  sudo mkdir -p $DEPLOY_DIR && sudo chown \$USER $DEPLOY_DIR"
+              echo "::error::  git clone <repo> $DEPLOY_DIR"
+              echo "::error::  cd $DEPLOY_DIR && cp .env.example .env && vi .env"
+              exit 1
+            fi
+            cd "$DEPLOY_DIR"
 
             # .env 存 JWT_SECRET 等,不进 git。缺了 compose 会因
             # ${JWT_SECRET:?...} 直接失败,所以先明确检查并给出可操作的提示,
@@ -131,8 +147,8 @@ jobs:
             fi
 
             # fetch 到 remote-tracking 分支(避免 git 拒绝 fetch 到当前已 checkout 的分支)
-            git fetch $DEPLOY_REMOTE $BRANCH:refs/remotes/$DEPLOY_REMOTE/$BRANCH --force
-            git reset --hard $DEPLOY_REMOTE/$BRANCH
+            git fetch "$DEPLOY_REMOTE" "$BRANCH:refs/remotes/$DEPLOY_REMOTE/$BRANCH" --force
+            git reset --hard "$DEPLOY_REMOTE/$BRANCH"
 
             # 用 commit SHA 作为镜像 tag(:sha 不可变,:latest 会漂移且不可回滚)
             export IMAGE_TAG=$(git rev-parse --short HEAD)
