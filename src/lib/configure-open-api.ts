@@ -15,19 +15,11 @@ export default function configureOpenAPI(app: AppOpenAPI) {
         openapi: '3.0.0',
         info: {
             version: packageJson.version,
-            title: 'Tasks API'
+            title: 'hlsEdu API'
         },
         ...(servers ? { servers } : {})
     })
 
-    // 注册 Bearer 鉴权方案到 spec 的 components.securitySchemes
-    // 让 Scalar / Swagger 在带 `security: [{ Bearer: [] }]` 的路由弹输入框
-    // (OpenAPIObjectConfig 类型 Omit 了 components,必须走 registry)
-    app.openAPIRegistry.registerComponent('securitySchemes', 'Bearer', {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'opaque',  // 我们是 DB 存的随机 UUID,不是 JWT
-    })
     app.get(
         '/reference',
         apiReference({

@@ -14,5 +14,7 @@
     "outDir": "./dist"
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
+  // 测试文件不进 dist:一是 build 产物会被 vitest 再扫一遍导致用例重复执行,
+  // 二是 dist 会被 COPY 进生产镜像,测试里的假 db mock 不该跟着上线
+  "exclude": ["node_modules", "src/**/*.test.ts", "src/**/*.spec.ts"]
 }

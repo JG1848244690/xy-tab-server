@@ -1,31 +1,38 @@
-﻿import configureOpenAPI from "./lib/configure-open-api.js"
-import createApp from "./lib/create-app.js"
+import configureOpenAPI from './lib/configure-open-api.js'
+import createApp from './lib/create-app.js'
 import index from './routes/index.route.js'
-import tasks from './routes/tasks/tasks.index.js'
 import auth from './routes/auth/auth.index.js'
-import sync from './routes/sync/sync.index.js'
-import agent from './routes/agent/agent.index.js'
-import { bearerAuth } from "./middlewares/auth.js"
+import questions from './routes/questions/questions.index.js'
+import todos from './routes/todos/todos.index.js'
+import stats from './routes/stats/stats.index.js'
+import { cookieAuth } from './middlewares/auth.js'
 
 const app = createApp()
 
-// === 云同步相关路由的鉴权中间件 ===
-// 公开: POST /sync/auth/google(在 auth.index.ts 里)
-// 鉴权: /sync/auth/logout, /sync/auth/me, /sync/bookmarks, /sync/sessions, /sync/agent/chat
-app.use('/sync/auth/logout', bearerAuth())
-app.use('/sync/auth/me', bearerAuth())
-app.use('/sync/bookmarks', bearerAuth())
-app.use('/sync/sessions', bearerAuth())
-// TODO(feat/deepagent): 测完流式记得加回来 —— /sync/agent/chat 是会消耗 token 的端点,生产必须鉴权
-// app.use('/sync/agent/chat', bearerAuth())
+/**
+ * 鉴权中间件按路径应用
+ *
+ * 公开: POST /auth/login, POST /auth/register, POST /auth/logout
+ * 鉴权: /auth/me 及 questions / todos / stats 全部子树
+ *
+ * 服务路径不带 /api 前缀 —— 前端 Next 的 rewrite 会把 /api/x 剥成 /x 再打到这,
+ * 服务器上的 nginx 也用同样的规则剥 /api。
+ */
+app.use('/auth/me', cookieAuth())
+app.use('/questions', cookieAuth())
+app.use('/questions/*', cookieAuth())
+app.use('/todos', cookieAuth())
+app.use('/todos/*', cookieAuth())
+app.use('/stats', cookieAuth())
+app.use('/stats/*', cookieAuth())
 
 const routes = [
     index,
-    tasks,
     auth,
-    sync,
-    agent,
-] as const;
+    questions,
+    todos,
+    stats,
+] as const
 
 routes.forEach((route) => {
     app.route('/', route)

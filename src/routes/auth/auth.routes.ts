@@ -1,100 +1,102 @@
-﻿/**
- * Auth 路由定义
- *
- *   POST /sync/auth/google   公开,扩展用 launchWebAuthFlow 拿 id_token,
- *                            后端用 jose + 本地 JWKS 验签后再颁发 sessionToken。
- *                            服务器零 HTTPS 出站(JWKS 静态 hardcode + CI 每月更新)
- *   POST /sync/auth/logout   Bearer,删除自己的 session
- *   GET  /sync/auth/me       Bearer,查当前用户
- */
+import { createRoute, z } from '@hono/zod-openapi'
+import {
+    HttpStatusCodes,
+    createErrorSchema,
+    createMessageObjectSchema,
+    jsonContent,
+    jsonContentRequired,
+} from '../../lib/openapi.js'
+import { selectUserSchema } from '../../db/schema.js'
 
-import { createRoute, z } from '@hono/zod-openapi';
-import { HttpStatusCodes, jsonContent, jsonContentRequired } from '../../lib/openapi.js';
+const tags = ['Auth']
 
-const tags = ['Sync Auth'];
+/** 从 cookieAuth 中间件拿到的用户 */
+const userResponseSchema = selectUserSchema.extend({
+    /**
+     * 前端 /auth/me 期望的字段名是 name,不是 username
+     * (旧 Nest 的 auth.controller.ts 里显式做了 username -> name 的映射)
+     */
+    name: z.string().nullable(),
+})
 
-// ===== POST /sync/auth/google =====
-// 扩展侧流程:launchWebAuthFlow 拿 id_token(隐式流,response_type=id_token)→
-// POST {idToken} 给后端 → 后端用 jose + 本地 JWKS 验签(RS256,校验 iss/aud/exp)
-// → 从 payload 拿 sub/email/name/picture → upsert users → 发 sessionToken。
-// 后端零 HTTPS 出站,适合 NAT 网关屏蔽出站的部署。
-export const googleLogin = createRoute({
-    path: '/sync/auth/google',
+const loginBodySchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+})
+
+const registerBodySchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+    name: z.string().min(1),
+})
+
+const loginResponseSchema = z.object({ user: userResponseSchema })
+
+const unauthorizedSchema = createMessageObjectSchema(HttpStatusCodes.UNAUTHORIZED.toString())
+
+export const login = createRoute({
     method: 'post',
+    path: '/auth/login',
     tags,
     request: {
-        body: jsonContentRequired(
-            z.object({
-                idToken: z.string().min(1),
-                // nonce 扩展生成时附带,后端二次校验防 replay(可选)
-                nonce: z.string().uuid().optional(),
-            }),
-            'Google id_token from launchWebAuthFlow (隐式流 response_type=id_token)',
-        ),
+        body: jsonContentRequired(loginBodySchema, '邮箱 + 密码'),
     },
     responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            z.object({
-                sessionToken: z.string(),
-                user: z.object({
-                    id: z.string(),
-                    email: z.string(),
-                    name: z.string().nullable(),
-                    picture: z.string().nullable(),
-                    googleSub: z.string(),
-                }),
-            }),
-            'session token + user',
-        ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-            z.object({ error: z.string() }),
-            'id_token 验签失败 / 过期 / aud 不匹配 / email 未验证',
+        [HttpStatusCodes.OK]: jsonContent(loginResponseSchema, '登录成功,JWT 已写入 HttpOnly Cookie'),
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(unauthorizedSchema, '邮箱或密码错误'),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(loginBodySchema),
+            '参数校验失败',
         ),
     },
-});
+})
 
-// ===== POST /sync/auth/logout =====
-export const logout = createRoute({
-    path: '/sync/auth/logout',
+export const register = createRoute({
     method: 'post',
+    path: '/auth/register',
     tags,
-    security: [{ Bearer: [] }],
+    request: {
+        body: jsonContentRequired(registerBodySchema, '注册信息'),
+    },
     responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            z.object({ success: z.boolean() }),
-            'session deleted',
+        [HttpStatusCodes.OK]: jsonContent(userResponseSchema, '注册成功'),
+        [HttpStatusCodes.CONFLICT]: jsonContent(
+            createMessageObjectSchema('User already exists'),
+            '邮箱已被注册',
         ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-            z.object({ error: z.string() }),
-            'invalid token',
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(registerBodySchema),
+            '参数校验失败',
         ),
     },
-});
+})
 
-// ===== GET /sync/auth/me =====
+export const logout = createRoute({
+    method: 'post',
+    path: '/auth/logout',
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            createMessageObjectSchema('Logged out successfully'),
+            '已清除 Cookie',
+        ),
+    },
+})
+
 export const me = createRoute({
-    path: '/sync/auth/me',
     method: 'get',
+    path: '/auth/me',
     tags,
-    security: [{ Bearer: [] }],
     responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            z.object({
-                id: z.string(),
-                email: z.string(),
-                name: z.string().nullable(),
-                picture: z.string().nullable(),
-                googleSub: z.string(),
-            }),
-            'current user',
-        ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-            z.object({ error: z.string() }),
-            'invalid token',
-        ),
+        [HttpStatusCodes.OK]: jsonContent(userResponseSchema, '当前登录用户'),
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(unauthorizedSchema, '未登录或已过期'),
     },
-});
+})
+// ============================================================
+// handler 用的类型别名 —— 与旧 tasks.routes.ts 的写法一致
+// ============================================================
 
-export type GoogleLoginRoute = typeof googleLogin;
-export type LogoutRoute = typeof logout;
-export type MeRoute = typeof me;
+export type LoginRoute = typeof login
+export type RegisterRoute = typeof register
+export type LogoutRoute = typeof logout
+export type MeRoute = typeof me

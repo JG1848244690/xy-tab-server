@@ -9,21 +9,22 @@
 services:
   postgres:
     image: postgres:17-alpine
-    # 不写 container_name,用 compose 默认命名 tasks-api-postgres-1
-    # 避免跟你本机已经跑的 tasks-pg 容器撞名
+    # 不写 container_name,用 compose 默认命名 hlse-api-postgres-1
+    # 避免跟本机/服务器上已有的其它 PG 容器撞名
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: tasks
+      # hlsEdu 独立库,与 xy-tab-server(pgsql 分支)的 tasks 库互不影响
+      POSTGRES_DB: hlse
     volumes:
       - pg-data:/var/lib/postgresql/data
-    # 临时映射到宿主机 5433,避免与本机已有的 tasks-pg 撞 5432
+    # 本地映射到宿主机 5433,避免与本机已有的 5432 实例撞端口
     # 生产上线时可注释掉,只让容器内 app 访问
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d tasks"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hlse"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -34,8 +35,8 @@ services:
     # tag 用 commit SHA(:latest 也推但生产不引用——避免漂移 / 不可回滚)
     # deploy 脚本里 IMAGE_TAG 由 `git rev-parse --short HEAD` 注入
     # 本地 docker compose up 兜底走 :latest
-    image: ghcr.io/jg1848244690/xy-tab-server:${IMAGE_TAG:-latest}
-    # 同上,用默认命名 tasks-api-app-1
+    # 独立仓库名 hls-api,避免覆盖 xy-tab-server 的镜像 tag
+    image: ghcr.io/jg1848244690/hls-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -45,14 +46,14 @@ services:
       PORT: 9999
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # 用 compose 服务名作为主机名,容器间走 docker 内置 DNS
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tasks
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/hlse
       DATABASE_SSL: ${DATABASE_SSL:-false}
       # 生产挂在 nginx /api 反代后,告诉 OpenAPI 文档给所有 path 加 /api 前缀
-      # 这样 Scalar 里的 curl / Try it out 才会打到 /api/tasks 而非 /tasks
+      # 这样 Scalar 里的 curl / Try it out 才会打到 /api/questions 而非 /questions
       OPENAPI_BASE_PATH: /api
-      # id_token 验签用的 client_id(用于 audience 校验),真值在服务器 .env (.gitignore)
-      # 绝不能进 git / CI log / 镜像
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      # JWT 签名密钥 —— 绝不能进 git / CI log / 镜像
+      # 生成:openssl rand -base64 32
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       - "${PORT:-9999}:9999"
@@ -66,4 +67,4 @@ services:
 
 volumes:
   pg-data:
-    name: tasks-pg-data
+    name: hlse-pg-data

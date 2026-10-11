@@ -1,30 +1,21 @@
-import { createRouter } from "../lib/create-app.js";
+import { createRouter } from '../lib/create-app.js'
 
 import { createRoute } from '@hono/zod-openapi'
 
-import { jsonContent, HttpStatusCodes, createMessageObjectSchema } from '../lib/openapi.js';
+import { jsonContent, HttpStatusCodes, createMessageObjectSchema } from '../lib/openapi.js'
 
-const router = createRouter()
-    .openapi(
-        createRoute(
-            {
-                method: 'get',
-                tags: ['Index'],
-                path: '/',
-                responses: {
-                    [HttpStatusCodes.OK]: jsonContent(
-                        createMessageObjectSchema('tasks api'),
-                        'task'
-                    )
+const router = createRouter().openapi(
+    createRoute({
+        method: 'get',
+        tags: ['Index'],
+        path: '/',
+        responses: {
+            [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('hlsEdu api'), 'hlsEdu'),
+        },
+    }),
+    (c) => {
+        return c.json({ message: 'hlsEdu api' }, HttpStatusCodes.OK)
+    },
+)
 
-                }
-            }),
-        (c) => {
-            return c.json({
-                message: 'task'
-            }, HttpStatusCodes.OK)
-        }
-    )
-    // .openapi()
-
-export default router;
+export default router

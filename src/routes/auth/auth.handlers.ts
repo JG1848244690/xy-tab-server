@@ -1,129 +1,80 @@
-﻿import { eq } from 'drizzle-orm';
-import { HttpStatusCodes } from '../../lib/openapi.js';
-import db from '../../db/index.js';
-import { users, userSessions } from '../../db/schema.js';
-import type {
-    GoogleLoginRoute,
-    LogoutRoute,
-    MeRoute,
-} from './auth.routes.js';
-import type { AppRouteHandler } from '../../lib/types.js';
+import { eq } from 'drizzle-orm'
+import type { LoginRoute, RegisterRoute, LogoutRoute, MeRoute } from './auth.routes.js'
+import type { AppRouteHandler } from '../../lib/types.js'
+import db from '../../db/index.js'
+import { users } from '../../db/schema.js'
+import { HttpStatusCodes } from '../../lib/openapi.js'
 import {
-    generateSessionToken,
-    hashEmail,
-    expiresAtFromNow,
-} from './session.js';
-import { verifyGoogleIdToken } from './jwt.js';
+    clearAuthCookie,
+    hashPassword,
+    setAuthCookie,
+    signToken,
+    verifyPassword,
+} from '../../lib/auth.js'
 
-// ============================================================
-// POST /sync/auth/google — 公开
-// ============================================================
-// 用 jose + 本地静态 JWKS(google-jwks.json,CI 每月更新)验签 id_token。
-// 服务器零 HTTPS 出站(NAT 网关屏蔽 443)。验证通过后从 payload 拿 sub / email
-// / name / picture,upsert users,发 sessionToken。
-export const googleLogin: AppRouteHandler<GoogleLoginRoute> = async (c) => {
-    const { idToken, nonce } = c.req.valid('json');
-
-    // 验签(RS256 + issuer + audience + 签名 + 可选 nonce)
-    let payload;
-    try {
-        payload = await verifyGoogleIdToken(idToken, nonce);
-    } catch (err) {
-        console.error('[Auth] id_token verify failed:', err);
-        return c.json(
-            { error: err instanceof Error ? err.message : 'id_token verify failed' },
-            HttpStatusCodes.UNAUTHORIZED,
-        );
-    }
-
-    if (!payload.email || !payload.sub) {
-        return c.json(
-            { error: 'id_token payload missing email or sub' },
-            HttpStatusCodes.UNAUTHORIZED,
-        );
-    }
-
-    // upsert user —— 同 email 重复登录 = 同一行(sha256(email) 作为主键)
-    const userId = hashEmail(payload.email);
-    await db
-        .insert(users)
-        .values({
-            id: userId,
-            email: payload.email,
-            googleSub: payload.sub,
-            name: payload.name ?? null,
-            picture: payload.picture ?? null,
-            lastLoginAt: new Date(),
-        })
-        .onConflictDoUpdate({
-            target: users.id,
-            set: {
-                email: payload.email,
-                googleSub: payload.sub,
-                name: payload.name ?? null,
-                picture: payload.picture ?? null,
-                lastLoginAt: new Date(),
-                updatedAt: new Date(),
-            },
-        });
-
-    // 颁发 session token
-    const sessionToken = generateSessionToken();
-    await db.insert(userSessions).values({
-        id: sessionToken,
-        userId,
-        expiresAt: expiresAtFromNow(),
-        userAgent: c.req.header('User-Agent')?.slice(0, 200) ?? null,
-    });
-
-    return c.json({
-        sessionToken,
-        user: {
-            id: userId,
-            email: payload.email,
-            name: payload.name ?? null,
-            picture: payload.picture ?? null,
-            googleSub: payload.sub,
-        },
-    }, HttpStatusCodes.OK);
-};
-
-// ============================================================
-// POST /sync/auth/logout — Bearer(由 router.use() 加中间件)
-// ============================================================
-export const logout: AppRouteHandler<LogoutRoute> = async (c) => {
-    const auth = c.req.header('Authorization');
-    const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null;
-    if (token) {
-        await db.delete(userSessions).where(eq(userSessions.id, token));
-    }
-    return c.json({ success: true }, HttpStatusCodes.OK);
-};
-
-// ============================================================
-// GET /sync/auth/me — Bearer(由 router.use() 加中间件)
-// ============================================================
-export const me: AppRouteHandler<MeRoute> = async (c) => {
-    const userId = c.get('userId');
-    if (!userId) {
-        return c.json({ error: 'unauthorized' }, HttpStatusCodes.UNAUTHORIZED);
-    }
-
-    const [row] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-    if (!row) {
-        return c.json({ error: 'user not found' }, HttpStatusCodes.UNAUTHORIZED);
-    }
-
-    return c.json({
+/** users 行 -> 前端期望的形状(username 映射成 name) */
+function toUserResponse(row: typeof users.$inferSelect) {
+    // selectUserSchema 是 omit 掉 password 的,不 parse 全行,否则 zod 会因
+    // 多出的 password 键报错;这里手动挑字段
+    return {
         id: row.id,
         email: row.email,
-        name: row.name,
-        picture: row.picture,
-        googleSub: row.googleSub,
-    }, HttpStatusCodes.OK);
-};
+        username: row.username,
+        avatarPath: row.avatarPath,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        name: row.username,
+    }
+}
+
+export const login: AppRouteHandler<LoginRoute> = async (c) => {
+    const { email, password } = c.req.valid('json')
+
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    // 邮箱不存在和密码错误返回同一个 401,不泄露账号是否存在
+    if (!user || !(await verifyPassword(password, user.password))) {
+        return c.json({ message: 'Invalid credentials' }, HttpStatusCodes.UNAUTHORIZED)
+    }
+
+    const token = await signToken(user.id, user.email)
+    setAuthCookie(c, token)
+
+    return c.json({ user: toUserResponse(user) }, HttpStatusCodes.OK)
+}
+
+export const register: AppRouteHandler<RegisterRoute> = async (c) => {
+    const { email, password, name } = c.req.valid('json')
+
+    const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1)
+    if (existing) {
+        return c.json({ message: 'User already exists' }, HttpStatusCodes.CONFLICT)
+    }
+
+    const [created] = await db
+        .insert(users)
+        .values({ email, password: await hashPassword(password), username: name })
+        .returning()
+
+    // 旧 Nest 的 register 不下发登录态,前端注册后仍需走一次 login,保持一致
+    return c.json(toUserResponse(created), HttpStatusCodes.OK)
+}
+
+export const logout: AppRouteHandler<LogoutRoute> = (c) => {
+    clearAuthCookie(c)
+    return c.json({ message: 'Logged out successfully' }, HttpStatusCodes.OK)
+}
+
+/** userId 由 app.ts 里挂的 cookieAuth 中间件注入,没走到这里的都是已登录 */
+export const me: AppRouteHandler<MeRoute> = async (c) => {
+    const userId = c.get('userId')!
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    // 中间件已确认用户存在,这里仍兜一层,避免删号瞬间返 500
+    if (!user) {
+        return c.json({ message: 'User not found' }, HttpStatusCodes.UNAUTHORIZED)
+    }
+    return c.json(toUserResponse(user), HttpStatusCodes.OK)
+}

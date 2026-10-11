@@ -1,55 +1,62 @@
-﻿/**
- * Bearer session token 中间件
+/**
+ * Cookie 鉴权中间件
+ *
+ * 为什么是 Cookie 而不是 Bearer:
+ * 旧 hlsEdu 前端的 axios 配了 withCredentials: true,登录态存在 HttpOnly Cookie
+ * `Authentication` 里,服务端渲染 (web-front/src/app/layout.tsx) 也手工把
+ * 这个 Cookie 转发给 /auth/me。保持一致,前端一行都不用改。
  *
  * 用法:
- *   app.use('/sync/*', bearerAuth())   // 全 /sync 子树都需要登录
- *   或
- *   onRoute(routes.x, bearerAuth())    // 单个路由需要登录
+ *   app.use('/questions/*', cookieAuth())   // 整棵子树
+ *   或 onRoute(routes.x, cookieAuth())      // 单个路由
  *
- * 通过后会往 c.set('userId', userId) 注入 userId
+ * 通过后往 c.set('userId', ...) 注入。
  */
 
-import { createMiddleware } from 'hono/factory';
-import { eq, and, gt } from 'drizzle-orm';
-import db from '../db/index.js';
-import { userSessions, users } from '../db/schema.js';
-import type { AppBindings } from '../lib/types.js';
+import { createMiddleware } from 'hono/factory'
+import { getCookie } from 'hono/cookie'
+import { jwtVerify } from 'jose'
+import { eq } from 'drizzle-orm'
+import db from '../db/index.js'
+import { users } from '../db/schema.js'
+import env from '../env.js'
+import type { AppBindings } from '../lib/types.js'
 
-export const bearerAuth = () =>
-  createMiddleware<AppBindings>(async (c, next) => {
-    const auth = c.req.header('Authorization');
-    if (!auth?.startsWith('Bearer ')) {
-      return c.json({ error: 'Missing Bearer token' }, 401);
-    }
-    const token = auth.slice(7).trim();
-    if (!token) {
-      return c.json({ error: 'Empty token' }, 401);
-    }
+const secret = new TextEncoder().encode(env.JWT_SECRET)
 
-    // 查 session + user,顺便刷新 last_used_at
-    const rows = await db
-      .select({
-        userId: users.id,
-        email: users.email,
-        expiresAt: userSessions.expiresAt,
-      })
-      .from(userSessions)
-      .innerJoin(users, eq(users.id, userSessions.userId))
-      .where(and(eq(userSessions.id, token), gt(userSessions.expiresAt, new Date())))
-      .limit(1);
+/** 校验 Cookie 里的 JWT 并把 userId / email 注入 context */
+export const cookieAuth = () =>
+    createMiddleware<AppBindings>(async (c, next) => {
+        const token = getCookie(c, env.AUTH_COOKIE_NAME)
+        if (!token) {
+            return c.json({ error: 'Unauthorized' }, 401)
+        }
 
-    const session = rows[0];
-    if (!session) {
-      return c.json({ error: 'Invalid or expired session' }, 401);
-    }
+        let userId: string
+        try {
+            const { payload } = await jwtVerify(token, secret)
+            if (typeof payload.sub !== 'string') {
+                return c.json({ error: 'Unauthorized' }, 401)
+            }
+            userId = payload.sub
+        } catch {
+            // token 过期 / 被篡改 / 密钥不对,一律当未登录。
+            // 前端 axios 响应拦截器收到 401 会清 store 并跳 /login
+            return c.json({ error: 'Unauthorized' }, 401)
+        }
 
-    // 后台更新 last_used_at(不 await,不阻塞)
-    void db.update(userSessions)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(userSessions.id, token))
-      .catch((e) => console.warn('[Auth] last_used_at update failed:', e));
+        // 确认用户仍存在(token 签发后账号可能已被删)
+        const [user] = await db
+            .select({ id: users.id, email: users.email })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1)
 
-    c.set('userId', session.userId);
-    c.set('userEmail', session.email);
-    await next();
-  });
+        if (!user) {
+            return c.json({ error: 'Unauthorized' }, 401)
+        }
+
+        c.set('userId', user.id)
+        c.set('userEmail', user.email)
+        await next()
+    })
