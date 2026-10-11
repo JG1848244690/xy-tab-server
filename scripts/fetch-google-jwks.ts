@@ -1,5 +1,5 @@
 /**
- * 抓 Google id_token JWKS 公钥,写到 src/modules/auth/google-jwks.json。
+ * 抓 Google id_token JWKS 公钥,写到 src/routes/auth/google-jwks.json。
  *
  * 服务器部署在国内 ECS 屏蔽 HTTPS 出站,不能在线拉 JWKS,所以每月一次
  * 把 Google 的 OAuth 公钥列表 hardcode 到代码里(.github/workflows/jwks-update.yml
@@ -21,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs'
-const DEFAULT_OUTPUT = join(__dirname, '..', 'src', 'modules', 'auth', 'google-jwks.json')
+const DEFAULT_OUTPUT = join(__dirname, '..', 'src', 'routes', 'auth', 'google-jwks.json')
 
 interface JWKS {
   keys: Array<Record<string, unknown>>

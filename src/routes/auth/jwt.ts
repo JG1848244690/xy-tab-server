@@ -2,7 +2,7 @@
  * Google id_token 验签(jose + 本地静态 JWKS)
  *
  * 服务器部署在国内 ECS,NAT 网关屏蔽 HTTPS 出站,不能在线拉 Google JWKS,
- * 所以把 JWKS 静态 hardcode 在 src/modules/auth/google-jwks.json。
+ * 所以把 JWKS 静态 hardcode 在 src/routes/auth/google-jwks.json。
  * scripts/fetch-google-jwks.ts + .github/workflows/jwks-update.yml 自动更新
  * 这个文件(每月一次)。
  *

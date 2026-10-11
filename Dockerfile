@@ -39,7 +39,7 @@ COPY --from=build      /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=build      /app/src/db/migrations ./src/db/migrations
 # Google OAuth JWKS 静态文件(tsc 不复制 .json,需显式 COPY 到 dist 旁的位置,
 # jwt.ts 用 readFileSync(__dirname/google-jwks.json) 读)
-COPY --from=build      /app/src/modules/auth/google-jwks.json ./dist/modules/auth/google-jwks.json
+COPY --from=build      /app/src/routes/auth/google-jwks.json ./dist/routes/auth/google-jwks.json
 COPY package.json ./
 
 USER hono

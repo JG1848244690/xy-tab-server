@@ -41,13 +41,13 @@ jobs:
       - name: Check if file changed
         id: diff
         run: |
-          if git diff --quiet src/modules/auth/google-jwks.json; then
+          if git diff --quiet src/routes/auth/google-jwks.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "JWKS 没变化,跳过 commit"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "JWKS 有变化,准备 commit"
-            git diff --stat src/modules/auth/google-jwks.json
+            git diff --stat src/routes/auth/google-jwks.json
           fi
 
       - name: Configure git
@@ -59,7 +59,7 @@ jobs:
       - name: Commit + push
         if: steps.diff.outputs.changed == 'true'
         run: |
-          git add src/modules/auth/google-jwks.json
+          git add src/routes/auth/google-jwks.json
           # commit message 带当前 ISO 月份,便于 git log 看出轮换频率
           MONTH=$(date -u +'%Y-%m')
           git commit -m "chore(auth): refresh Google JWKS keys (${MONTH})"

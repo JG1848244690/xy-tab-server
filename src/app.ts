@@ -2,9 +2,9 @@
 import createApp from "./lib/create-app.js"
 import index from './routes/index.route.js'
 import tasks from './routes/tasks/tasks.index.js'
-import auth from './modules/auth/auth.index.js'
-import sync from './modules/sync/sync.index.js'
-import agent from './modules/agent/agent.index.js'
+import auth from './routes/auth/auth.index.js'
+import sync from './routes/sync/sync.index.js'
+import agent from './routes/agent/agent.index.js'
 import { bearerAuth } from "./middlewares/auth.js"
 
 const app = createApp()
