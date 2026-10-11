@@ -31,8 +31,10 @@ services:
 
   app:
     # 镜像在 GitHub Actions CI 里 build + push 到 GHCR,服务器只 pull 不 build
-    # 改本地构建请把 image 换成 build: { context: . }
-    image: ghcr.io/jg1848244690/xy-tab-server:latest
+    # tag 用 commit SHA(:latest 也推但生产不引用——避免漂移 / 不可回滚)
+    # deploy 脚本里 IMAGE_TAG 由 `git rev-parse --short HEAD` 注入
+    # 本地 docker compose up 兜底走 :latest
+    image: ghcr.io/jg1848244690/xy-tab-server:${IMAGE_TAG:-latest}
     # 同上,用默认命名 tasks-api-app-1
     restart: unless-stopped
     depends_on:

@@ -106,8 +106,10 @@ jobs:
             # fetch 到 remote-tracking 分支(避免 git 拒绝 fetch 到当前已 checkout 的分支)
             git fetch github pgsql:refs/remotes/github/pgsql --force
             git reset --hard github/pgsql
+            # 用 commit SHA 作为镜像 tag(:sha 不可变,:latest 会漂移且不可回滚)
+            export IMAGE_TAG=$(git rev-parse --short HEAD)
             # 拉新镜像 + 重启容器(零停机——docker compose up -d 滚动重启)
             docker compose pull
             docker compose up -d --remove-orphans
-            echo '=== deploy status ==='
+            echo "=== deployed ${IMAGE_TAG} ==="
             docker compose ps
