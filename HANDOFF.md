@@ -34,7 +34,20 @@
    (另 3 处硬编码在 `courses/` 的视频组件里,视频模块已砍,可不管)
 2. **CI secrets 未配置**:`SERVER_HOST` / `SERVER_USER` / `SERVER_SSH_KEY` 三个还没填。
    填之前 deploy job 会失败。
-3. **服务器上 `/opt/hls-api/.env` 需手动创建**,CI 里有检查并给出了提示,但首次部署仍会失败一次。
+3. **服务器上 `/opt/hls-api` 目录和 `.env` 都还没建** —— hlsEdu 是新服务,
+   首次部署前要在服务器上手动准备(旧服务在 `/opt/tasks-api`,两者并存):
+
+   ```bash
+   sudo mkdir -p /opt/hls-api && sudo chown $USER /opt/hls-api
+   git clone https://github.com/JG1848244690/xy-tab-server.git /opt/hls-api
+   cd /opt/hls-api
+   cp .env.example .env
+   # 至少要设 JWT_SECRET(>=16 字符):openssl rand -base64 32
+   # DATABASE_URL 也要按服务器实际的 postgres 填
+   vi .env
+   ```
+
+   CI 里有检查会明确提示这两步,但不会替你建 —— `.env` 含密钥,`/opt` 需要 sudo。
 4. **服务器上这个仓库的 remote 名待确认** —— CI 里写的是 `github`(照抄旧 deploy 脚本),
    实际可能是 `origin`。在 `.github/workflows/ci.yml` 的 `DEPLOY_REMOTE` 改。
 5. **存量数据尚未导入** —— 迁移脚本写完但没跑过真实数据(见下)。
@@ -88,6 +101,13 @@ pnpm db:import --truncate   # 重跑时用,先清空目标表
 **5. Windows 上 `pkill -f` 杀不掉 node**
 用 `netstat -ano | grep :9999` 拿 PID 再 `taskkill //PID <pid> //F`。
 (当时误测了一个僵尸进程，以为修复没生效。)
+
+**6. ssh-action 的 script 拿不到 job 级 env**
+`appleboy/ssh-action` 把 `script:` 内容**原样**送到服务器执行，中间没有任何一层 shell
+会展开 `$VAR`。workflow 的 job 级 `env:` 只存在于 **runner 进程**上，远端读不到。
+不加 `with.envs: VAR1,VAR2` 的话 `$DEPLOY_DIR` 在服务器上是空字符串 ——
+`cd $DEPLOY_DIR` 静默退化成 `cd`（回 home），再拿着空路径去找文件，
+报错信息里路径全空，极具误导性。GitHub 只替换 `${{ }}` 语法，不碰裸的 `$VAR`。
 
 ## 两条不能碰的前端契约
 
