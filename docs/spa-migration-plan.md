@@ -579,20 +579,26 @@ npm run dev        # http://localhost:3000
 目录由 CI 自己 `mkdir -p`,不需要手工建。**但 nginx 以 `www` 用户跑**,
 所以部署脚本末尾必须 `chmod -R a+rX /opt/hls-web/releases /opt/hls-web/current`。
 
-### 8.2 DNS(需要你本人操作)
+### 8.2 DNS —— **已完成,无需再做**
 
-服务器上实测 `hls.kskbl.com.cn` **没有解析**;而 `kskbl.com.cn` / `doc.kskbl.com.cn` /
-`static.kskbl.com.cn` 都解析到 Cloudflare(2606:4700::/32),说明整站走 CF 代理。
+已加好 **A 记录 `hls` → `47.94.85.91`,代理开启(橙云)**。实测:
 
-要做的:在 Cloudflare 给 `kskbl.com.cn` 加一条
-**A 记录 `hls` → `47.94.85.91`,代理开启(橙云)**。
-(橙色云是必须的:`kskbl.com.cn` 的 SSL 用的是 Cloudflare **Origin 证书**,不是公信证书。)
+- 公网(DoH @1.1.1.1):`188.114.96.2` / `188.114.97.2`
+- 服务器上:`2606:4700:3035::6815:1179`(`104.21.17.121`)等,与 `kskbl.com.cn` 同一组边缘
+- `http://` 返回 `301 → https://`(CF 的 Always Use HTTPS 生效)
 
-### 8.3 证书(不需要新申请)
+> 橙云是硬要求:`kskbl.com.cn` 的 SSL 用的是 Cloudflare **Origin 证书**,
+> 不是公信证书;灰云(仅 DNS)会让浏览器直接拿到 origin 证书而报错。
+
+### 8.3 证书 —— **无需申请,已实测确认**
 
 服务器上 `/www/server/panel/vhost/cert/cloudflare/origin.pem` 的 SAN 是
 **`DNS:*.kskbl.com.cn, DNS:kskbl.com.cn`**,有效期到 **2041-10-08** ——
-**新子域名直接复用这一对**,不用申请新证书。CF 侧 SSL 模式保持 Full。
+新子域名直接复用这一对。
+
+已实测验证:现在访问 `https://hls.kskbl.com.cn/` 能完成 TLS 握手并返回 `308`
+(而不是 `525`/`526`),说明 CF 的 SSL 模式是 完全(严格)、且它接受这张 Origin 证书。
+**不要**去改成 Flexible,也不要去签新证书。
 
 ### 8.4 nginx vhost
 
@@ -896,6 +902,16 @@ on:
     搬到 React Router 后照样能用;想更真实可换 `useNavigation().state === 'loading'`,属可选优化。
 12. **`dashboard-nav.tsx` 的 `navItems`** 同时被 `breadcrumb.tsx` 消费,
     删导航项时**只删数组元素**,不要改动 `children` 的结构。
+13. **`/opt/hls-web/current` 必须是符号链接,不能是普通目录。**
+    CI 的切换是 `ln -sfn releases/$SHA current.tmp && mv -Tf current.tmp current`;
+    如果 `current` 是个**非空目录**,`mv -Tf` 直接报 `Directory not empty` 失败 ——
+    也就是"部署前先建个占位目录"这种好心操作,会把之后的自动部署搞挂。
+    想要占位内容就照 §8.6 那样先建一个 release 目录再链过去,别建实体目录。
+14. **新 vhost 落地前,该子域名会落到 443 端口的默认 vhost。**
+    实测:`https://hls.kskbl.com.cn/` 返回 `308 → /content`,那是按文件名顺序第一个
+    `listen 443 ssl`(`doc.kskbl.com.cn`)在响 —— 也就是说 DNS 配好了但 vhost 还没建时,
+    访问这个子域会看到**别的站点的内容**。不是报错但显然不对,尽快按 §8.4 把 vhost 落上。
+    (顺带:这也说明回源 TLS 是通的,§8.3 复用通配证书的假设已被实测证实。)
 
 ---
 
@@ -909,6 +925,7 @@ on:
 | `56e1f97` | §9.2 的 `ci.yml` path 过滤 + §9.3 的 `.dockerignore` |
 
 也就是说,你从 §3 开始做即可,§9 里只剩 `web.yml` 一件新事。
+**§8.2 的 DNS 和 §8.3 的证书也都已经就绪**(已实测),§8 里只剩 vhost、头像、首次部署。
 
 另外,写本文件时的实测环境事实(万一你复现时对不上):
 
