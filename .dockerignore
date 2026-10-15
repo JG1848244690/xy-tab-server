@@ -18,3 +18,8 @@ coverage
 *.md.tmp
 CLAUDE.md
 .claude
+
+# 前端 SPA:独立 npm 工程,不进后端镜像。
+# 不排除的话 Dockerfile 里那句 `COPY . .` 会因前端改动而缓存失效,白跑一次后端构建。
+web
+docs

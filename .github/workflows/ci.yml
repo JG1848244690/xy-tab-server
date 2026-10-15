@@ -1,10 +1,21 @@
 name: CI
 
+# 前端 SPA 搬进本仓库的 web/ 之后,只改前端或文档不该触发后端重建镜像 + 重启容器。
+# paths-ignore 的语义是「本次 diff 全落在这些路径里才跳过」,前后端混改时照常触发。
+# 注意:这是 hls-api 分支自己的 ci.yml;pgsql 分支有它自己的副本,完全不受影响。
 on:
   push:
     branches: ['**']
+    paths-ignore:
+      - 'web/**'
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches: [master, main, hls-api]
+    paths-ignore:
+      - 'web/**'
+      - 'docs/**'
+      - '**.md'
 
 jobs:
   ci:

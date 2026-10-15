@@ -799,10 +799,10 @@ jobs:
 > `appleboy/scp-action` 的 tag 若 `v0.1.7` 不可用,换成仓库当时可用的最新 tag
 > (后端 `ci.yml` 用的是 `appleboy/ssh-action@v1`,两处保持一致风格即可)。
 
-### 9.2 后端 `ci.yml` 只加 path 过滤(其余一字不改)
+### 9.2 后端 `ci.yml` 的 path 过滤 —— **已完成,无需再做**
 
-前端进同一个仓库后,只改前端也会触发后端 workflow(它会重新 build 镜像、
-甚至在 hls-api 分支上重启后端容器)。加过滤避免这种无意义的重部署:
+前端进同一个仓库后,只改前端也会触发后端 workflow(重新 build 镜像、
+甚至在 hls-api 分支上重启后端容器)。这个过滤已经加好了:
 
 ```yaml
 on:
@@ -820,20 +820,17 @@ on:
       - '**.md'
 ```
 
-> ⚠️ 两处风险,自行确认可接受:
-> 1. 如果仓库开了 branch protection 且要求 `ci` 为必需检查,只改前端的 PR 会因为
->    `ci` 没运行而卡住。个人仓库一般没开,若开了就改成在 web.yml 里补一个同名 job。
-> 2. `paths-ignore` 是"只要 diff 里全是这些路径就跳过",混改时会正常触发,安全。
+语义是「本次 diff **全**落在这些路径里才跳过」,前后端混改时照常触发。
+已用一次纯 docs 提交实测验证:workflow 不运行、GHCR 不出新 tag、容器不重启。
 
-### 9.3 `.dockerignore` 加一行
+> ⚠️ 唯一前提:仓库不能把 `ci` 设成 branch protection 的必需检查,
+> 否则只改前端的 PR 会因 `ci` 未运行而卡住。个人仓库一般没开;
+> 若开了,就在 `web.yml` 里补一个同名 job。
 
-后端镜像的 Dockerfile 有 `COPY . .`,不排除 `web/` 的话,每次前端改动都会
-让后端镜像构建缓存失效(白跑一次 build)。加:
+### 9.3 `.dockerignore` 加 `web` / `docs` —— **已完成,无需再做**
 
-```
-web
-docs
-```
+后端镜像的 Dockerfile 有 `COPY . .`,不排除 `web/` 的话每次前端改动都会让这层
+缓存失效(白跑一次后端构建)。`web` 和 `docs` 已经加进 `.dockerignore` 了。
 
 ---
 
@@ -844,7 +841,7 @@ docs
 3. `refactor(web): 认证改为客户端 bootstrap`(§5.3)
 4. `refactor(web): 砍掉练习/课程/上传模块`(§5.4-5.6)
 5. `feat(web): 接口地址改 /api-hls + 头像走同源`(§6)
-6. `ci(web): 新增 web.yml + 后端 ci 加 path 过滤`(§9)
+6. `ci(web): 新增 web.yml`(§9.1;后端的 path 过滤与 `.dockerignore` 已提前做好)
 7. `docs: 前端部署说明`(§8 的 nginx/目录结论写进 README 或 HANDOFF)
 
 ---
