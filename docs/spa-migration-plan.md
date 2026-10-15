@@ -915,7 +915,19 @@ on:
     实测:`https://hls.kskbl.com.cn/` 返回 `308 → /content`,那是按文件名顺序第一个
     `listen 443 ssl`(`doc.kskbl.com.cn`)在响 —— 也就是说 DNS 配好了但 vhost 还没建时,
     访问这个子域会看到**别的站点的内容**。不是报错但显然不对,尽快按 §8.4 把 vhost 落上。
-    (顺带:这也说明回源 TLS 是通的,§8.3 复用通配证书的假设已被实测证实。)
+    (顺带:这也说明回源 TLS 是通的,§8.3 复用通配证书的假设已被实测证实。
+    此条现已解决 —— vhost 建好了,线上是占位页。)
+15. **`web/package-lock.json` 必须提交进 git。**
+    `web.yml` 用的是 `npm ci` + `cache-dependency-path: web/package-lock.json`,
+    没有 lockfile 会**直接失败**(`npm ci` 的设计如此)。而且**前后端各用各的**:
+    `web/` 是 npm(`package-lock.json`),仓库根是 pnpm(`pnpm-lock.yaml`),两者互不干扰。
+16. **不要碰根目录的 `package.json` / `pnpm-workspace.yaml`。**
+    后端的 `pnpm install --frozen-lockfile` 依赖它们;把 `web/` 塞进 workspace
+    会让后端的 lockfile 校验失败。
+17. **服务器侧现状已经是"可部署"状态,别重建。**
+    `/opt/hls-web` 已存在,`current` 是软链指向 `placeholder/`,`uploads/avatars` 已就位。
+    你的第一次 CI 部署会:传 `dist/` 到 `releases/<sha>/` → 把 `current` 切过去
+    (软链被 `mv -Tf` 替换,这是对的)→ 占位页自动消失。
 
 ---
 
