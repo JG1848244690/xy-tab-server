@@ -568,16 +568,19 @@ npm run dev        # http://localhost:3000
 
 ```
 /opt/hls-api/            # 已有:后端 compose 项目
-/opt/hls-web/            # ★ 新增(与 hls-api 同一父目录)
+/opt/hls-web/            # ★ 已建好(与 hls-api 同一父目录)
 ├─ releases/
-│  └─ <git-sha>/         # 每次部署一份完整 dist,保留最近 5 份
-├─ current -> releases/<git-sha>   # 原子切换的符号链接
+│  └─ <git-sha>/         # 每次部署一份完整 dist,保留最近 5 份(现在是空的)
+├─ placeholder/          # 占位页(SPA 未部署时 current 指向它)
+├─ current -> placeholder          # 符号链接,CI 用它做原子切换
 └─ uploads/
-   └─ avatars/           # 旧上传文件(只拷 avatars),**不在 releases 里**,部署不覆盖
+   └─ avatars/           # 旧上传文件(13 个 / 5.1MB),**不在 releases 里**,部署不覆盖
 ```
 
-目录由 CI 自己 `mkdir -p`,不需要手工建。**但 nginx 以 `www` 用户跑**,
-所以部署脚本末尾必须 `chmod -R a+rX /opt/hls-web/releases /opt/hls-web/current`。
+目录由 CI 自己 `mkdir -p`(已提前建好),不需要手工建。**但 nginx 以 `www` 用户跑**(实测
+`/www/server/nginx/conf/nginx.conf` 是 `user www www;`),
+所以部署脚本末尾必须 `chmod -R a+rX /opt/hls-web/releases /opt/hls-web/current`,
+否则会莫名其妙 403。
 
 ### 8.2 DNS —— **已完成,无需再做**
 
@@ -600,10 +603,10 @@ npm run dev        # http://localhost:3000
 (而不是 `525`/`526`),说明 CF 的 SSL 模式是 完全(严格)、且它接受这张 Origin 证书。
 **不要**去改成 Flexible,也不要去签新证书。
 
-### 8.4 nginx vhost
+### 8.4 nginx vhost —— **已完成,无需再做**
 
-新建 `/www/server/panel/vhost/nginx/hls.kskbl.com.cn.conf`
-(可直接手写,结构照抄现有 `html_kskbl.com.cn.conf`;宝塔面板里不会显示它,这没关系):
+`/www/server/panel/vhost/nginx/hls.kskbl.com.cn.conf` 已按下面的内容装好并 reload 过,
+仓库里对应 `deploy/nginx/hls.kskbl.com.cn.conf`(与后端那份并列,保持基础设施可追溯)。
 
 ```nginx
 server {
@@ -630,20 +633,17 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # index.html 不缓存(否则发版后用户还拿旧壳)
     location = /index.html {
         add_header Cache-Control "no-cache";
     }
 
-    # 带 hash 的静态资源长缓存
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
     }
 
-    # ---- 后端 API:和 kskbl.com.cn/api-hls 指向同一个容器(宿主 4000)----
-    # proxy_pass 末尾的 / 会剥掉 /api-hls 前缀;后端路由本来就是根路径
+    # ---- 后端 API:与 kskbl.com.cn/api-hls 指向同一个容器(宿主 4000)----
     location /api-hls/ {
         proxy_pass http://127.0.0.1:4000/;
         proxy_http_version 1.1;
@@ -657,7 +657,7 @@ server {
         return 301 /api-hls/;
     }
 
-    # ---- 旧上传文件(头像)。alias 末尾斜杠必须和 location 一致 ----
+    # ---- 旧上传文件(头像)----
     location /uploads/ {
         alias /opt/hls-web/uploads/;
         expires 7d;
@@ -669,30 +669,29 @@ server {
 }
 ```
 
-另把这份配置**存一份进仓库** `deploy/nginx/hls.kskbl.com.cn.conf`(和后端那份
-`deploy/nginx/kskbl.com.cn-api-hls.conf` 并列),保持基础设施可追溯。
+**已实测通过的项**(部署后按同样方式复查即可):
 
-生效:
+| 检查 | 结果 |
+|---|---|
+| `GET /` | 200(当前是占位页) |
+| `GET /todos`、`/test-center`、`/a/b/c/d`、`/test-center/practice/<uuid>` | 200 —— `try_files` 回退生效,深链接不会 404 |
+| `GET /api-hls/doc`、`/api-hls/reference` | 200 |
+| `GET /api-hls/auth/me`(未登录) | 401 |
+| `GET /api-hls`(不带尾斜杠) | 301 |
+| `/api-hls/doc` 里的 `servers` | `[{"url":"/api-hls"}]` |
+| `GET /uploads/avatars/<库里真实的 avatarPath>` | 200;不存在的文件 404 |
+| `http://` → `https://` | 301 |
+| 以 `www` 身份读占位页 | 可读(目录已 `a+rX`) |
 
-```bash
-nginx -t && nginx -s reload
-```
+> ⚠️ 未百分号编码的原始中文路径会被 nginx 以 **400** 拒绝(非法 request-target)。
+> 这是 HTTP 规范行为,真实浏览器/axios 一律会编码,不是配置问题 —— 别去"修"它。
 
-> ⚠️ 后端已有的 `/api-hls` 是在 `kskbl.com.cn` 的 vhost 里配的,那是**另一个入口**,
-> 两个入口指向同一个容器,**不冲突也不用改**。
+### 8.5 拷头像 —— **已完成,无需再做**
 
-### 8.5 拷头像(在本地机器执行)
+`web-backend/uploads/avatars`(13 个文件 / 5.1MB)已拷到 `/opt/hls-web/uploads/avatars`。
+实测库里某条真实的 `avatarPath` 通过 `https://hls.kskbl.com.cn/uploads/...` 返回 200。
 
-```powershell
-ssh root@47.94.85.91 "mkdir -p /opt/hls-web/uploads"
-scp -r "C:\Users\xy\Desktop\hlsEdu\web-backend\uploads\avatars" root@47.94.85.91:/opt/hls-web/uploads/
-```
-
-**只拷 avatars**(几 MB)。`uploads/` 里另有 `hls/`、`chunks/`、`covers/`、`temp/`
-合计约 1.6GB,是已砍掉的视频模块的切片,**不要拷**(服务器磁盘只剩不到 10G)。
-
-数据库里 `users.avatarPath` 就是 `/uploads/avatars/<file>`,所以 nginx 那条 `location /uploads/`
-配上之后头像即生效。
+`hls/`、`chunks/`、`covers/`、`temp/`(约 1.6GB,已砍掉的视频模块)**没有拷**,也不要拷。
 
 ### 8.6 首次部署(手工,先于 CI)
 
@@ -923,9 +922,11 @@ on:
 |---|---|
 | `3f4c7fd` | 本文件入库 |
 | `56e1f97` | §9.2 的 `ci.yml` path 过滤 + §9.3 的 `.dockerignore` |
+| `770dab3` | DNS/证书状态更新 + 两个部署坑 |
 
 也就是说,你从 §3 开始做即可,§9 里只剩 `web.yml` 一件新事。
-**§8.2 的 DNS 和 §8.3 的证书也都已经就绪**(已实测),§8 里只剩 vhost、头像、首次部署。
+**§8.2 DNS、§8.3 证书、§8.4 vhost、§8.5 头像都已经做完并实测过**(见各节),
+线上现在是占位页;§8 里只剩 §8.6 那一步(把构建产物放到 `releases/` 再切软链)。
 
 另外,写本文件时的实测环境事实(万一你复现时对不上):
 
