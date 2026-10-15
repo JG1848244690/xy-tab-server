@@ -1,0 +1,42 @@
+/* 自定义滚动条样式 */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.3) transparent;
+}
+
+/* Webkit 浏览器（Chrome, Safari, Edge）的滚动条样式 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.3);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--primary) / 0.7);
+}
+
+/* 暗色主题优化 */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.4);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.6);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--primary) / 0.8);
+}
