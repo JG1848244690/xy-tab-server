@@ -896,3 +896,26 @@ on:
     搬到 React Router 后照样能用;想更真实可换 `useNavigation().state === 'loading'`,属可选优化。
 12. **`dashboard-nav.tsx` 的 `navItems`** 同时被 `breadcrumb.tsx` 消费,
     删导航项时**只删数组元素**,不要改动 `children` 的结构。
+
+---
+
+## 附录:写作本文件时已提前做完的事
+
+执行者不需要再做这些,知道基线即可:
+
+| commit | 内容 |
+|---|---|
+| `3f4c7fd` | 本文件入库 |
+| `56e1f97` | §9.2 的 `ci.yml` path 过滤 + §9.3 的 `.dockerignore` |
+
+也就是说,你从 §3 开始做即可,§9 里只剩 `web.yml` 一件新事。
+
+另外,写本文件时的实测环境事实(万一你复现时对不上):
+
+- 服务器 `root@47.94.85.91`,宝塔面板,内存 1.6G,`/` 剩约 9.7G
+- 后端容器 `hls-api-app-1` 发布在宿主 **4000**,PG 在 **5434**;老服务 `tasks-api` 占 9999/5433
+- nginx 以 **`www` 用户**运行(所以 `/opt/hls-web` 必须有 `a+rX`)
+- `kskbl.com.cn` 根目录是 VitePress 文档站(`/DxyProject/docFont/dist`),不是本 SPA 的位置
+- 已迁入生产 PG 的存量数据:users 4 / questions 81 / question_stats 57 /
+  question_attempts 100 / todos 102(来自开发机本机 MySQL,非服务器)
+
