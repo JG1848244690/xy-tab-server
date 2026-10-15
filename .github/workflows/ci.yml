@@ -105,7 +105,8 @@ jobs:
       DEPLOY_DIR: /opt/hls-api
       BRANCH: hls-api
       # 服务器上这个仓库的 remote 名。旧 deploy 脚本用的是 github(不是 git clone 的
-      # 默认值 origin),所以这里跟着用 github;若服务器上确实是 origin,改这一行即可。
+      # 默认值 origin),已核实服务器上 /opt/tasks-api 就是 github → git@github.com:JG1848244690/xy-tab-server.git。
+      # /opt/hls-api 首次 clone 时也用 -o github,保持一致。
       DEPLOY_REMOTE: github
 
     steps:
@@ -151,7 +152,9 @@ jobs:
             git reset --hard "$DEPLOY_REMOTE/$BRANCH"
 
             # 用 commit SHA 作为镜像 tag(:sha 不可变,:latest 会漂移且不可回滚)
-            export IMAGE_TAG=$(git rev-parse --short HEAD)
+            # 必须用完整 40 位 SHA —— CI 里 build-push-action 打的 tag 是 ${{ github.sha }},
+            # 用 --short 得到的 7 位和它对不上,docker compose pull 会找不到镜像。
+            export IMAGE_TAG=$(git rev-parse HEAD)
             echo "=== 部署 $IMAGE_TAG ==="
 
             # 拉新镜像 + 重启容器

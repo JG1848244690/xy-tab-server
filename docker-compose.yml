@@ -19,10 +19,10 @@ services:
       POSTGRES_DB: hlse
     volumes:
       - pg-data:/var/lib/postgresql/data
-    # 本地映射到宿主机 5433,避免与本机已有的 5432 实例撞端口
-    # 生产上线时可注释掉,只让容器内 app 访问
+    # 映射到宿主机的端口,默认 5433(避免与本机已有的 5432 实例撞端口)
+    # 服务器上还跑着 tasks-api 的 PG(占 5433),用 .env 的 PG_HOST_PORT 覆盖,例如 5434
     ports:
-      - "5433:5432"
+      - "${PG_HOST_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d hlse"]
       interval: 5s
@@ -33,7 +33,7 @@ services:
   app:
     # 镜像在 GitHub Actions CI 里 build + push 到 GHCR,服务器只 pull 不 build
     # tag 用 commit SHA(:latest 也推但生产不引用——避免漂移 / 不可回滚)
-    # deploy 脚本里 IMAGE_TAG 由 `git rev-parse --short HEAD` 注入
+    # deploy 脚本里 IMAGE_TAG 由 `git rev-parse HEAD`(完整 40 位)注入
     # 本地 docker compose up 兜底走 :latest
     # 独立仓库名 hls-api,避免覆盖 xy-tab-server 的镜像 tag
     image: ghcr.io/jg1848244690/hls-api:${IMAGE_TAG:-latest}
@@ -48,14 +48,17 @@ services:
       # 用 compose 服务名作为主机名,容器间走 docker 内置 DNS
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/hlse
       DATABASE_SSL: ${DATABASE_SSL:-false}
-      # 生产挂在 nginx /api 反代后,告诉 OpenAPI 文档给所有 path 加 /api 前缀
-      # 这样 Scalar 里的 curl / Try it out 才会打到 /api/questions 而非 /questions
-      OPENAPI_BASE_PATH: /api
+      # 生产挂在 nginx 反代后,告诉 OpenAPI 文档给所有 path 加前缀
+      # 这样 Scalar 里的 curl / Try it out 才会打到 /api-hls/questions 而非 /questions
+      # 注意:只影响文档里的 servers,不影响实际路由(路由永远是根路径)
+      # 服务器上走的是 kskbl.com.cn 的 /api-hls 子路径,由 .env 的 OPENAPI_BASE_PATH 覆盖
+      OPENAPI_BASE_PATH: ${OPENAPI_BASE_PATH:-/api}
       # JWT 签名密钥 —— 绝不能进 git / CI log / 镜像
       # 生成:openssl rand -base64 32
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
+      # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000
       - "${PORT:-9999}:9999"
     healthcheck:
       # Hono 没自带 /health,沿用 / 当存活探针
