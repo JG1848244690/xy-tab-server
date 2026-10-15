@@ -816,17 +816,22 @@ on:
     paths-ignore:
       - 'web/**'
       - 'docs/**'
+      - 'deploy/**'
       - '**.md'
   pull_request:
     branches: [master, main, hls-api]
     paths-ignore:
       - 'web/**'
       - 'docs/**'
+      - 'deploy/**'
       - '**.md'
 ```
 
 语义是「本次 diff **全**落在这些路径里才跳过」,前后端混改时照常触发。
+`scripts/**` **故意不在**列表里 —— 迁移脚本要跑 `tsc -p tsconfig.scripts.json`。
+
 已用一次纯 docs 提交实测验证:workflow 不运行、GHCR 不出新 tag、容器不重启。
+(顺带实测发现漏了 `deploy/**`:动服务器侧 nginx 片段本来是会触发后端重部署的,已补上。)
 
 > ⚠️ 唯一前提:仓库不能把 `ci` 设成 branch protection 的必需检查,
 > 否则只改前端的 PR 会因 `ci` 未运行而卡住。个人仓库一般没开;

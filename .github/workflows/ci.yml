@@ -1,7 +1,9 @@
 name: CI
 
-# 前端 SPA 搬进本仓库的 web/ 之后,只改前端或文档不该触发后端重建镜像 + 重启容器。
-# paths-ignore 的语义是「本次 diff 全落在这些路径里才跳过」,前后端混改时照常触发。
+# 前端 SPA 搬进本仓库的 web/ 之后,只改前端/文档/服务器侧 nginx 片段不该触发后端
+# 重建镜像 + 重启容器。paths-ignore 的语义是「本次 diff 全落在这些路径里才跳过」,
+# 前后端混改时照常触发。
+# 注意:scripts/** 不能加进来 —— 迁移脚本在 CI 里要跑 tsc(tsconfig.scripts.json)。
 # 注意:这是 hls-api 分支自己的 ci.yml;pgsql 分支有它自己的副本,完全不受影响。
 on:
   push:
@@ -9,12 +11,14 @@ on:
     paths-ignore:
       - 'web/**'
       - 'docs/**'
+      - 'deploy/**'
       - '**.md'
   pull_request:
     branches: [master, main, hls-api]
     paths-ignore:
       - 'web/**'
       - 'docs/**'
+      - 'deploy/**'
       - '**.md'
 
 jobs:
