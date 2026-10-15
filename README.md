@@ -100,9 +100,10 @@ pnpm db:studio    # 可视化查看数据
 
 ### 从旧 MySQL 库搬存量数据
 
-> 现状:服务器本机的 `hls_edu` 库里**只有** `users` / `videos` / `collections` / `learning_progress`
-> 四张表,**没有**要迁的 `questions` / `question_stats` / `question_attempts` / `todos`。
-> 也就是说在这台机器上跑迁移脚本会是空跑,要迁的真实数据还在别处(待确认)。
+> 现状:源库是**开发机本机的 MySQL**(`D:\MySQL`,库 `hls_edu`),不是服务器上那份 ——
+> 服务器上的 `hls_edu` 只有视频 4 张表,是早期实验留下的空壳。
+> 2026-10-15 已从本机库导入生产 PG:users 4 / questions 81 / question_stats 57 /
+> question_attempts 100 / todos 102。
 
 旧后端(NestJS + TypeORM + MySQL `hls_edu`)的数据用 `scripts/migrate-mysql-to-pg.ts` 搬过来:
 
@@ -112,10 +113,16 @@ pnpm db:import              # 实际导入(单事务,失败整体回滚)
 pnpm db:import --truncate   # 导入前先清空目标表(重复导入旧数据时用)
 ```
 
-目标库连接串取 `.env` 里的 `DATABASE_URL`。在服务器上跑的话,PG 容器映射在宿主机 **5434**:
+目标库连接串取 `.env` 里的 `DATABASE_URL`。**别把服务器的 PG 端口开给公网**,用 SSH 隧道:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5434/hlse pnpm db:import --dry-run
+# 终端 1:本地 5435 → 服务器的 127.0.0.1:5434
+ssh -N -L 5435:127.0.0.1:5434 root@<服务器>
+# 终端 2
+cd <本仓库>
+$env:DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:5435/hlse'   # PowerShell
+pnpm db:import --dry-run
+pnpm db:import
 ```
 
 源库连接参数走环境变量,**密码不落盘**:

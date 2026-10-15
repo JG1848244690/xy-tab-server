@@ -26,7 +26,10 @@
 - CI 重写:全分支构建镜像推到 GHCR,仅 push `hls-api` 时自动部署到服务器
 - **服务器容器化部署已打通并验证**(2026-10-15):`/opt/hls-api` 已建好,和老的
   `/opt/tasks-api` 同机并存,nginx 走 `kskbl.com.cn/api-hls` 子路径。细节见下节。
-- MySQL → PG 存量数据迁移脚本(`scripts/migrate-mysql-to-pg.ts`,见下)
+- **存量数据已导入生产 PG**(2026-10-15):从**开发机本机** MySQL `hls_edu`
+  导入 users 4 / questions 81 / question_stats 57 / question_attempts 100 / todos 102。
+  迁移脚本双重编码 jsonb 的 bug 已修(见"踩过的坑 · 7"),导入后全套读接口用
+  真实数据复验通过。
 
 ## 服务器部署现状(已跑通)
 
@@ -66,15 +69,16 @@
    `/api-hls`(nginx 已配好),不再是 `next.config.ts` 里的 rewrite →
    `localhost:4000`。`localhost:4000` 现在**确实**是本服务(app 容器宿主端口),
    但 SPA 走 nginx 子路径更省一层。
-2. **存量数据未导入**,而且**源库有问题**:服务器本机 `hls_edu` 库里只有
-   `users(2)` / `videos(1)` / `collections(1)` / `learning_progress(0)`,
-   **没有** `questions` / `question_stats` / `question_attempts` / `todos`。
-   迁移脚本在这台机器上跑会是空跑 —— 先确认真正的旧库在哪。
-3. **没有监控/告警**,也没有 `:latest` 回滚演练。回滚方式:改 `/opt/hls-api/.env`
+2. **没有监控/告警**,也没有 `:latest` 回滚演练。回滚方式:改 `/opt/hls-api/.env`
    或直接 `IMAGE_TAG=<旧sha> docker compose up -d`。
+3. **老库还有几个功能没迁**(本轮范围外,新 schema 没有对应列):
+   `questions.average_time/total_attempts/total_correct/global_correct_rate`、
+   `question_stats.consecutive_correct/consecutive_wrong/mastery_level/next_review_at`、
+   `question_attempts.difficulty_at_attempt/user_ability_at_attempt/from_recommendation`。
+   还有 3 张表完全没迁:`recommendation_logs`(1095 行)/`tag_relations`(17)/
+   `learning_curve_snapshots`(0)/`user_learning_preferences`(0)。要做就得先扩 schema。
 
-
-## 迁移脚本:必须先跑 dry-run
+## 迁移脚本:先 dry-run,已验证
 
 ```bash
 pnpm db:import --dry-run    # 只读,不写库
@@ -84,15 +88,14 @@ pnpm db:import --truncate   # 重跑时用,先清空目标表
 
 源库密码走交互式询问(不回显),或 `MYSQL_PASSWORD` 环境变量。**不要**写进命令行或文件。
 
-**未验证的部分**:脚本的类型检查过了、连接/参数/报错路径都冒烟测过了,
-但**真实的类型转换分支一行都没跑过**(当时拿不到 MySQL 密码)。
-第一次跑 dry-run 重点看两处:
+**2026-10-15 已在真实数据上跑通**(本机 MySQL → 服务器 PG,经 SSH 隧道):
 
-- **主键映射**。旧代码是 `@PrimaryColumn(varchar 36)` 而非 `@PrimaryGeneratedColumn`,
-  id 由应用生成,不保证是合法 uuid。脚本会逐个校验,非法的生成新 uuid 并同步改写
-  `questions.created_by` 和 stats/attempts/todos 的全部外键。dry-run 第一段会报有多少个要重映射。
-- **中文标签**。`tags` 走 `json` → `jsonb`,脚本会打印标签分布,中文乱码一眼能看出来。
-  (历史上踩过 Windows Git Bash 把命令行参数里的中文变成 U+FFFD 的坑,写测试时注意。)
+- **主键映射**:4/81/100 个 id **全是合法 uuid**,`需重映射` 全为 0 —— 那条"生成新 uuid
+  并改写全部外键"的分支实测走空,所以**它至今仍未在真实数据上验证过**。哪天遇到非 uuid
+  的旧 id,还得重新看一遍。
+- **中文标签**:`算法` / `Promise` / `双指针` 等 25 个标签,jsonb 里完好,没有 U+FFFD 乱码。
+- **孤儿行**:0 条被丢弃(源库计数与导入计数逐表相等)。
+- **6 条题目的 `tags` 是 SQL NULL**(源库就是 NULL),按原样保留,没有补成 `[]`。
 
 ## 踩过的坑(别再踩)
 
@@ -130,6 +133,27 @@ pnpm db:import --truncate   # 重跑时用,先清空目标表
 不加 `with.envs: VAR1,VAR2` 的话 `$DEPLOY_DIR` 在服务器上是空字符串 ——
 `cd $DEPLOY_DIR` 静默退化成 `cd`（回 home），再拿着空路径去找文件，
 报错信息里路径全空，极具误导性。GitHub 只替换 `${{ }}` 语法，不碰裸的 `$VAR`。
+
+**7. jsonb 双重编码 —— 只有真实数据才暴露，且会「静默错答」**
+迁移脚本原来对 `tags` 做了 `JSON.stringify`。但 **mysql2 已经把 MySQL 的 `json` 列
+解析成 JS 值**了，而 **postgres.js 对 jsonb 参数自己还会 `JSON.stringify` 一次** ——
+于是 PG 里存的是 JSON **字符串** `"[\"算法\"]"` 而不是数组 `["算法"]`。
+（源库本身没问题，`json_type(tags)` 是 `ARRAY`。坏的是迁移这一步。）
+
+两个后果，一个比一个阴:
+
+- `/stats/tag-distribution` 的 `jsonb_array_elements_text()` 直接报
+  `cannot extract elements from a scalar` → **500**。这个还算好，至少炸了。
+- `questions.handlers.ts` 按标签筛选走 `tags @> '["算法"]'::jsonb`，对上字符串**恒为假**
+  → **200 但返回空集**。空库时测不出来（没数据就没报错、也没结果），
+  真实数据一进来才发现「按标签搜什么都搜不到」。
+
+修法：`toJsonb` 数组/对象**原样透传**，别自己 stringify；字符串只在能解析出
+数组/对象时才解析。**新增任何 jsonb 列时都要照着这条验一遍**
+（`select jsonb_typeof(col) from ... group by 1` 应全是 `array`/`object`）。
+顺带一提：这条也让 handoff 里「迁移脚本没在真实数据上跑过」的风险兑现了 ——
+`--dry-run` 当时打印的标签分布是**脚本自己算的**，所以看着是对的，
+但它没验证「写进 PG 之后」的形态。
 
 ## 两条不能碰的前端契约
 

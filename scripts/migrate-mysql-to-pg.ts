@@ -104,11 +104,55 @@ const toTimestamp = (v: unknown): Date | null => {
     return v instanceof Date ? v : new Date(String(v))
 }
 
-/** MySQL json 列,mysql2 自动解析成对象,PG jsonb 需要字符串 */
-const toJsonb = (v: unknown): string | null => {
+/**
+ * MySQL `json` 列 → PG jsonb。
+ *
+ * ⚠ 这里**绝对不能** JSON.stringify。
+ * mysql2 会把 json 列直接解析成 JS 值(数组/对象),而 postgres.js 对 jsonb
+ * 参数**自己会 JSON.stringify 一次** —— 我们再 stringify 就变成双重编码,
+ * PG 里存的是 JSON 字符串 `"[\"Promise\"]"` 而不是数组 `["Promise"]`。
+ *
+ * 症状(都已在真实数据上复现过):
+ *   - `/stats/tag-distribution` 直接 500:cannot extract elements from a scalar
+ *   - `/questions?tag=算法` 的 `tags @> '["算法"]'` 永远为假 → **静默返回空集**,
+ *     比 500 更难发现
+ * 注意老的 MySQL 数据本身是对的(json_type = ARRAY),坏的是迁移这一步。
+ *
+ * 所以:数组/对象原样透传给 postgres.js;字符串只在能解析出数组/对象时才
+ * 解析(兼容 mysql2 未自动解析、或列为 TEXT 的情况)。
+ */
+/**
+ * postgres.js 对 jsonb 参数接受的 JS 值(对应 node_modules/postgres/types 里的
+ * JSONValue,只是那个类型没有单独导出)。用精确类型而不是 any,和仓库约定一致。
+ */
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+const toJsonb = (v: unknown): JsonValue | null => {
     if (v === null || v === undefined) return null
-    if (typeof v === 'string') return v
-    return JSON.stringify(v)
+    if (typeof v === 'string') {
+        try {
+            const parsed: unknown = JSON.parse(v)
+            return typeof parsed === 'object' && parsed !== null ? (parsed as JsonValue) : v
+        } catch {
+            return v
+        }
+    }
+    return v as JsonValue
+}
+
+/** 统一取出 string[] —— 兼容已解析的数组和(可能双重编码的)JSON 字符串 */
+const toStringArray = (v: unknown): string[] => {
+    const arr = Array.isArray(v) ? v : typeof v === 'string' ? safeParseArray(v) : []
+    return arr.filter((x): x is string => typeof x === 'string')
+}
+
+const safeParseArray = (s: string): unknown[] => {
+    try {
+        const p: unknown = JSON.parse(s)
+        return Array.isArray(p) ? p : []
+    } catch {
+        return []
+    }
 }
 
 // ---------- 主流程 ----------
@@ -320,13 +364,8 @@ async function main() {
         // 标签分布:打出来方便核对 jsonb 转换是否正确(中文标签在这最容易被搞坏)
         const tagCount = new Map<string, number>()
         for (const q of pgQuestions) {
-            if (!q.tags) continue
-            try {
-                for (const t of JSON.parse(q.tags) as string[]) {
-                    tagCount.set(t, (tagCount.get(t) ?? 0) + 1)
-                }
-            } catch {
-                console.log(`  ⚠ 题目 ${q.id} 的 tags 不是合法 JSON 数组: ${q.tags}`)
+            for (const t of toStringArray(q.tags)) {
+                tagCount.set(t, (tagCount.get(t) ?? 0) + 1)
             }
         }
         if (tagCount.size > 0) {
