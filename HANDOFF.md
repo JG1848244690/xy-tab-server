@@ -24,33 +24,55 @@
 - 端到端 20 项手工检查全过,外加一轮边界检查(多用户隔离、跨用户写入/删除/判分返回 404、
   `ON CONFLICT` 累加、`bestTime` 取 min、跨天 todo、401 未登录/伪造 token、422 非法 uuid)
 - CI 重写:全分支构建镜像推到 GHCR,仅 push `hls-api` 时自动部署到服务器
+- **服务器容器化部署已打通并验证**(2026-10-15):`/opt/hls-api` 已建好,和老的
+  `/opt/tasks-api` 同机并存,nginx 走 `kskbl.com.cn/api-hls` 子路径。细节见下节。
 - MySQL → PG 存量数据迁移脚本(`scripts/migrate-mysql-to-pg.ts`,见下)
 
-### 未完成(下次接着做)
+## 服务器部署现状(已跑通)
 
-1. **前端 `next.config.ts` 的 rewrite destination 硬编码 `localhost:4000`** ——
-   **阻塞部署**。axios 走 `baseURL: '/api'`,靠这个 rewrite 剥掉前缀打到后端根路径,
-   不改的话上了服务器所有请求全挂。
-   (另 3 处硬编码在 `courses/` 的视频组件里,视频模块已砍,可不管)
-2. **CI secrets 未配置**:`SERVER_HOST` / `SERVER_USER` / `SERVER_SSH_KEY` 三个还没填。
-   填之前 deploy job 会失败。
-3. **服务器上 `/opt/hls-api` 目录和 `.env` 都还没建** —— hlsEdu 是新服务,
-   首次部署前要在服务器上手动准备(旧服务在 `/opt/tasks-api`,两者并存):
+机器 `root@47.94.85.91`(阿里云,宝塔面板),内存只有 1.6G,已跑 4 个容器。
 
-   ```bash
-   sudo mkdir -p /opt/hls-api && sudo chown $USER /opt/hls-api
-   git clone https://github.com/JG1848244690/xy-tab-server.git /opt/hls-api
-   cd /opt/hls-api
-   cp .env.example .env
-   # 至少要设 JWT_SECRET(>=16 字符):openssl rand -base64 32
-   # DATABASE_URL 也要按服务器实际的 postgres 填
-   vi .env
-   ```
+| | 老服务 | 本服务 |
+|---|---|---|
+| 目录(= compose 项目名) | `/opt/tasks-api` | `/opt/hls-api` |
+| 镜像 | `ghcr.io/jg1848244690/xy-tab-server` | `ghcr.io/jg1848244690/hls-api` |
+| app 宿主端口 | 9999 | **4000** |
+| PG 宿主端口 | 5433 | **5434** |
+| 对外路径 | `/api` | **`/api-hls`** |
+| DB / 卷 | `tasks` / `tasks-pg-data` | `hlse` / `hlse-pg-data` |
 
-   CI 里有检查会明确提示这两步,但不会替你建 —— `.env` 含密钥,`/opt` 需要 sudo。
-4. **服务器上这个仓库的 remote 名待确认** —— CI 里写的是 `github`(照抄旧 deploy 脚本),
-   实际可能是 `origin`。在 `.github/workflows/ci.yml` 的 `DEPLOY_REMOTE` 改。
-5. **存量数据尚未导入** —— 迁移脚本写完但没跑过真实数据(见下)。
+- `/opt/hls-api` 的 clone:remote 名 **`github`**(`git@github.com:JG1848244690/xy-tab-server.git`),
+  和 CI 里的 `DEPLOY_REMOTE` 一致;CI 里 `IMAGE_TAG` 用**完整 40 位 SHA**。
+- `/opt/hls-api/.env`(不进 git):`PORT=4000` / `PG_HOST_PORT=5434` /
+  `OPENAPI_BASE_PATH=/api-hls` / `JWT_SECRET=<随机>`。
+- nginx 走宝塔的 extension 钩子,**没动** `html_kskbl.com.cn.conf` 本体:
+  仓库 `deploy/nginx/kskbl.com.cn-api-hls.conf` → 装到
+  `/www/server/panel/vhost/nginx/extension/kskbl.com.cn/hls-api.conf`。
+- 验证过:容器 healthy、启动迁移干净通过(`hlse_migrations` 有 1 条记录,没重放)、
+  经 nginx 的注册 → 登录(HttpOnly cookie)→ `/auth/me`(带 `name`)→
+  `/stats/dashboard`(带 `videos` 对象)全通;老服务的 `/api` 与 9999 未受影响。
+
+### 本次修掉的坑(都写进 README 了)
+
+- **`IMAGE_TAG` 用了 `git rev-parse --short HEAD`(7 位),而 CI 推的 tag 是完整 40 位
+  `${{ github.sha }}`** —— 永远匹配不上,`docker compose pull` 直接找不到镜像。
+  改成 `git rev-parse HEAD`。
+- 端口撞车:app 默认 9999、PG 默认 5433,都被 tasks-api 占了。把 PG 端口也做成
+  `${PG_HOST_PORT:-5433}`(默认值不变,本地开发不受影响),服务器 `.env` 里覆盖。
+
+## 未完成(下次接着做)
+
+1. **前端**:说要重写成 SPA 以省服务器资源,还没动。重写时前端请求直接打到
+   `/api-hls`(nginx 已配好),不再是 `next.config.ts` 里的 rewrite →
+   `localhost:4000`。`localhost:4000` 现在**确实**是本服务(app 容器宿主端口),
+   但 SPA 走 nginx 子路径更省一层。
+2. **存量数据未导入**,而且**源库有问题**:服务器本机 `hls_edu` 库里只有
+   `users(2)` / `videos(1)` / `collections(1)` / `learning_progress(0)`,
+   **没有** `questions` / `question_stats` / `question_attempts` / `todos`。
+   迁移脚本在这台机器上跑会是空跑 —— 先确认真正的旧库在哪。
+3. **没有监控/告警**,也没有 `:latest` 回滚演练。回滚方式:改 `/opt/hls-api/.env`
+   或直接 `IMAGE_TAG=<旧sha> docker compose up -d`。
+
 
 ## 迁移脚本:必须先跑 dry-run
 
@@ -113,7 +135,9 @@ pnpm db:import --truncate   # 重跑时用,先清空目标表
 
 它们不在任何 git 历史里,只看代码会以为是笔误而"顺手修掉",然后弄崩前端:
 
-1. **路由不带 `/api` 前缀** —— 前端 axios 用 `baseURL: '/api'`,靠 Next rewrite 剥前缀打到后端根路径
+1. **路由不带任何前缀** —— 本地开发靠前端 Next rewrite(`/api/:path*` → `localhost:4000`),
+   生产靠 nginx(`/api-hls/` → `127.0.0.1:4000/`,proxy_pass 末尾带 `/` 剥前缀)。
+   两边都是在**外层**剥掉前缀,后端自己必须服务根路径,别在后端加前缀。
 2. **`/auth/me` 必须返回字段 `name`**(不是 `username`);
    **`/stats/dashboard` 的 `videos` 字段必须存在**(前端 `home/page.tsx` 直接读 `stats.videos.totalVideos`)
 

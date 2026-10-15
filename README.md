@@ -100,6 +100,10 @@ pnpm db:studio    # 可视化查看数据
 
 ### 从旧 MySQL 库搬存量数据
 
+> 现状:服务器本机的 `hls_edu` 库里**只有** `users` / `videos` / `collections` / `learning_progress`
+> 四张表,**没有**要迁的 `questions` / `question_stats` / `question_attempts` / `todos`。
+> 也就是说在这台机器上跑迁移脚本会是空跑,要迁的真实数据还在别处(待确认)。
+
 旧后端(NestJS + TypeORM + MySQL `hls_edu`)的数据用 `scripts/migrate-mysql-to-pg.ts` 搬过来:
 
 ```bash
@@ -108,7 +112,13 @@ pnpm db:import              # 实际导入(单事务,失败整体回滚)
 pnpm db:import --truncate   # 导入前先清空目标表(重复导入旧数据时用)
 ```
 
-目标库连接串取 `.env` 里的 `DATABASE_URL`。源库连接参数走环境变量,**密码不落盘**:
+目标库连接串取 `.env` 里的 `DATABASE_URL`。在服务器上跑的话,PG 容器映射在宿主机 **5434**:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5434/hlse pnpm db:import --dry-run
+```
+
+源库连接参数走环境变量,**密码不落盘**:
 
 | 变量 | 默认值 |
 |------|--------|
@@ -200,4 +210,31 @@ pnpm test
 
 `Dockerfile` 是多阶段构建,`docker-compose.yml` 里 app 服务的镜像默认 `ghcr.io/jg1848244690/hls-api:${IMAGE_TAG}`。
 
-CI(`.github/workflows/ci.yml`)在 push / PR 时跑 typecheck → test → build → 构建镜像推 GHCR。`deploy` job 目前只在 push 到 `pgsql` 分支时触发;换成 `hls-api` 分支时记得同步改 `ci.yml` 里的 `if` 条件和脚本里的分支名。
+CI(`.github/workflows/ci.yml`)在 push / PR 时跑 typecheck → test → build → 构建镜像推 GHCR;
+`deploy` job 只在 push `hls-api` 分支时触发,镜像 tag 用**完整 40 位 commit SHA**
+(不是 `--short` —— CI 推的 tag 是 `${{ github.sha }}`,短 SHA 对不上会 `pull` 失败)。
+
+### 服务器上的实际布局
+
+和老的 tasks-api 服务**同一台机器并存**,靠目录 / 端口 / 子路径错开:
+
+| | 老服务 | 本服务 |
+|---|---|---|
+| 目录(= compose 项目名) | `/opt/tasks-api` | `/opt/hls-api` |
+| 镜像 | `xy-tab-server` | `hls-api` |
+| app 宿主端口 | 9999 | 4000 |
+| PG 宿主端口 | 5433 | 5434 |
+| 对外路径 | `kskbl.com.cn/api` | `kskbl.com.cn/api-hls` |
+| DB / 卷 | `tasks` / `tasks-pg-data` | `hlse` / `hlse-pg-data` |
+
+部署相关变量都在服务器 `/opt/hls-api/.env`(不进 git,CI 只做 `git fetch/reset` + `docker compose pull/up`):
+`PORT=4000`、`PG_HOST_PORT=5434`、`OPENAPI_BASE_PATH=/api-hls`、`JWT_SECRET`。
+`.env` 里不设 `DATABASE_URL`(compose 已写死 `postgresql://postgres:postgres@postgres:5432/hlse`)。
+
+nginx 走宝塔的 extension 钩子,不动 `html_kskbl.com.cn.conf` 本体:把仓库里的
+`deploy/nginx/kskbl.com.cn-api-hls.conf` 装到
+`/www/server/panel/vhost/nginx/extension/kskbl.com.cn/hls-api.conf`,然后 `nginx -t && nginx -s reload`。
+
+> ⚠️ `/api-hls/` 的 `proxy_pass` 末尾必须带 `/`(剥掉前缀),后端路由本身不带任何前缀。
+
+> ⚠️ 服务器内存只有 1.6G,四套容器(app + PG)× 2 已占 ~150M,加镜像/构建缓存前先看 `df -h`。
