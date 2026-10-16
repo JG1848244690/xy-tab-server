@@ -10,21 +10,21 @@ import { useIsMobile } from '@/hooks/use-is-mobile'
  * 用法:<MobileGate><练习页内容/></MobileGate>
  */
 export function MobileGate({ children }: { children: React.ReactNode }) {
-    const isMobile = useIsMobile()
+  const isMobile = useIsMobile()
 
-    if (!isMobile) return <>{children}</>
+  if (!isMobile) return <>{children}</>
 
-    return (
-        <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <Monitor className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="space-y-1">
-                <p className="text-lg font-semibold">请使用网页端访问本页面</p>
-                <p className="text-sm text-muted-foreground">
-                    当前页面在手机上无法获得完整体验,请在电脑浏览器中打开
-                </p>
-            </div>
-        </div>
-    )
+  return (
+    <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+        <Monitor className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-lg font-semibold">请使用网页端访问本页面</p>
+        <p className="text-sm text-muted-foreground">
+          当前页面在手机上无法获得完整体验,请在电脑浏览器中打开
+        </p>
+      </div>
+    </div>
+  )
 }

@@ -7,16 +7,15 @@ import { useEffect, useState } from 'react'
 const QUERY = '(max-width: 767px)'
 
 export function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(
-        () => window.matchMedia(QUERY).matches,
-    )
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(QUERY).matches)
 
-    useEffect(() => {
-        const mql = window.matchMedia(QUERY)
-        const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-        mql.addEventListener('change', onChange)
-        return () => mql.removeEventListener('change', onChange)
-    }, [])
+  useEffect(() => {
+    const mql = window.matchMedia(QUERY)
+    // 不给回调标参数类型:lint 的 no-undef 不认识 MediaQueryListEvent
+    const onChange = () => setIsMobile(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [])
 
-    return isMobile
+  return isMobile
 }
