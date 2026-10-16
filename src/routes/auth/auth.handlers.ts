@@ -4,6 +4,7 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { users } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
+import { errorBody } from '../../lib/errors.js'
 import env from '../../env.js'
 import {
     clearAuthCookie,
@@ -66,19 +67,18 @@ export const register: AppRouteHandler<RegisterRoute> = async (c) => {
 
     const { email, password, name } = c.req.valid('json')
 
-    const [existing] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1)
-    if (existing) {
-        return c.json({ message: 'User already exists' }, HttpStatusCodes.CONFLICT)
-    }
-
+    // 不再做先查后插:并发注册同一邮箱时两边都能过查重,后到者撞唯一索引
+    // 变 500(还把 PG 错误信息泄露给客户端)。onConflictDoNothing 让数据库
+    // 一锤定音,returning 为空即冲突 → 409
     const [created] = await db
         .insert(users)
         .values({ email, password: await hashPassword(password), username: name })
+        .onConflictDoNothing({ target: users.email })
         .returning()
+
+    if (!created) {
+        return c.json(errorBody('User already exists', 'CONFLICT'), HttpStatusCodes.CONFLICT)
+    }
 
     // 旧 Nest 的 register 不下发登录态,前端注册后仍需走一次 login,保持一致
     return c.json(toUserResponse(created), HttpStatusCodes.OK)

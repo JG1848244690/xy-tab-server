@@ -7,7 +7,8 @@ expand(config())
 const EnvSchema = z.object({
     NODE_ENV: z.string().default('development'),
     PORT: z.coerce.number().default(9999),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']),
+    // 给默认值:以前少配这个 env 会直接在启动时 zod 抛错进程崩溃
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     DATABASE_URL: z.string().url(),
     // 用字符串枚举,避免 z.coerce.boolean() 把 "false" 转换成 true 的坑
     DATABASE_SSL: z.enum(['true', 'false']).default('false'),

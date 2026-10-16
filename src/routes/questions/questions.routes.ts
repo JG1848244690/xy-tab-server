@@ -23,9 +23,31 @@ const difficultySchema = z.enum(['easy', 'medium', 'hard'])
 const statusSchema = z.enum(['not_started', 'in_progress', 'completed'])
 
 /**
+ * 题目公共字段直接从表 schema 派生(B14):以前列表/详情的手写 schema 和
+ * 实际返回各自漂移(详情 stats 少了 4 个字段,handler 里还挂着 as never
+ * 绕类型检查)。derive 一处,表改了 schema 跟着改。
+ */
+const questionFieldsSchema = selectQuestionsSchema
+    .pick({
+        id: true,
+        title: true,
+        type: true,
+        difficulty: true,
+        tags: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+    })
+    .extend({
+        // jsonb 列被 drizzle-zod 推成 any,openapi 文档会退化成 {},这里收窄
+        tags: z.array(z.string()).nullable(),
+    })
+
+/**
  * 列表项的 stats。
  * 旧代码在用户没有该题记录时返回一份 not_started 的默认值(而不是 null),
- * 前端 questions-api.ts 的 QuestionStats 类型也把它当必填 —— 这里保持一致
+ * 前端 questions-api.ts 的 QuestionStats 类型也把它当必填 —— 这里保持一致。
+ * 这是 list handler 的聚合投影(coalesce 出来的计算列),不是表行,手写。
  */
 const statsSchema = z.object({
     totalAttempts: z.number(),
@@ -34,19 +56,7 @@ const statsSchema = z.object({
     lastAttemptAt: z.date().nullable(),
 })
 
-const visibilitySchema = z.enum(['shared', 'private'])
-
-const listItemSchema = z.object({
-    id: z.string().uuid(),
-    title: z.string(),
-    type: z.enum(['markdown', 'text']),
-    difficulty: difficultySchema,
-    tags: z.array(z.string()).nullable(),
-    visibility: visibilitySchema,
-    createdAt: z.date(),
-    updatedAt: z.date(),
-    stats: statsSchema,
-})
+const listItemSchema = questionFieldsSchema.extend({ stats: statsSchema })
 
 const listResponseSchema = z.object({
     data: z.array(listItemSchema),
@@ -55,20 +65,26 @@ const listResponseSchema = z.object({
     size: z.number(),
 })
 
-/** 详情比列表多 content / answer / lastAttempt */
-const detailSchema = listItemSchema.extend({
-    content: z.string(),
-    // 旧代码无条件返回 answer(注释写明"用于练习页面")
-    answer: z.string(),
-    lastAttempt: z
-        .object({
-            userAnswer: z.string().nullable(),
-            isCorrect: z.boolean(),
-            timeSpent: z.number().nullable(),
-            createdAt: z.date(),
-        })
-        .nullable(),
-})
+/**
+ * 详情比列表多 content / answer / lastAttempt。
+ * stats 是 questionStats 表全行 —— handler 在"无统计记录"时也会返回一份
+ * 全字段兜底行(见 questions.handlers.ts getOne),两条路径同用行 schema。
+ */
+const detailSchema = questionFieldsSchema
+    .extend({
+        content: z.string(),
+        // 旧代码无条件返回 answer(注释写明"用于练习页面")
+        answer: z.string(),
+        stats: selectQuestionStatsSchema,
+        lastAttempt: z
+            .object({
+                userAnswer: z.string().nullable(),
+                isCorrect: z.boolean(),
+                timeSpent: z.number().nullable(),
+                createdAt: z.date(),
+            })
+            .nullable(),
+    })
 
 /** 查询参数:全部可选,对齐旧 Nest 的 @Query() 行为 */
 const listQuerySchema = z.object({

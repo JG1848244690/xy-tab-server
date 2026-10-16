@@ -214,21 +214,24 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     const [row] = await db.select().from(questions).where(eq(questions.id, id)).limit(1)
     // private 题对非 owner 一律 404,不区分"不存在"和"不可见",避免探测
     if (!row || (row.visibility === 'private' && row.createdBy !== userId)) {
-        return c.json({ message: 'Not Found' } as never, HttpStatusCodes.NOT_FOUND)
+        return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
     }
 
-    const [stat] = await db
-        .select()
-        .from(questionStats)
-        .where(and(eq(questionStats.userId, userId), eq(questionStats.questionId, id)))
-        .limit(1)
-
-    const [lastAttempt] = await db
-        .select()
-        .from(questionAttempts)
-        .where(and(eq(questionAttempts.userId, userId), eq(questionAttempts.questionId, id)))
-        .orderBy(desc(questionAttempts.createdAt))
-        .limit(1)
+    // stat 和 lastAttempt 互不依赖,并行拉(B4):以前三条顺序 await,
+    // 详情接口延迟 = 三次往返之和
+    const [[stat], [lastAttempt]] = await Promise.all([
+        db
+            .select()
+            .from(questionStats)
+            .where(and(eq(questionStats.userId, userId), eq(questionStats.questionId, id)))
+            .limit(1),
+        db
+            .select()
+            .from(questionAttempts)
+            .where(and(eq(questionAttempts.userId, userId), eq(questionAttempts.questionId, id)))
+            .orderBy(desc(questionAttempts.createdAt))
+            .limit(1),
+    ])
 
     return c.json({
         id: row.id,
@@ -241,8 +244,19 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         visibility: row.visibility,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        // 旧代码 stat 为 null 时返回一份带 bestTime 的兜底对象
-        stats: stat ?? { ...EMPTY_STATS, bestTime: null },
+        // 没有统计记录时给一份完整形状的兜底行(字段与 questionStats 表一致),
+        // 不再是只挑四个字段的小对象 —— 契约 schema 用 selectQuestionStatsSchema,
+        // "有记录 / 没记录"两条路径的形状必须一致(B14)
+        stats: stat ?? {
+            userId,
+            questionId: id,
+            totalAttempts: 0,
+            correctAttempts: 0,
+            bestTime: null,
+            firstCorrectAt: null,
+            lastAttemptAt: null,
+            status: 'not_started' as const,
+        },
         lastAttempt: lastAttempt
             ? {
                   userAnswer: lastAttempt.userAnswer,
@@ -323,50 +337,48 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
         return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
     }
 
-    // 取现有统计,没有就建一条
-    const [existing] = await db
-        .select()
-        .from(questionStats)
-        .where(and(eq(questionStats.userId, userId), eq(questionStats.questionId, id)))
-        .limit(1)
-
-    const prevAttempts = existing?.totalAttempts ?? 0
-
-    const [attempt] = await db
-        .insert(questionAttempts)
-        .values({
-            userId,
-            questionId: id,
-            userAnswer: userAnswer ?? null,
-            timeSpent: timeSpent ?? null,
-            attemptCount: prevAttempts + 1,
-        })
-        .returning()
-
-    // 提交答案只把状态推进到 in_progress,判对错要等 PATCH attempts/:attemptId
-    const [updatedStat] = await db
-        .insert(questionStats)
-        .values({
-            userId,
-            questionId: id,
-            totalAttempts: prevAttempts + 1,
-            correctAttempts: existing?.correctAttempts ?? 0,
-            lastAttemptAt: attempt.createdAt,
-            firstCorrectAt: existing?.firstCorrectAt ?? null,
-            bestTime: existing?.bestTime ?? null,
-            status: 'in_progress',
-        })
-        .onConflictDoUpdate({
-            target: [questionStats.userId, questionStats.questionId],
-            set: {
-                // SQL 侧自增而不是 JS 里的 prevAttempts + 1:两个会话并发作答时,
-                // 各自读到的 prevAttempts 相同,互相覆盖会丢计数(P8,见加固文档)
-                totalAttempts: sql`${questionStats.totalAttempts} + 1`,
-                lastAttemptAt: attempt.createdAt,
+    // attempt 流水和 stats 汇总必须同生共死(B1):以前两步裸奔,中途失败
+    // (进程被杀/约束冲突)两边永久失配,统计口径再也对不回来
+    const { attempt } = await db.transaction(async (tx) => {
+        // SQL 侧自增:两个会话并发作答时,各自读旧值再互相覆盖会丢计数。
+        // lastAttemptAt 用 now() 而不是 attempt.createdAt —— 此刻 attempt
+        // 还没插入,两者语义等价(都是"这次提交的时刻")
+        const [stat] = await tx
+            .insert(questionStats)
+            .values({
+                userId,
+                questionId: id,
+                totalAttempts: 1,
+                correctAttempts: 0,
+                lastAttemptAt: sql`now()`,
+                firstCorrectAt: null,
+                bestTime: null,
                 status: 'in_progress',
-            },
-        })
-        .returning()
+            })
+            .onConflictDoUpdate({
+                target: [questionStats.userId, questionStats.questionId],
+                set: {
+                    totalAttempts: sql`${questionStats.totalAttempts} + 1`,
+                    lastAttemptAt: sql`now()`,
+                    status: 'in_progress',
+                },
+            })
+            .returning()
+
+        const [attempt] = await tx
+            .insert(questionAttempts)
+            .values({
+                userId,
+                questionId: id,
+                userAnswer: userAnswer ?? null,
+                timeSpent: timeSpent ?? null,
+                // 直接取自同事务里刚自增完的 stats 行,不再用 JS 读旧值 +1
+                attemptCount: stat.totalAttempts,
+            })
+            .returning()
+
+        return { attempt, stat }
+    })
 
     return c.json(
         {
@@ -389,61 +401,70 @@ export const markCorrect: AppRouteHandler<MarkCorrectRoute> = async (c) => {
     const userId = c.get('userId')!
     const { isCorrect } = c.req.valid('json')
 
-    const [attempt] = await db
-        .select()
-        .from(questionAttempts)
-        .where(
-            and(
-                eq(questionAttempts.id, attemptId),
-                eq(questionAttempts.userId, userId),
-                eq(questionAttempts.questionId, id),
-            ),
-        )
-        .limit(1)
-    if (!attempt) return c.json({ message: 'Attempt not found' }, HttpStatusCodes.NOT_FOUND)
+    // 判分 + 统计更新放进同一事务(B1);attempt 的存在性检查用
+    // update ... returning 一并原子完成,不存在(或不是本人的)时 returning 为空
+    const result = await db.transaction(async (tx) => {
+        const [updatedAttempt] = await tx
+            .update(questionAttempts)
+            .set({ isCorrect })
+            .where(
+                and(
+                    eq(questionAttempts.id, attemptId),
+                    eq(questionAttempts.userId, userId),
+                    eq(questionAttempts.questionId, id),
+                ),
+            )
+            .returning()
 
-    await db
-        .update(questionAttempts)
-        .set({ isCorrect })
-        .where(eq(questionAttempts.id, attemptId))
+        if (!updatedAttempt) return { notFound: true as const, stats: null }
 
-    // 只有判对才动 stat;判错不动 correctAttempts,只保持原状态
-    const [updatedStat] = isCorrect
-        ? await db
-              .insert(questionStats)
-              .values({
-                  userId,
-                  questionId: id,
-                  totalAttempts: 1,
-                  correctAttempts: 1,
-                  firstCorrectAt: attempt.createdAt,
-                  bestTime: attempt.timeSpent,
-                  status: 'completed',
-              })
-              .onConflictDoUpdate({
-                  target: [questionStats.userId, questionStats.questionId],
-                  set: {
-                      // stat 里已有的 totalAttempts 可能比 attempt 大,不能覆盖成 1
-                      // 表名限定引用的是 ON CONFLICT 里的"既有行"(旧值),不是新值
-                      correctAttempts: sql`${questionStats.correctAttempts} + 1`,
-                      status: 'completed' as const,
-                      // sql 模板不像 values() 那样按列类型做 Date 序列化,
-                      // 直接绑 JS Date 会被 postgres.js toString() 成
-                      // "Sun Oct 11 2026 ..." 而非 ISO,PG 解析不了 → 500。
-                      // 显式转 ISO 字符串,PG 按 unknown literal 推断成 timestamp。
-                      firstCorrectAt: sql`coalesce(${questionStats.firstCorrectAt}, ${attempt.createdAt.toISOString()})`,
-                      // 同上:timeSpent 可能是 null,统一兜成 0 再取最小值
-                      bestTime: sql`least(coalesce(${questionStats.bestTime}, ${attempt.timeSpent ?? 0}), ${attempt.timeSpent ?? 0})`,
-                  },
-              })
-              .returning()
-        : await db
-              .select()
-              .from(questionStats)
-              .where(and(eq(questionStats.userId, userId), eq(questionStats.questionId, id)))
-              .limit(1)
+        // 只有判对才动 stat;判错不动 correctAttempts,只保持原状态
+        if (!isCorrect) {
+            const [stat] = await tx
+                .select()
+                .from(questionStats)
+                .where(and(eq(questionStats.userId, userId), eq(questionStats.questionId, id)))
+                .limit(1)
+            return { notFound: false as const, stats: stat ?? null }
+        }
 
-    return c.json({ success: true, stats: updatedStat ?? null }, HttpStatusCodes.OK)
+        const [stat] = await tx
+            .insert(questionStats)
+            .values({
+                userId,
+                questionId: id,
+                totalAttempts: 1,
+                correctAttempts: 1,
+                firstCorrectAt: updatedAttempt.createdAt,
+                bestTime: updatedAttempt.timeSpent,
+                status: 'completed',
+            })
+            .onConflictDoUpdate({
+                target: [questionStats.userId, questionStats.questionId],
+                set: {
+                    // stat 里已有的 totalAttempts 可能比 attempt 大,不能覆盖成 1
+                    // 表名限定引用的是 ON CONFLICT 里的"既有行"(旧值),不是新值
+                    correctAttempts: sql`${questionStats.correctAttempts} + 1`,
+                    status: 'completed' as const,
+                    // sql 模板不像 values() 那样按列类型做 Date 序列化,
+                    // 直接绑 JS Date 会被 postgres.js toString() 成
+                    // "Sun Oct 11 2026 ..." 而非 ISO,PG 解析不了 → 500。
+                    // 显式转 ISO 字符串,PG 按 unknown literal 推断成 timestamp。
+                    firstCorrectAt: sql`coalesce(${questionStats.firstCorrectAt}, ${updatedAttempt.createdAt.toISOString()})`,
+                    // 同上:timeSpent 可能是 null,统一兜成 0 再取最小值
+                    bestTime: sql`least(coalesce(${questionStats.bestTime}, ${updatedAttempt.timeSpent ?? 0}), ${updatedAttempt.timeSpent ?? 0})`,
+                },
+            })
+            .returning()
+
+        return { notFound: false as const, stats: stat }
+    })
+
+    if (result.notFound) {
+        return c.json({ message: 'Attempt not found' }, HttpStatusCodes.NOT_FOUND)
+    }
+
+    return c.json({ success: true, stats: result.stats }, HttpStatusCodes.OK)
 }
 
 export const getAttempts: AppRouteHandler<GetAttemptsRoute> = async (c) => {
@@ -455,6 +476,9 @@ export const getAttempts: AppRouteHandler<GetAttemptsRoute> = async (c) => {
         .from(questionAttempts)
         .where(and(eq(questionAttempts.userId, userId), eq(questionAttempts.questionId, id)))
         .orderBy(desc(questionAttempts.createdAt))
+        // 上限兜底(B4):刷题上千次后不能一次拖全量;练习页只展示最近历史,
+        // 100 条足够。需要全量再走分页参数
+        .limit(100)
 
     return c.json(rows)
 }
@@ -466,27 +490,48 @@ export const getAttempts: AppRouteHandler<GetAttemptsRoute> = async (c) => {
 export const getStats: AppRouteHandler<GetStatsRoute> = async (c) => {
     const userId = c.get('userId')!
 
-    const stats = await db.select().from(questionStats).where(eq(questionStats.userId, userId))
+    // 一次 GROUP BY 把所有口径算完(B4):以前把该用户全部 stats 行拉进
+    // JS 内存 filter/reduce,题量上万时每次打开统计页都拖全量
+    const statusRowsPromise = db
+        .select({
+            status: questionStats.status,
+            statCount: count(),
+            totalAttempts: sql<number>`coalesce(sum(${questionStats.totalAttempts}), 0)`,
+            correctAttempts: sql<number>`coalesce(sum(${questionStats.correctAttempts}), 0)`,
+            totalTime: sql<number>`coalesce(sum(${questionStats.bestTime}), 0)`,
+        })
+        .from(questionStats)
+        .where(eq(questionStats.userId, userId))
+        .groupBy(questionStats.status)
+
     // total 的口径 = 当前用户可见题库(shared + 自己的题),不再是全表
-    const [{ value: total }] = await db
+    const totalPromise = db
         .select({ value: count() })
         .from(questions)
         .where(visibleBank(userId))
 
-    const completed = stats.filter((s) => s.status === 'completed').length
-    const inProgress = stats.filter((s) => s.status === 'in_progress').length
-    const notStarted = Number(total) - completed - inProgress
+    const [statusRows, [{ value: total }]] = await Promise.all([statusRowsPromise, totalPromise])
 
-    const totalAttempts = stats.reduce((sum, s) => sum + s.totalAttempts, 0)
-    const correctAttempts = stats.reduce((sum, s) => sum + s.correctAttempts, 0)
+    let completed = 0
+    let inProgress = 0
+    let totalAttempts = 0
+    let correctAttempts = 0
+    let totalTime = 0
+    for (const row of statusRows) {
+        totalAttempts += Number(row.totalAttempts)
+        correctAttempts += Number(row.correctAttempts)
+        totalTime += Number(row.totalTime)
+        if (row.status === 'completed') completed = Number(row.statCount)
+        else if (row.status === 'in_progress') inProgress = Number(row.statCount)
+    }
+
     const accuracy = totalAttempts > 0 ? (correctAttempts / totalAttempts) * 100 : 0
-    const totalTime = stats.reduce((sum, s) => sum + (s.bestTime || 0), 0)
 
     return c.json({
         total: Number(total),
         completed,
         inProgress,
-        notStarted,
+        notStarted: Number(total) - completed - inProgress,
         accuracy: Math.round(accuracy * 100) / 100,
         totalTime,
     })

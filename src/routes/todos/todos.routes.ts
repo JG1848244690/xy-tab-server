@@ -6,6 +6,7 @@ import {
     jsonContentRequired,
 } from '../../lib/openapi.js'
 import { insertTodosSchema, selectTodosSchema } from '../../db/schema.js'
+import { notFoundSchema } from '../../lib/constants.js'
 
 const tags = ['Todos']
 
@@ -13,8 +14,6 @@ const IdParamsSchema = z.object({ id: z.string().uuid() })
 
 /** 前端 todos-api.ts 的 Todo 类型,字段名完全一致 */
 const todoSchema = selectTodosSchema
-
-const notFoundSchema = z.object({ message: z.string() })
 
 export const getMonthStatus = createRoute({
     method: 'get',
@@ -93,7 +92,7 @@ export const update = createRoute({
     },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(todoSchema, '更新成功'),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(notFoundSchema, 'Todo not found'),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, 'Todo not found'),
     },
 })
 
@@ -104,7 +103,7 @@ export const remove = createRoute({
     request: { params: IdParamsSchema },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(z.object({ success: z.boolean() }), '删除成功'),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(notFoundSchema, 'Todo not found'),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, 'Todo not found'),
     },
 })
 
@@ -119,7 +118,7 @@ export const toggle = createRoute({
             z.object({ id: z.string().uuid(), completed: z.boolean() }),
             '切换后的状态',
         ),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(notFoundSchema, 'Todo not found'),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, 'Todo not found'),
     },
 })
 // ============================================================

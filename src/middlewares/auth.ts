@@ -21,6 +21,7 @@ import db from '../db/index.js'
 import { users } from '../db/schema.js'
 import env from '../env.js'
 import type { AppBindings } from '../lib/types.js'
+import { errorBody } from '../lib/errors.js'
 
 const secret = new TextEncoder().encode(env.JWT_SECRET)
 
@@ -29,20 +30,20 @@ export const cookieAuth = () =>
     createMiddleware<AppBindings>(async (c, next) => {
         const token = getCookie(c, env.AUTH_COOKIE_NAME)
         if (!token) {
-            return c.json({ error: 'Unauthorized' }, 401)
+            return c.json(errorBody('Unauthorized', 'UNAUTHORIZED'), 401)
         }
 
         let userId: string
         try {
             const { payload } = await jwtVerify(token, secret)
             if (typeof payload.sub !== 'string') {
-                return c.json({ error: 'Unauthorized' }, 401)
+                return c.json(errorBody('Unauthorized', 'UNAUTHORIZED'), 401)
             }
             userId = payload.sub
         } catch {
             // token 过期 / 被篡改 / 密钥不对,一律当未登录。
             // 前端 axios 响应拦截器收到 401 会清 store 并跳 /login
-            return c.json({ error: 'Unauthorized' }, 401)
+            return c.json(errorBody('Unauthorized', 'UNAUTHORIZED'), 401)
         }
 
         // 确认用户仍存在(token 签发后账号可能已被删)
@@ -53,7 +54,7 @@ export const cookieAuth = () =>
             .limit(1)
 
         if (!user) {
-            return c.json({ error: 'Unauthorized' }, 401)
+            return c.json(errorBody('Unauthorized', 'UNAUTHORIZED'), 401)
         }
 
         c.set('userId', user.id)

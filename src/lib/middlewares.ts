@@ -10,6 +10,9 @@
  */
 
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono'
+import { HTTPException } from 'hono/http-exception'
+import type { AppBindings } from './types.js'
+import { AppError, errorBody } from './errors.js'
 
 export const serveEmojiFavicon =
     (emoji: string): MiddlewareHandler =>
@@ -21,9 +24,47 @@ export const serveEmojiFavicon =
     }
 
 export const notFound = (c: Context) =>
-    c.json({ error: 'not found' }, 404) as Response
+    c.json(errorBody('Not Found', 'NOT_FOUND'), 404) as Response
 
-export const onError: ErrorHandler = (err, c) => {
-    console.error('[onError]', err)
-    return c.json({ error: err.message }, 500) as Response
+/**
+ * onError —— 全局兜底错误处理(B13)
+ *
+ * 之前:`console.error` + 把 err.message 原样返回。数据库驱动错误的 message
+ * 会带表名/列名/SQL 片段,直接泄露;且绕过 pino,日志无 requestId 无法反查。
+ *
+ * 现在:
+ *   - AppError(业务预期失败)→ 按携带的 status/code 返回,warn 级日志;
+ *   - HTTPException(hono/zod-openapi 主动抛出)→ 同样透传 status;
+ *   - 未知错误 → 响应只有 'Internal Server Error' + requestId,细节全进日志。
+ */
+export const onError: ErrorHandler<AppBindings> = (err, c) => {
+    // hono-pino 的 http.reqId 会把 requestId 放进 context;拿不到就现生成一个
+    const requestId = c.get('requestId') ?? crypto.randomUUID()
+    const logger = c.get('logger')
+
+    if (err instanceof AppError) {
+        logger?.warn({ err, requestId }, 'app error')
+        return c.json(errorBody(err.message, err.code, requestId), err.status) as Response
+    }
+
+    if (err instanceof HTTPException) {
+        const body = errorBody(
+            err.message || 'Request failed',
+            'HTTP_ERROR',
+            requestId,
+        )
+        if (err.status >= 500) {
+            logger?.error({ err, requestId }, 'http exception')
+        } else {
+            logger?.warn({ err, requestId }, 'http exception')
+        }
+        return c.json(body, err.status) as Response
+    }
+
+    // 未知错误:绝不把 err.message 透给客户端
+    logger?.error({ err, requestId }, 'unhandled error')
+    return c.json(
+        errorBody('Internal Server Error', 'INTERNAL_SERVER_ERROR', requestId),
+        500,
+    ) as Response
 }

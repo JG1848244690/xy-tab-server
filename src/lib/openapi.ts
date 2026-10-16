@@ -101,6 +101,8 @@ export const createMessageObjectSchema = (message: string) =>
 export const createErrorSchema = <T extends ZodType>(_schema: T) =>
     z.object({
         success: z.literal(false),
+        // 顶层 message:前端表单统一读 err.response.data.message 展示
+        message: z.string(),
         error: z.object({
             issues: z.array(
                 z.object({
@@ -147,6 +149,8 @@ export const defaultHook: Hook<any, any, any, any> = (result, c) => {
         return c.json(
             {
                 success: false as const,
+                // 顶层 message:前端表单统一读 err.response.data.message 展示
+                message: HttpStatusPhrases.UNPROCESSABLE_ENTITY,
                 error: {
                     issues: result.error.issues,
                     name: 'ZodError' as const,

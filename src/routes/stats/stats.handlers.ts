@@ -130,10 +130,13 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
             .where(and(eq(questionAttempts.userId, userId), gte(questionAttempts.createdAt, weekStart))),
 
         // 今日打卡
+        // startDate 本来就是 date 列、值为 YYYY-MM-DD 字符串,直接比较即可。
+        // 之前写 eq(sql\`${todos.startDate}::text\`, ...) 对列套了表达式,
+        // todos_user_start_date_idx 索引直接失效,每次 dashboard 全扫(B4)
         db
             .select({ completed: todos.completed })
             .from(todos)
-            .where(and(eq(todos.userId, userId), eq(sql`${todos.startDate}::text`, todayStr))),
+            .where(and(eq(todos.userId, userId), eq(todos.startDate, todayStr))),
 
         // 本周打卡:start_date 落在 [本周一, 今天]
         db
@@ -142,8 +145,8 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
             .where(
                 and(
                     eq(todos.userId, userId),
-                    gte(sql`${todos.startDate}::text`, weekStartStr),
-                    lte(sql`${todos.startDate}::text`, todayEndStr),
+                    gte(todos.startDate, weekStartStr),
+                    lte(todos.startDate, todayEndStr),
                 ),
             ),
     ])

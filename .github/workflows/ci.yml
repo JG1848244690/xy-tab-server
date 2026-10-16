@@ -28,10 +28,13 @@ jobs:
     timeout-minutes: 15
 
     # 给 env.ts 的 zod 校验喂 dummy 值。
-    # test 用 vi.mock 把 db 替换,不会真连 pg。
+    # 单元测试(auth.test.ts)用 vi.mock 把 db 替换;
+    # 集成测试(*.integration.test.ts)连下面的 postgres service 容器,
+    # TEST_DATABASE_URL 指向它,跑真实 SQL(可见性/事务/唯一索引)。
     # JWT_SECRET 用 dummy,只要过 min(16) 校验即可(ci 不发真实登录请求)。
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/test
+      TEST_DATABASE_URL: postgresql://test:test@localhost:5432/test
       DATABASE_SSL: 'false'
       LOG_LEVEL: info
       NODE_ENV: test
@@ -41,6 +44,23 @@ jobs:
       # GHCR push 需要 packages: write
       contents: read
       packages: write
+
+    # 集成测试的真实 PG。端口映射到 localhost:5432,
+    # 与 TEST_DATABASE_URL 对齐; unhealthy 会自动取消整个 job
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout

@@ -62,7 +62,10 @@ export const rateLimit = (options: RateLimitOptions) =>
             const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000)
             c.header('Retry-After', String(retryAfterSec))
             return c.json(
-                { message: 'Too many requests, please try again later' },
+                {
+                    message: 'Too many requests, please try again later',
+                    code: 'RATE_LIMITED',
+                },
                 HttpStatusCodes.TOO_MANY_REQUESTS,
             )
         }

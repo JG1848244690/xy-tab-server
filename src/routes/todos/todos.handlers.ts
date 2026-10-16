@@ -12,6 +12,7 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { selectTodosSchema, todos } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
+import { errorBody } from '../../lib/errors.js'
 
 /** 构造 YYYY-MM-DD,避免依赖 Date 的本地时区行为 */
 const ymd = (y: number, m: number, d: number) =>
@@ -117,7 +118,7 @@ export const update: AppRouteHandler<UpdateRoute> = async (c) => {
         .set(body)
         .where(and(eq(todos.id, id), eq(todos.userId, userId)))
         .returning()
-    if (!updated) return c.json({ message: 'Todo not found' }, HttpStatusCodes.BAD_REQUEST)
+    if (!updated) return c.json(errorBody('Todo not found', 'NOT_FOUND'), HttpStatusCodes.NOT_FOUND)
 
     return c.json(selectTodosSchema.parse(updated), HttpStatusCodes.OK)
 }
@@ -130,7 +131,7 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
         .delete(todos)
         .where(and(eq(todos.id, id), eq(todos.userId, userId)))
         .returning({ id: todos.id })
-    if (!deleted) return c.json({ message: 'Todo not found' }, HttpStatusCodes.BAD_REQUEST)
+    if (!deleted) return c.json(errorBody('Todo not found', 'NOT_FOUND'), HttpStatusCodes.NOT_FOUND)
 
     return c.json({ success: true }, HttpStatusCodes.OK)
 }
@@ -144,7 +145,7 @@ export const toggle: AppRouteHandler<ToggleRoute> = async (c) => {
         .from(todos)
         .where(and(eq(todos.id, id), eq(todos.userId, userId)))
         .limit(1)
-    if (!existing) return c.json({ message: 'Todo not found' }, HttpStatusCodes.BAD_REQUEST)
+    if (!existing) return c.json(errorBody('Todo not found', 'NOT_FOUND'), HttpStatusCodes.NOT_FOUND)
 
     const [updated] = await db
         .update(todos)

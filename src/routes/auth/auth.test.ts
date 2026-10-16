@@ -31,6 +31,8 @@ vi.mock('../../db/index.js', () => ({
         insert: () => {
             const chain: Record<string, unknown> = {}
             chain.values = () => chain
+            // register 现在用 onConflictDoNothing + returning 判冲突(B2)
+            chain.onConflictDoNothing = () => chain
             chain.returning = () => Promise.resolve(state.insertResult)
             return chain
         },
@@ -72,7 +74,7 @@ describe('auth contract', () => {
     app.route('/', auth)
 
     it('POST /auth/register 返回前端需要的 name 字段(不是 username)', async () => {
-        state.selectResult = [] // 查重没查到
+        // 注册不再先查后插(B2),insert + onConflictDoNothing 一步到位
         state.insertResult = [{ ...EXISTING_USER, email: 'new@test.com', username: '新用户' }]
 
         const res = await app.request('/auth/register', {
@@ -88,8 +90,8 @@ describe('auth contract', () => {
         expect(body).not.toHaveProperty('password')
     })
 
-    it('POST /auth/register 邮箱已存在时 409', async () => {
-        state.selectResult = [{ id: EXISTING_USER.id }]
+    it('POST /auth/register 邮箱已存在时 409(唯一索引兜底,returning 为空)', async () => {
+        state.insertResult = []
 
         const res = await app.request('/auth/register', {
             method: 'POST',
@@ -98,6 +100,8 @@ describe('auth contract', () => {
         })
 
         expect(res.status).toBe(409)
+        const body = await res.json()
+        expect(body.code).toBe('CONFLICT')
     })
 
     it('POST /auth/login 下发 HttpOnly 的 Authentication Cookie', async () => {

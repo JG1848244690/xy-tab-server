@@ -64,8 +64,9 @@ services:
       # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000
       - "${PORT:-9999}:9999"
     healthcheck:
-      # Hono 没自带 /health,沿用 / 当存活探针
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9999/ >/dev/null || exit 1"]
+      # /health 会真的 SELECT 1:PG 挂了返回 500,容器转 unhealthy(以前打 /
+      # 不查库,数据库挂了容器照样 healthy)
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9999/health >/dev/null || exit 1"]
       interval: 15s
       timeout: 3s
       retries: 5

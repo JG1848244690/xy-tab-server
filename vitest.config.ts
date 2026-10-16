@@ -6,5 +6,13 @@ export default defineConfig({
         // 不排除的话同一批用例会跑两遍(测试数翻倍,还容易误判覆盖范围)
         include: ['src/**/*.{test,spec}.ts'],
         exclude: ['**/node_modules/**', '**/.git/**', 'dist/**'],
+        // 集成测试要连真实 PG(CI 的 service 容器 / 本地的隧道),
+        // 迁移 + 多个请求串行,给宽一点的超时
+        testTimeout: 30_000,
+        hookTimeout: 30_000,
+        // 多个集成测试文件会对同一个测试库各跑一次 migrate(),
+        // 并行会抢迁移锁/重放迁移,串行最稳
+        fileParallelism: false,
+        setupFiles: ['./vitest.setup.ts'],
     },
 })
