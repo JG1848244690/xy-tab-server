@@ -46,6 +46,14 @@ const MM_DD = (d: Date) =>
 /** question_stats.status 的三种取值,与 pgEnum question_status 对齐 */
 type QuestionStatus = 'not_started' | 'in_progress' | 'completed'
 
+/**
+ * 可见题库口径:shared 人人可见,private 仅 owner。
+ * 与 questions.handlers 的 visibleBank 保持同一语义 —— 统计模块里所有
+ * 直接扫 questions 表的查询都必须带上它,否则私有题会从统计侧泄露
+ */
+const visibleBank = (userId: string) =>
+    or(eq(questions.visibility, 'shared'), eq(questions.createdBy, userId))!
+
 // ============================================================
 // dashboard
 // ============================================================
@@ -73,6 +81,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
         weekTodos,
     ] = await Promise.all([
         // 最近添加的题目(近 7 天)—— 视频表没了,对应项移除
+        // 口径 = 可见题库(shared + 自己的题),他人的私有题不出现在任何统计里
         db
             .select({
                 id: questions.id,
@@ -81,7 +90,9 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
                 createdAt: questions.createdAt,
             })
             .from(questions)
-            .where(gte(questions.createdAt, sevenDaysAgo))
+            .where(
+                and(gte(questions.createdAt, sevenDaysAgo), visibleBank(userId)),
+            )
             .orderBy(desc(questions.createdAt))
             .limit(5),
 
@@ -108,7 +119,10 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
             .from(questionAttempts)
             .where(and(eq(questionAttempts.userId, userId), eq(questionAttempts.isCorrect, true))),
 
-        db.select({ value: count() }).from(questions).where(gte(questions.createdAt, weekStart)),
+        db
+            .select({ value: count() })
+            .from(questions)
+            .where(and(gte(questions.createdAt, weekStart), visibleBank(userId))),
 
         db
             .select({ value: count() })
@@ -245,12 +259,13 @@ export const practiceTrend: AppRouteHandler<PracticeTrendRoute> = async (c) => {
 
 /** 旧版把 json 数组全拉进内存用 JS 统计;这里在 SQL 里展开 jsonb 数组再 group by */
 export const tagDistribution: AppRouteHandler<TagDistributionRoute> = async (c) => {
+    const userId = c.get('userId')!
     // 展开后的结果集要包成派生表并起别名 t,PG 才认(裸子查询当 FROM 会 42601),
-    // 之后所有列引用都得走 t. 前缀
+    // 之后所有列引用都得走 t. 前缀。where 里同样只能统计可见题库
     const exploded = sql`
         select jsonb_array_elements_text(${questions.tags}) as tag
         from ${questions}
-        where ${questions.tags} is not null
+        where ${questions.tags} is not null and ${visibleBank(userId)}
     `
     const rows = await db
         .select({
@@ -274,9 +289,11 @@ export const tagDistribution: AppRouteHandler<TagDistributionRoute> = async (c) 
 }
 
 export const difficultyDistribution: AppRouteHandler<DifficultyDistributionRoute> = async (c) => {
+    const userId = c.get('userId')!
     const rows = await db
         .select({ difficulty: questions.difficulty, count: sql<number>`count(*)::int` })
         .from(questions)
+        .where(visibleBank(userId))
         .groupBy(questions.difficulty)
 
     const total = rows.reduce((sum, r) => sum + Number(r.count), 0)
@@ -329,7 +346,9 @@ export const incompleteQuestions: AppRouteHandler<IncompleteQuestionsRoute> = as
                 eq(questionStats.userId, userId),
             ),
         )
-        .where(notCompleted)
+        // 未完成口径只在自己可见的题库上算 —— 他人的私有题(无 stat 记录)
+        // 会被 isNull(questionStats.questionId) 命中,必须剔除
+        .where(and(notCompleted, visibleBank(userId)))
         .orderBy(desc(questions.createdAt))
         .limit(size)
         .offset((page - 1) * size)
@@ -344,7 +363,7 @@ export const incompleteQuestions: AppRouteHandler<IncompleteQuestionsRoute> = as
                 eq(questionStats.userId, userId),
             ),
         )
-        .where(notCompleted)
+        .where(and(notCompleted, visibleBank(userId)))
 
     const totalCount = Number(total)
 
@@ -372,6 +391,7 @@ export const incompleteQuestions: AppRouteHandler<IncompleteQuestionsRoute> = as
 }
 
 export const recentAddedQuestions: AppRouteHandler<RecentAddedQuestionsRoute> = async (c) => {
+    const userId = c.get('userId')!
     const { page, size } = c.req.valid('query')
 
     const rows = await db
@@ -383,11 +403,15 @@ export const recentAddedQuestions: AppRouteHandler<RecentAddedQuestionsRoute> = 
             createdAt: questions.createdAt,
         })
         .from(questions)
+        .where(visibleBank(userId))
         .orderBy(desc(questions.createdAt))
         .limit(size)
         .offset((page - 1) * size)
 
-    const [{ value: total }] = await db.select({ value: count() }).from(questions)
+    const [{ value: total }] = await db
+        .select({ value: count() })
+        .from(questions)
+        .where(visibleBank(userId))
     const totalCount = Number(total)
 
     return c.json(

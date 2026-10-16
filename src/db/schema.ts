@@ -31,6 +31,8 @@ import { z } from 'zod';
 export const questionTypeEnum = pgEnum('question_type', ['markdown', 'text']);
 /** questions.difficulty */
 export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
+/** questions.visibility:shared = 所有登录用户可见可练;private = 仅创建者 */
+export const questionVisibilityEnum = pgEnum('question_visibility', ['shared', 'private']);
 /** question_stats.status */
 export const questionStatusEnum = pgEnum('question_status', [
     'not_started',
@@ -92,8 +94,15 @@ export const questions = pgTable(
          * 正好替换掉旧代码里的 JSON_CONTAINS(q.tags, '"x"')
          */
         tags: jsonb('tags').$type<string[]>(),
-        // 创建者。为 null 表示旧数据/无主;非 null 时删除接口要求匹配
-        createdBy: uuid('created_by'),
+        // 题库可见性:shared = 所有登录用户可见可练;private = 仅创建者。
+        // 默认 shared —— 存量数据语义即共享,ALTER TABLE 加列时一并带上默认值
+        visibility: questionVisibilityEnum('visibility').default('shared').notNull(),
+        // 创建者,由 handler 注入、客户端不可传。
+        // NOT NULL + FK CASCADE:本库历史题目已完成归属(见 docs runbook),
+        // "无主人人可删"的宽容逻辑删除 —— 删号经 CASCADE 连带删掉名下题目
+        createdBy: uuid('created_by')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
@@ -104,6 +113,8 @@ export const questions = pgTable(
         index('questions_created_at_idx').on(t.createdAt),
         // 支持 tags 的 @> 包含查询走 GIN 索引
         index('questions_tags_idx').using('gin', t.tags),
+        // 可见性过滤(shared OR created_by = me)与 owner 权限校验都会扫这个
+        index('questions_created_by_idx').on(t.createdBy),
     ],
 );
 
@@ -113,6 +124,8 @@ export const insertQuestionsSchema = createInsertSchema(questions)
     // 不 omit 掉的话会出现在 OpenAPI 契约里,让人以为可以伪造归属
     .omit({ id: true, createdBy: true, createdAt: true, updatedAt: true })
     .extend({
+        // visibility 由前端出题/编辑表单选择,默认进共享题库
+        visibility: z.enum(['shared', 'private']).default('shared'),
         // 前端 CreateQuestionDto 里 type/difficulty 是可选的,带默认值
         type: z.enum(['markdown', 'text']).default('text'),
         difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
@@ -129,8 +142,12 @@ export const updateQuestionsSchema = insertQuestionsSchema.partial();
 export const questionStats = pgTable(
     'question_stats',
     {
-        userId: uuid('user_id').notNull(),
-        questionId: uuid('question_id').notNull(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        questionId: uuid('question_id')
+            .notNull()
+            .references(() => questions.id, { onDelete: 'cascade' }),
         totalAttempts: integer('total_attempts').default(0).notNull(),
         correctAttempts: integer('correct_attempts').default(0).notNull(),
         lastAttemptAt: timestamp('last_attempt_at', { mode: 'date' }),
@@ -159,8 +176,12 @@ export const questionAttempts = pgTable(
     'question_attempts',
     {
         id: uuid('id').primaryKey().defaultRandom(),
-        userId: uuid('user_id').notNull(),
-        questionId: uuid('question_id').notNull(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        questionId: uuid('question_id')
+            .notNull()
+            .references(() => questions.id, { onDelete: 'cascade' }),
         userAnswer: text('user_answer'),
         isCorrect: boolean('is_correct').default(false).notNull(),
         // 本次作答用时(秒)
@@ -191,7 +212,9 @@ export const todos = pgTable(
     'todos',
     {
         id: uuid('id').primaryKey().defaultRandom(),
-        userId: uuid('user_id').notNull(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
         // MySQL 是 date 类型(无时分秒),这里保持 date
         startDate: date('start_date').notNull(),
         endDate: date('end_date').notNull(),

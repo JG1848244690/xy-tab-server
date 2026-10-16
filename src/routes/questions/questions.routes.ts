@@ -34,12 +34,15 @@ const statsSchema = z.object({
     lastAttemptAt: z.date().nullable(),
 })
 
+const visibilitySchema = z.enum(['shared', 'private'])
+
 const listItemSchema = z.object({
     id: z.string().uuid(),
     title: z.string(),
     type: z.enum(['markdown', 'text']),
     difficulty: difficultySchema,
     tags: z.array(z.string()).nullable(),
+    visibility: visibilitySchema,
     createdAt: z.date(),
     updatedAt: z.date(),
     stats: statsSchema,

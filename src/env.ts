@@ -31,6 +31,13 @@ const EnvSchema = z.object({
 
     // 登录态有效期(秒),默认 1 天,与旧 Nest 的 maxAge 一致
     AUTH_COOKIE_MAX_AGE: z.coerce.number().default(86400),
+
+    // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
+    REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),
+
+    // CORS 白名单,逗号分隔。留空 = 不限制(本地开发/同源直连);
+    // 生产填自己的前端 origin,其他来源不下发 Access-Control-Allow-Origin
+    CORS_ORIGINS: z.string().default(''),
 })
 
 export type env = z.infer<typeof EnvSchema>

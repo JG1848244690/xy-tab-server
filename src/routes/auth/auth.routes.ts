@@ -26,7 +26,8 @@ const loginBodySchema = z.object({
 
 const registerBodySchema = z.object({
     email: z.string().email(),
-    password: z.string().min(6),
+    // 只影响新注册;存量 hash 不动,老密码仍可登录
+    password: z.string().min(8, '密码至少 8 位'),
     name: z.string().min(1),
 })
 
@@ -60,6 +61,10 @@ export const register = createRoute({
     },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(userResponseSchema, '注册成功'),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            createMessageObjectSchema('Registration is disabled'),
+            '注册已关闭',
+        ),
         [HttpStatusCodes.CONFLICT]: jsonContent(
             createMessageObjectSchema('User already exists'),
             '邮箱已被注册',

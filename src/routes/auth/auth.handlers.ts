@@ -4,6 +4,7 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { users } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
+import env from '../../env.js'
 import {
     clearAuthCookie,
     hashPassword,
@@ -11,6 +12,13 @@ import {
     signToken,
     verifyPassword,
 } from '../../lib/auth.js'
+
+/**
+ * 邮箱不存在时也执行一次同成本的 bcrypt compare,抹平两种失败路径的耗时差,
+ * 防止通过响应时间探测"这个邮箱有没有注册过"。
+ * 模块加载时算一次 dummy hash,后续只做 compare。
+ */
+const DUMMY_HASH_PROMISE = hashPassword('timing-equalization-dummy')
 
 /** users 行 -> 前端期望的形状(username 映射成 name) */
 function toUserResponse(row: typeof users.$inferSelect) {
@@ -31,8 +39,13 @@ export const login: AppRouteHandler<LoginRoute> = async (c) => {
     const { email, password } = c.req.valid('json')
 
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
-    // 邮箱不存在和密码错误返回同一个 401,不泄露账号是否存在
-    if (!user || !(await verifyPassword(password, user.password))) {
+    // 邮箱不存在和密码错误返回同一个 401、走同样耗时的 bcrypt compare,不泄露账号是否存在
+    if (user) {
+        if (!(await verifyPassword(password, user.password))) {
+            return c.json({ message: 'Invalid credentials' }, HttpStatusCodes.UNAUTHORIZED)
+        }
+    } else {
+        await verifyPassword(password, await DUMMY_HASH_PROMISE)
         return c.json({ message: 'Invalid credentials' }, HttpStatusCodes.UNAUTHORIZED)
     }
 
@@ -43,6 +56,14 @@ export const login: AppRouteHandler<LoginRoute> = async (c) => {
 }
 
 export const register: AppRouteHandler<RegisterRoute> = async (c) => {
+    // 注册开关:封口时服务器 .env 里 REGISTRATION_ENABLED=false 重启即可
+    if (env.REGISTRATION_ENABLED === 'false') {
+        return c.json(
+            { message: 'Registration is disabled' },
+            HttpStatusCodes.FORBIDDEN,
+        )
+    }
+
     const { email, password, name } = c.req.valid('json')
 
     const [existing] = await db

@@ -25,6 +25,9 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
 // 列表
 // ============================================================
 
+/** question_stats.status 的三种取值,与 pgEnum question_status 对齐 */
+type QuestionStatus = 'not_started' | 'in_progress' | 'completed'
+
 /** 没有统计记录时给前端的兜底值,与旧 Nest 代码一致 */
 const EMPTY_STATS = {
     totalAttempts: 0,
@@ -33,14 +36,19 @@ const EMPTY_STATS = {
     lastAttemptAt: null,
 }
 
-/** question_stats.status 的三种取值,与 pgEnum question_status 对齐 */
-type QuestionStatus = 'not_started' | 'in_progress' | 'completed'
+/**
+ * 可见范围:shared 人人可见;private 仅 owner。
+ * 列表 / 详情 / 作答 / 统计的题库口径统一用它(signature 见 docs/db-ownership-hardening.md §4)
+ */
+const visibleBank = (userId: string) =>
+    or(eq(questions.visibility, 'shared'), eq(questions.createdBy, userId))!
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
     const userId = c.get('userId')!
     const { type, difficulty, tag, status, page, size, ordering, search } = c.req.valid('query')
 
-    const conditions = []
+    // 可见性永远第一位;后面再叠加业务过滤
+    const conditions = [visibleBank(userId)]
     if (type) conditions.push(eq(questions.type, type))
     if (difficulty) conditions.push(eq(questions.difficulty, difficulty))
     if (search) conditions.push(ilike(questions.title, `%${search}%`))
@@ -122,6 +130,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
                   type: questions.type,
                   difficulty: questions.difficulty,
                   tags: questions.tags,
+                  visibility: questions.visibility,
                   createdAt: questions.createdAt,
                   updatedAt: questions.updatedAt,
                   statTotalAttempts: sql<number>`coalesce(${stat.totalAttempts}, 0)`,
@@ -142,6 +151,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
                   type: questions.type,
                   difficulty: questions.difficulty,
                   tags: questions.tags,
+                  visibility: questions.visibility,
                   createdAt: questions.createdAt,
                   updatedAt: questions.updatedAt,
                   statTotalAttempts: sql<number>`0`,
@@ -174,6 +184,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
             type: r.type,
             difficulty: r.difficulty,
             tags: r.tags,
+            visibility: r.visibility,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
             stats:
@@ -201,7 +212,10 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     const userId = c.get('userId')!
 
     const [row] = await db.select().from(questions).where(eq(questions.id, id)).limit(1)
-    if (!row) return c.json({ message: 'Not Found' } as never, HttpStatusCodes.NOT_FOUND)
+    // private 题对非 owner 一律 404,不区分"不存在"和"不可见",避免探测
+    if (!row || (row.visibility === 'private' && row.createdBy !== userId)) {
+        return c.json({ message: 'Not Found' } as never, HttpStatusCodes.NOT_FOUND)
+    }
 
     const [stat] = await db
         .select()
@@ -224,6 +238,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         answer: row.answer,
         difficulty: row.difficulty,
         tags: row.tags,
+        visibility: row.visibility,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         // 旧代码 stat 为 null 时返回一份带 bestTime 的兜底对象
@@ -278,17 +293,16 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
         .limit(1)
     if (!row) return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
 
-    // createdBy 为 null 的是旧数据,允许任何人删 —— 与旧代码的宽容逻辑一致
-    if (row.createdBy !== null && row.createdBy !== userId) {
+    // 只有创建者能删(created_by 已 NOT NULL,旧"无主人人可删"分支不复存在)
+    if (row.createdBy !== userId) {
         return c.json(
             { message: 'You can only delete questions you created' },
             HttpStatusCodes.NOT_FOUND,
         )
     }
 
-    // 先清关联数据再删主体(question_stats / question_attempts 没有外键级联)
-    await db.delete(questionStats).where(eq(questionStats.questionId, id))
-    await db.delete(questionAttempts).where(eq(questionAttempts.questionId, id))
+    // question_stats / question_attempts 由 FK ON DELETE CASCADE 清理,
+    // 不再手工两连删
     await db.delete(questions).where(eq(questions.id, id))
 
     return c.json({ message: 'success' }, HttpStatusCodes.OK)
@@ -304,7 +318,10 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
     const { userAnswer, timeSpent } = c.req.valid('json')
 
     const [question] = await db.select().from(questions).where(eq(questions.id, id)).limit(1)
-    if (!question) return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
+    // private 题非 owner 不可练,与 getOne 同口径
+    if (!question || (question.visibility === 'private' && question.createdBy !== userId)) {
+        return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
+    }
 
     // 取现有统计,没有就建一条
     const [existing] = await db
@@ -342,7 +359,9 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
         .onConflictDoUpdate({
             target: [questionStats.userId, questionStats.questionId],
             set: {
-                totalAttempts: prevAttempts + 1,
+                // SQL 侧自增而不是 JS 里的 prevAttempts + 1:两个会话并发作答时,
+                // 各自读到的 prevAttempts 相同,互相覆盖会丢计数(P8,见加固文档)
+                totalAttempts: sql`${questionStats.totalAttempts} + 1`,
                 lastAttemptAt: attempt.createdAt,
                 status: 'in_progress',
             },
@@ -448,7 +467,11 @@ export const getStats: AppRouteHandler<GetStatsRoute> = async (c) => {
     const userId = c.get('userId')!
 
     const stats = await db.select().from(questionStats).where(eq(questionStats.userId, userId))
-    const [{ value: total }] = await db.select({ value: count() }).from(questions)
+    // total 的口径 = 当前用户可见题库(shared + 自己的题),不再是全表
+    const [{ value: total }] = await db
+        .select({ value: count() })
+        .from(questions)
+        .where(visibleBank(userId))
 
     const completed = stats.filter((s) => s.status === 'completed').length
     const inProgress = stats.filter((s) => s.status === 'in_progress').length
