@@ -56,6 +56,9 @@ services:
       # JWT 签名密钥 —— 绝不能进 git / CI log / 镜像
       # 生成:openssl rand -base64 32
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      # CORS 白名单(逗号分隔,留空=不限制);注册开关(默认 true)
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000
