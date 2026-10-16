@@ -18,12 +18,18 @@ import { useNavigate } from 'react-router-dom'
 // 提取为独立组件以正确使用 Hooks
 const TitleCell = ({ row }: { row: any }) => {
   const navigate = useNavigate()
+  const isPrivate = row.original.visibility === 'private'
   return (
     <div
-      className="text-center font-medium hover:underline cursor-pointer"
+      className="text-center font-medium hover:underline cursor-pointer inline-flex items-center gap-1 justify-center"
       onClick={() => navigate(`/test-center/practice/${row.original.id}`)}
     >
       {row.getValue('title')}
+      {isPrivate && (
+        <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+          私有
+        </span>
+      )}
     </div>
   )
 }

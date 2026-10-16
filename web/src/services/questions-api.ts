@@ -7,6 +7,8 @@ export interface CreateQuestionDto {
   answer: string
   difficulty?: 'easy' | 'medium' | 'hard'
   tags?: string[]
+  /** 可见性:shared(默认) = 共享题库人人可见可练;private = 仅自己 */
+  visibility?: 'shared' | 'private'
 }
 
 export interface QuestionStats {
@@ -24,6 +26,7 @@ export interface Question {
   answer?: string
   difficulty: 'easy' | 'medium' | 'hard'
   tags?: string[]
+  visibility?: 'shared' | 'private'
   createdAt: string
   updatedAt: string
   stats: QuestionStats

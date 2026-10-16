@@ -42,6 +42,7 @@ const Modal = () => {
     answer: '',
     difficulty: 'medium',
     tags: [],
+    visibility: 'shared',
   })
 
   const [tagsInput, setTagsInput] = useState('') // 用于输入标签，以逗号分隔
@@ -70,6 +71,7 @@ const Modal = () => {
         answer: questionData.answer || '',
         difficulty: questionData.difficulty || 'medium',
         tags: questionData.tags || [],
+        visibility: questionData.visibility || 'shared',
       })
       setTagsInput(questionData.tags?.join(',') || '')
       setIsDataLoaded(true)
@@ -85,6 +87,7 @@ const Modal = () => {
           answer: '',
           difficulty: 'medium',
           tags: [],
+          visibility: 'shared',
         })
         setTagsInput('')
       }
@@ -119,6 +122,7 @@ const Modal = () => {
         answer: '',
         difficulty: 'medium',
         tags: [],
+        visibility: 'shared',
       })
       setTagsInput('')
       // 关闭对话框
@@ -147,6 +151,7 @@ const Modal = () => {
         answer: '',
         difficulty: 'medium',
         tags: [],
+        visibility: 'shared',
       })
       setTagsInput('')
       // 关闭对话框
@@ -192,6 +197,7 @@ const Modal = () => {
         answer: '',
         difficulty: 'medium',
         tags: [],
+        visibility: 'shared',
       })
       setTagsInput('')
     }
@@ -238,7 +244,7 @@ const Modal = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 w-full min-w-0">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="type">题目类型 *</Label>
                 <Select
@@ -264,6 +270,20 @@ const Modal = () => {
                     { label: '简单', value: 'easy' },
                     { label: '中等', value: 'medium' },
                     { label: '困难', value: 'hard' },
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="visibility">可见性</Label>
+                <Select
+                  value={formData.visibility || 'shared'}
+                  onChange={(value) =>
+                    setFormData({ ...formData, visibility: value as 'shared' | 'private' })
+                  }
+                  options={[
+                    { label: '共享(所有人可见)', value: 'shared' },
+                    { label: '私有(仅自己)', value: 'private' },
                   ]}
                 />
               </div>
