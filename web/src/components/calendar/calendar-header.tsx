@@ -80,7 +80,7 @@ export default function CalendarHeader({ now, view, onMove, onCreate, onViewType
   }
 
   return (
-    <div className="relative flex items-center justify-between py-5">
+    <div className="relative flex items-center justify-between py-5 gap-1 sm:gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">
@@ -99,24 +99,28 @@ export default function CalendarHeader({ now, view, onMove, onCreate, onViewType
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="flex cursor-pointer items-center justify-center">
+      <div className="flex cursor-pointer items-center justify-center min-w-0">
         <Button variant="ghost" size="icon" onClick={() => onMove('prev')}>
           <Icon icon="solar:alt-arrow-left-outline" size={20} />
         </Button>
-        <span className="mx-2 text-base font-bold">{dayjs(now).format('YYYY年MM月DD日')}</span>
+        {/* 移动端缩字号但禁止换行 —— 之前被挤成三行竖排 */}
+        <span className="mx-0.5 sm:mx-2 text-xs sm:text-base font-bold whitespace-nowrap">
+          {dayjs(now).format('YYYY年MM月DD日')}
+        </span>
         <Button variant="ghost" size="icon" onClick={() => onMove('next')}>
           <Icon icon="solar:alt-arrow-right-outline" size={20} />
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <Button variant="outline" onClick={() => onMove('today')}>
           今天
         </Button>
         <Button onClick={() => onCreate()}>
           <div className="flex items-center justify-center gap-1">
             <Icon icon="material-symbols:add" size={20} />
-            新建事件
+            {/* 移动端只留 + 图标,整行才能放下 */}
+            <span className="hidden sm:inline">新建事件</span>
           </div>
         </Button>
       </div>

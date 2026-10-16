@@ -193,6 +193,8 @@ export const columns: ColumnDef<Question>[] = [
   },
   {
     accessorKey: 'tags',
+    // 移动端隐藏:列数太多会把操作列推出屏幕,标题/难度/状态/操作足够
+    meta: { className: 'hidden md:table-cell' },
     header: () => {
       return <div className="text-center">标签</div>
     },

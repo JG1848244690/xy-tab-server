@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
+import { MobileGate } from '@/components/mobile-gate'
 import {
   QuestionPanel,
   MarkdownEditor,
@@ -119,61 +120,63 @@ export default function PracticePage() {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden w-full h-full min-w-0 max-w-full">
-      {/* 顶部导航栏 */}
-      <PracticeHeader question={question} timeSpent={timeSpent} />
+    <MobileGate>
+      <div className="flex flex-col overflow-hidden w-full h-full min-w-0 max-w-full">
+        {/* 顶部导航栏 */}
+        <PracticeHeader question={question} timeSpent={timeSpent} />
 
-      {/* 主要内容区域 */}
-      <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0 max-w-full">
-        {/* 左侧：题目面板（题目内容 + 参考答案 Tab 切换） */}
-        <ResizablePanel defaultSize={50}>
-          <QuestionPanel
-            question={question}
-            questionId={questionId}
-            editorTheme={editorTheme}
-            onOpenHistory={() => setHistoryDialogOpen(true)}
-          />
-        </ResizablePanel>
-
-        <ResizableHandle withHandle className="w-0.5 h-full" />
-
-        {/* 右侧：答题区域 - 根据题目类型条件渲染 */}
-        <ResizablePanel defaultSize={50}>
-          {question.type === 'text' ? (
-            // 理论题：使用 Markdown 编辑器
-            <MarkdownEditor
-              userAnswer={userAnswer}
-              onAnswerChange={setUserAnswer}
+        {/* 主要内容区域 */}
+        <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0 max-w-full">
+          {/* 左侧：题目面板（题目内容 + 参考答案 Tab 切换） */}
+          <ResizablePanel defaultSize={50}>
+            <QuestionPanel
+              question={question}
+              questionId={questionId}
               editorTheme={editorTheme}
-              isSubmitted={isSubmitted}
-              isSubmitting={submitAndMarkMutation.isPending}
-              onSubmitCorrect={() => handleSubmitAndMark(true)}
-              onSubmitWrong={() => handleSubmitAndMark(false)}
-              onRestart={handleRestart}
+              onOpenHistory={() => setHistoryDialogOpen(true)}
             />
-          ) : (
-            // 代码题：使用代码编辑器
-            <CodeEditor
-              userAnswer={userAnswer}
-              onAnswerChange={setUserAnswer}
-              monacoTheme={monacoTheme}
-              isSubmitted={isSubmitted}
-              isSubmitting={submitAndMarkMutation.isPending}
-              onSubmitCorrect={() => handleSubmitAndMark(true)}
-              onSubmitWrong={() => handleSubmitAndMark(false)}
-              onRestart={handleRestart}
-            />
-          )}
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          </ResizablePanel>
 
-      {/* 答题历史 Dialog */}
-      <HistoryDialog
-        open={historyDialogOpen}
-        onOpenChange={setHistoryDialogOpen}
-        attempts={attempts}
-        onReviewHistory={handleReviewHistory}
-      />
-    </div>
+          <ResizableHandle withHandle className="w-0.5 h-full" />
+
+          {/* 右侧：答题区域 - 根据题目类型条件渲染 */}
+          <ResizablePanel defaultSize={50}>
+            {question.type === 'text' ? (
+              // 理论题：使用 Markdown 编辑器
+              <MarkdownEditor
+                userAnswer={userAnswer}
+                onAnswerChange={setUserAnswer}
+                editorTheme={editorTheme}
+                isSubmitted={isSubmitted}
+                isSubmitting={submitAndMarkMutation.isPending}
+                onSubmitCorrect={() => handleSubmitAndMark(true)}
+                onSubmitWrong={() => handleSubmitAndMark(false)}
+                onRestart={handleRestart}
+              />
+            ) : (
+              // 代码题：使用代码编辑器
+              <CodeEditor
+                userAnswer={userAnswer}
+                onAnswerChange={setUserAnswer}
+                monacoTheme={monacoTheme}
+                isSubmitted={isSubmitted}
+                isSubmitting={submitAndMarkMutation.isPending}
+                onSubmitCorrect={() => handleSubmitAndMark(true)}
+                onSubmitWrong={() => handleSubmitAndMark(false)}
+                onRestart={handleRestart}
+              />
+            )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+
+        {/* 答题历史 Dialog */}
+        <HistoryDialog
+          open={historyDialogOpen}
+          onOpenChange={setHistoryDialogOpen}
+          attempts={attempts}
+          onReviewHistory={handleReviewHistory}
+        />
+      </div>
+    </MobileGate>
   )
 }

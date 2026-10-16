@@ -41,10 +41,11 @@ const Statistics = () => {
   const yAxisLabel = chartType === 'frequency' ? '做题次数' : '时长（分钟）'
 
   return (
-    <div className="flex flex-col w-full h-full ">
-      <div className="section1 h-[50%] flex">
+    <div className="flex flex-col w-full h-full overflow-y-auto lg:overflow-hidden ">
+      {/* 移动端纵向堆叠(各图表给定高度),lg 起恢复左右分栏 */}
+      <div className="section1 flex flex-col lg:flex-row lg:h-[50%]">
         {/* 折线图 tab切换*/}
-        <div className="line flex flex-col w-[50%] h-full ">
+        <div className="line flex flex-col w-full h-[340px] lg:w-[50%] lg:h-full ">
           <div className="chartHeader flex items-center justify-between h-12 px-4 gap-4">
             {/* tab 切换 */}
             <Tabs
@@ -89,7 +90,7 @@ const Statistics = () => {
         </div>
 
         {/* 饼图 tab切换 */}
-        <div className="pie flex flex-col w-[50%] h-full">
+        <div className="pie flex flex-col w-full h-[340px] lg:w-[50%] lg:h-full">
           <div className="chartHeader flex items-center justify-between h-12 px-4 gap-4">
             {/* tab 切换 */}
             <Tabs
@@ -125,11 +126,11 @@ const Statistics = () => {
         </div>
       </div>
 
-      <div className="section2 flex flex-1 h-0 gap-4 p-4">
-        <div className="list1 flex-1 border rounded-lg p-4 bg-card">
+      <div className="section2 flex flex-col lg:flex-row lg:flex-1 lg:h-0 gap-4 p-4">
+        <div className="list1 flex-1 h-[420px] lg:h-auto border rounded-lg p-4 bg-card">
           <IncompleteQuestionsList />
         </div>
-        <div className="list2 flex-1 border rounded-lg p-4 bg-card">
+        <div className="list2 flex-1 h-[420px] lg:h-auto border rounded-lg p-4 bg-card">
           <RecentQuestionsList />
         </div>
       </div>

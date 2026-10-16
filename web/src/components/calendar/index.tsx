@@ -313,6 +313,20 @@ export default function Calendar() {
         .fc .fc-daygrid-day-frame {
           min-height: 100px;
         }
+        /* 移动端压缩格子高度,整月塞进视口,消除内部滚动条 */
+        @media (max-width: 767px) {
+          .fc .fc-daygrid-day-frame {
+            min-height: 56px;
+          }
+          .fc .fc-daygrid-day-number {
+            padding: 4px 4px 0px;
+            font-size: 0.75rem;
+          }
+          .fc .fc-col-header-cell-cushion {
+            font-size: 0.75rem;
+            padding: 4px 0px;
+          }
+        }
         .fc .fc-col-header {
           background: rgba(255, 255, 255, 0.05);
         }
@@ -488,6 +502,8 @@ export default function Calendar() {
               selectMirror
               dayMaxEvents
               headerToolbar={false}
+              // 只显示日期数字:zh-cn 的 dayNumberText 自带"日"字,窄格子被挤成竖排
+              dayCellContent={(arg) => String(arg.date.getDate())}
               select={handleDateSelect}
               eventClick={handleEventClick}
               height="calc(100% - 80px)"

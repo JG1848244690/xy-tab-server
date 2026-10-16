@@ -17,7 +17,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="flex-1 flex  flex-col min-h-0 w-full  items-start">
-        <TabsList className="shrink-0 mt-6 flex w-[40%] mx-auto ">
+        <TabsList className="shrink-0 mt-6 flex w-full max-w-xs mx-auto ">
           <TabsTrigger value="profile" className="flex w-[10%] items-center gap-2">
             <UserCircle className="h-4 w-4" />
             个人信息
@@ -27,7 +27,7 @@ export default function SettingsPage() {
         {/* 个人信息 Tab */}
         <TabsContent
           value="profile"
-          className="flex-1 w-[50%] mx-auto min-h-0 overflow-y-auto px-6 py-6"
+          className="flex-1 w-full max-w-2xl mx-auto min-h-0 overflow-y-auto px-6 py-6"
         >
           <div className=" mx-auto space-y-6">
             {/* 头像 */}
