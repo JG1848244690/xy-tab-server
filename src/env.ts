@@ -36,6 +36,11 @@ const EnvSchema = z.object({
     // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
     REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),
 
+    // 是否在生产环境暴露 /doc 与 /reference(Scalar 文档)。默认关(B6):
+    // 生产环境把 API 面完整暴露出去等于免费送攻击者踩点地图。
+    // 调试需要时在 .env 设 true 重启,用完关掉
+    ENABLE_API_DOCS: z.enum(['true', 'false']).default('false'),
+
     // CORS 白名单,逗号分隔。留空 = 不限制(本地开发/同源直连);
     // 生产填自己的前端 origin,其他来源不下发 Access-Control-Allow-Origin
     CORS_ORIGINS: z.string().default(''),

@@ -21,8 +21,10 @@ services:
       - pg-data:/var/lib/postgresql/data
     # 映射到宿主机的端口,默认 5433(避免与本机已有的 5432 实例撞端口)
     # 服务器上还跑着 tasks-api 的 PG(占 5433),用 .env 的 PG_HOST_PORT 覆盖,例如 5434
+    # B5:只绑 127.0.0.1 —— 数据库口令是弱口令,以前外网可达全靠防火墙兜底;
+    # 服务器上的 SSH 隧道(127.0.0.1 访问)不受影响
     ports:
-      - "${PG_HOST_PORT:-5433}:5432"
+      - "127.0.0.1:${PG_HOST_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d hlse"]
       interval: 5s
@@ -59,10 +61,14 @@ services:
       # CORS 白名单(逗号分隔,留空=不限制);注册开关(默认 true)
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      # B6:生产暴露 /doc、/reference 的开关,默认关
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000
-      - "${PORT:-9999}:9999"
+      # B5:只绑 127.0.0.1 —— 外网不再能裸连 app(以前伪造 X-Forwarded-For
+      # 就能绕过登录限流);nginx 在同一台宿主机上,127.0.0.1:4000 照常可达
+      - "127.0.0.1:${PORT:-9999}:9999"
     healthcheck:
       # /health 会真的 SELECT 1:PG 挂了返回 500,容器转 unhealthy(以前打 /
       # 不查库,数据库挂了容器照样 healthy)
