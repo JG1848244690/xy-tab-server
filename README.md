@@ -1,4 +1,18 @@
-# hlsEdu API
+# hlsEdu — HLS 学习平台(monorepo)
+
+仓库布局(pnpm workspace):
+
+```
+apps/api     后端(Hono + Zod OpenAPI + Drizzle + PostgreSQL)
+apps/web     后台 SPA(React 19 + Vite;本题库/练习/打卡)
+packages/*   共享包(预留:api ↔ 前端类型契约)
+site/(规划) 面试站 Next.js SSG,见 docs/interview-site-mvp-plan.md
+```
+
+本节以下旧文案是「根目录=api」时代写的,路径按新布局脑内补 apps/api/(已全部迁好)。
+
+之前的 monorepo 拆分说明(2026-10-17):
+	api 原在仓库根,monorepo 化后移入 apps/api ——
 
 hlsEdu 的后端服务。Hono + Zod OpenAPI + Drizzle ORM + PostgreSQL。
 
@@ -36,13 +50,16 @@ hlsEdu 的后端服务。Hono + Zod OpenAPI + Drizzle ORM + PostgreSQL。
 ## 快速开始
 
 ```bash
-pnpm install
-cp .env.example .env      # 填 JWT_SECRET 等
+pnpm install                  # 仓库根:一次性装 workspace 全部包
+cp apps/api/.env.example apps/api/.env   # 填 JWT_SECRET 等
 docker compose up -d postgres
-pnpm db:generate          # 改了 schema.ts 之后才需要
-pnpm db:migrate
-pnpm dev                  # → http://localhost:9999
+pnpm --filter hlse-api db:generate   # 改了 schema.ts 之后才需要
+pnpm --filter hlse-api db:migrate
+pnpm dev:api                  # api → http://localhost:9999
+pnpm dev:web                  # 后台 SPA → http://localhost:3000 已配代理
 ```
+
+根 package.json 的脚本名:dev:api / dev:web / build / typecheck / test。
 
 `docker-compose.yml` 里除了 postgres 还定义了 app 服务:
 

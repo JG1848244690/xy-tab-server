@@ -1,0 +1,19 @@
+# BuildKit 专用:使用 apps/api/Dockerfile 时优先生效这个文件
+node_modules
+apps/*/node_modules
+.git
+.github
+.vscode
+.idea
+.env
+.env.*
+!.env.example
+dev.db
+dist
+coverage
+logs
+*.log
+apps/web
+apps/site
+docs
+deploy

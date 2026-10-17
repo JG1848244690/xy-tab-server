@@ -4,7 +4,8 @@ on:
   push:
     branches: [hls-api]
     paths:
-      - 'web/**'
+      - 'apps/web/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/web.yml'
   workflow_dispatch:
 
@@ -23,28 +24,32 @@ jobs:
 
     defaults:
       run:
-        working-directory: web
+        working-directory: apps/web
 
     steps:
       - uses: actions/checkout@v4
 
+      # monorepo 化后 web 用 pnpm(与 api 同一锁文件),不再 npm ci
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Upload dist to server
         # 传到 releases/<sha>/,此时还没切 current,线上不受影响
@@ -53,9 +58,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: 'web/dist/*'
+          source: 'apps/web/dist/*'
           target: '${{ env.DEPLOY_DIR }}/releases/${{ github.sha }}'
-          strip_components: 2
+          strip_components: 3
           overwrite: true
 
       - name: Atomic switch + cleanup

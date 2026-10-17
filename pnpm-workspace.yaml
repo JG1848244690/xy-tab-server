@@ -1,2 +1,7 @@
-allowBuilds:
-  esbuild: true
+packages:
+    - 'apps/*'
+    - 'packages/*'
+
+# pnpm v10+:允许跑安装脚本的依赖(只有 esbuild 需要它的 postinstall 校验)
+onlyBuiltDependencies:
+    - esbuild
