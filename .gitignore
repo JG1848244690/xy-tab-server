@@ -28,4 +28,6 @@ lerna-debug.log*
 .DS_Store
 
 dev.db
-dist/
+dist/.playwright-mcp/
+m-login.png
+todos-v3.png
