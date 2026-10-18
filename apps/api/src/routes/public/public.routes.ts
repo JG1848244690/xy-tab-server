@@ -39,8 +39,9 @@ const publicQuestionListSchema = z.object({
     size: z.number(),
 })
 
-/** 详情:面试站题目页要展示题干+答案+解析(原创化产物) */
+/** 详情:面试站题目页要展示题干+答案+解析;id 供跳后台练习页用 */
 const publicQuestionDetailSchema = publicQuestionItemSchema.extend({
+    id: z.string().uuid(),
     content: z.string(),
     answer: z.string(),
 })

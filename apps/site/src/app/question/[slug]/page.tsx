@@ -86,52 +86,94 @@ export default async function QuestionPage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
             />
 
-            <div className="q-head">
-                <h1 className="page-title">{q.title}</h1>
-                <div className="meta-row">
-                    <DiffBadge difficulty={q.difficulty} />
-                    {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
-                    <span>{q.viewCount} 次浏览</span>
-                    {q.tags?.map((t) => (
-                        <Link
-                            key={t}
-                            href={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, '-'))}`}
-                            className="pill"
-                        >
-                            {t}
-                        </Link>
-                    ))}
-                </div>
-            </div>
-
-            <div className="q-section-label">题干</div>
-            <div className="markdown" dangerouslySetInnerHTML={{ __html: contentHtml }} />
-
-            <div className="q-section-label answer-label">参考答案</div>
-            <div
-                className="markdown answer-block"
-                dangerouslySetInnerHTML={{ __html: answerHtml }}
-            />
-            <CopyButton text={q.answer} slug={slug} />
-
-            {related.length ? (
-                <>
-                    <div className="section-head">
-                        <h2>相关题目</h2>
+            <div className="q-layout">
+                {/* 阅读列 */}
+                <div>
+                    <div className="q-head">
+                        <h1 className="page-title">{q.title}</h1>
+                        <div className="meta-row">
+                            <DiffBadge difficulty={q.difficulty} />
+                            {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
+                            <span>{q.viewCount} 次浏览</span>
+                        </div>
                     </div>
-                    <div className="list">
-                        {related.map((item) => (
-                            <a key={item.slug} href={`/question/${item.slug}`} className="row">
-                                <h3>
-                                    <span className="row-title">{item.title}</span>
-                                    <DiffBadge difficulty={item.difficulty} />
-                                </h3>
-                                {item.summary ? <p>{item.summary}</p> : null}
+
+                    <div className="q-section-label">题干</div>
+                    <div className="markdown" dangerouslySetInnerHTML={{ __html: contentHtml }} />
+
+                    <div className="q-section-label">参考答案</div>
+                    {q.answer.trim() ? (
+                        <div
+                            className="markdown answer-block"
+                            dangerouslySetInnerHTML={{ __html: answerHtml }}
+                        />
+                    ) : (
+                        <div className="empty">
+                            这道题的答案还在整理中。可以先看题干自己作答,
+                            <a href={`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'}/test-center/practice/${q.id}`} style={{ color: 'var(--accent)' }}>
+                                去练习页作答
                             </a>
-                        ))}
+                            ,或过几天再来。
+                        </div>
+                    )}
+                    {q.answer.trim() ? <CopyButton text={q.answer} slug={slug} /> : null}
+                </div>
+
+                {/* 信息栏:桌面 sticky,移动端落到正文后 */}
+                <aside className="q-aside">
+                    <div className="aside-card">
+                        <h3>题目信息</h3>
+                        <div className="kv">
+                            <span>难度</span>
+                            <b>
+                                <DiffBadge difficulty={q.difficulty} />
+                            </b>
+                        </div>
+                        <div className="kv">
+                            <span>浏览</span>
+                            <b>{q.viewCount}</b>
+                        </div>
+                        {q.publishedAt ? (
+                            <div className="kv">
+                                <span>发布</span>
+                                <b>{q.publishedAt.slice(0, 10)}</b>
+                            </div>
+                        ) : null}
+                        {q.tags?.length ? (
+                            <div className="kv" style={{ display: 'block' }}>
+                                <span style={{ display: 'block', marginBottom: 6 }}>标签</span>
+                                <div className="tags">
+                                    {q.tags.map((t) => (
+                                        <Link
+                                            key={t}
+                                            href={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, '-'))}`}
+                                            className="pill"
+                                        >
+                                            {t}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
-                </>
-            ) : null}
+
+                    {related.length ? (
+                        <div className="aside-card">
+                            <h3>相关题目</h3>
+                            <div className="list">
+                                {related.slice(0, 8).map((item) => (
+                                    <a key={item.slug} href={`/question/${item.slug}`} className="row">
+                                        <h3>
+                                            <span className="row-title">{item.title}</span>
+                                            <DiffBadge difficulty={item.difficulty} />
+                                        </h3>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+                </aside>
+            </div>
         </>
     )
 }

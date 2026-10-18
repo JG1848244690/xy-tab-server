@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { QuestionRow } from '@/components/rows'
+import { QuestionRow, DiffBadge } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 
 export const metadata: Metadata = {
@@ -13,29 +13,45 @@ export default async function HomePage() {
         siteApi.tags(),
     ])
 
-    const questionCount = hot.total
-    const tagCount = tags.data.filter((t) => t.questionCount > 0).length
+    const featured = hot.data[0]
+    const activeTags = tags.data.filter((t) => t.questionCount > 0)
 
     return (
         <>
-            <div className="hero">
+            <section className="hero">
                 <h1>面试题,按原理分层讲透</h1>
                 <p>
                     每道题都有 AI + 人工双审的分层参考答案、一句话结论与记忆口诀。
                     免费开放,不藏要点。
                 </p>
-                <div className="hero-stats">
+                <div className="hero-line">
                     <span>
-                        <strong>{questionCount}</strong>道题
+                        共 <strong>{hot.total}</strong> 道题
                     </span>
+                    <span>·</span>
                     <span>
-                        <strong>{banks.data.length}</strong>个题库
+                        <strong>{banks.data.length}</strong> 个专题题库
                     </span>
-                    <span>
-                        <strong>{tagCount}</strong>个标签
-                    </span>
+                    <span>·</span>
+                    <span>持续更新</span>
                 </div>
-            </div>
+
+                {featured ? (
+                    <a href={`/question/${featured.slug}`} className="featured">
+                        <div className="f-label">今日一题</div>
+                        <h2 className="f-title">{featured.title}</h2>
+                        <p>{featured.summary ?? '点击查看题干与分层解析。'}</p>
+                        <div className="meta-row">
+                            <DiffBadge difficulty={featured.difficulty} />
+                            {featured.tags?.slice(0, 3).map((t) => (
+                                <span key={t} className="pill">
+                                    {t}
+                                </span>
+                            ))}
+                        </div>
+                    </a>
+                ) : null}
+            </section>
 
             {banks.data.length ? (
                 <>
@@ -44,7 +60,7 @@ export default async function HomePage() {
                         <a href="/banks">全部 →</a>
                     </div>
                     <div className="list">
-                        {banks.data.slice(0, 4).map((b) => (
+                        {banks.data.map((b) => (
                             <a key={b.slug} href={`/bank/${b.slug}`} className="row">
                                 <h3>
                                     <span className="row-title">{b.title}</span>
@@ -57,22 +73,19 @@ export default async function HomePage() {
                 </>
             ) : null}
 
-            {tagCount > 0 ? (
+            {activeTags.length > 0 ? (
                 <>
                     <div className="section-head">
                         <h2>按标签复习</h2>
                         <a href="/tags">全部 →</a>
                     </div>
                     <div className="tag-cloud">
-                        {tags.data
-                            .filter((t) => t.questionCount > 0)
-                            .slice(0, 10)
-                            .map((t) => (
-                                <a key={t.slug} href={`/tag/${t.slug}`}>
-                                    {t.name}
-                                    <small>{t.questionCount}</small>
-                                </a>
-                            ))}
+                        {activeTags.slice(0, 12).map((t) => (
+                            <a key={t.slug} href={`/tag/${t.slug}`}>
+                                {t.name}
+                                <small>{t.questionCount}</small>
+                            </a>
+                        ))}
                     </div>
                 </>
             ) : null}

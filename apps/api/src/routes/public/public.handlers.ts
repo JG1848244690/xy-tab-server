@@ -86,6 +86,7 @@ export const getQuestion: AppRouteHandler<GetPublicQuestionRoute> = async (c) =>
 
     const [row] = await db
         .select({
+            id: questions.id,
             slug: questions.slug,
             title: questions.title,
             summary: questions.summary,

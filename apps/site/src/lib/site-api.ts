@@ -56,6 +56,7 @@ export type QuestionListItem = {
 }
 
 export type QuestionDetail = QuestionListItem & {
+    id: string
     content: string
     answer: string
 }
