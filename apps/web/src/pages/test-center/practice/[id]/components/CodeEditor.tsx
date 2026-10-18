@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Check, X, Loader2, RotateCcw, Play } from 'lucide-react'
 import Editor from '@monaco-editor/react'
+// monaco 本地化:别再走 jsDelivr CDN(F2),必须在 Editor 挂载前执行
+import '@/lib/monaco-setup'
 import { useState } from 'react'
 
 interface CodeEditorProps {

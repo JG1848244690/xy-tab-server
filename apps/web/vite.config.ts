@@ -9,7 +9,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 1500,
+    // 恢复默认告警阈值(F1):以前抬到 1500 是在掩盖主包过大,现在路由已分包,
+    // 超 500KB 的 chunk 都值得看一眼
+    chunkSizeWarningLimit: 500,
   },
   server: {
     port: 3000,
