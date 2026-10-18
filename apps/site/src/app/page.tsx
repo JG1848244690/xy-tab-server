@@ -7,13 +7,22 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-    const [hot, banks, tags] = await Promise.all([
-        siteApi.questions({ size: 10 }),
+    // 取两页算难度分布(构建期静态算好;>500 题后换专用聚合接口)
+    const [p1, p2, banks, tags] = await Promise.all([
+        siteApi.questions({ size: 50 }),
+        siteApi.questions({ size: 50, page: 2 }),
         siteApi.banks(),
         siteApi.tags(),
     ])
+    const all = [...p1.data, ...p2.data]
+    const byDiff = {
+        easy: all.filter((q) => q.difficulty === 'easy').length,
+        medium: all.filter((q) => q.difficulty === 'medium').length,
+        hard: all.filter((q) => q.difficulty === 'hard').length,
+    }
+    const maxDiff = Math.max(byDiff.easy, byDiff.medium, byDiff.hard, 1)
 
-    const featured = hot.data[0]
+    const featured = hot(p1.data)
     const activeTags = tags.data.filter((t) => t.questionCount > 0)
 
     return (
@@ -26,7 +35,7 @@ export default async function HomePage() {
                 </p>
                 <div className="hero-line">
                     <span>
-                        共 <strong>{hot.total}</strong> 道题
+                        共 <strong>{p1.total}</strong> 道题
                     </span>
                     <span>·</span>
                     <span>
@@ -73,6 +82,33 @@ export default async function HomePage() {
                 </>
             ) : null}
 
+            <div className="section-head">
+                <h2>难度分布</h2>
+            </div>
+            <div className="dist">
+                <div className="dist-row">
+                    <span className="diff diff-easy">简单</span>
+                    <span className="bar">
+                        <i style={{ width: `${(byDiff.easy / maxDiff) * 100}%`, background: 'var(--easy)' }} />
+                    </span>
+                    <span className="n">{byDiff.easy}</span>
+                </div>
+                <div className="dist-row">
+                    <span className="diff diff-medium">中等</span>
+                    <span className="bar">
+                        <i style={{ width: `${(byDiff.medium / maxDiff) * 100}%`, background: 'var(--medium)' }} />
+                    </span>
+                    <span className="n">{byDiff.medium}</span>
+                </div>
+                <div className="dist-row">
+                    <span className="diff diff-hard">困难</span>
+                    <span className="bar">
+                        <i style={{ width: `${(byDiff.hard / maxDiff) * 100}%`, background: 'var(--hard)' }} />
+                    </span>
+                    <span className="n">{byDiff.hard}</span>
+                </div>
+            </div>
+
             {activeTags.length > 0 ? (
                 <>
                     <div className="section-head">
@@ -91,13 +127,42 @@ export default async function HomePage() {
             ) : null}
 
             <div className="section-head">
+                <h2>建议的复习节奏</h2>
+            </div>
+            <div className="howto">
+                <div className="step">
+                    <b>
+                        <span className="no">1</span>先自己说答案
+                    </b>
+                    <p>只看题目,口头作答,再对照分层解析找差距。最痛苦的一遍,涨分最快。</p>
+                </div>
+                <div className="step">
+                    <b>
+                        <span className="no">2</span>口诀巩固骨架
+                    </b>
+                    <p>第二遍只看一句话结论和记忆口诀,把答案的骨架焊牢。</p>
+                </div>
+                <div className="step">
+                    <b>
+                        <span className="no">3</span>串成网
+                    </b>
+                    <p>考前用题目页底部的「相关题目」顺藤摸瓜,把同主题的题连成网络。</p>
+                </div>
+            </div>
+
+            <div className="section-head">
                 <h2>最新题目</h2>
             </div>
             <div className="list">
-                {hot.data.map((q, i) => (
+                {p1.data.map((q, i) => (
                     <QuestionRow key={q.slug} q={q} index={i + 1} />
                 ))}
             </div>
         </>
     )
+}
+
+function hot(data: Awaited<ReturnType<typeof siteApi.questions>>['data']) {
+    // 今日一题:取浏览量最高的一道(数据真实,构建期确定)
+    return [...data].sort((a, b) => b.viewCount - a.viewCount)[0]
 }

@@ -90,6 +90,8 @@ body {
     line-height: 1.75;
     font-size: 15.5px;
     font-feature-settings: 'tnum' 1;
+    /* 全幅装饰(网格底纹)不产生横向滚动;clip 不破坏 position: sticky */
+    overflow-x: clip;
 }
 
 a {
@@ -325,7 +327,26 @@ main > .container {
 
 /* ============ 首页 hero:产品自证,不是指标卡 ============ */
 .hero {
-    padding: 14px 0 34px;
+    padding: 20px 0 38px;
+    position: relative;
+}
+/* 工程蓝图网格底纹:主题世界自带的纹理(代码编辑器/坐标纸),极淡 */
+.hero::before {
+    content: '';
+    position: absolute;
+    /* 全幅铺满视口宽(full-bleed),别用负 inset 撑 —— 会把页面横向炸开 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    top: -40px;
+    height: 130%;
+    background:
+        linear-gradient(to right, color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 70% 90% at 30% 10%, black 0%, transparent 68%);
+    pointer-events: none;
+    z-index: -1;
 }
 .hero h1 {
     font-size: clamp(27px, 5vw, 38px);
@@ -389,6 +410,77 @@ main > .container {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* ---- 难度分布:纯 CSS 条形,数据真实 ---- */
+.dist {
+    display: grid;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    max-width: 560px;
+}
+.dist-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 36px;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+}
+.dist-row .bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    overflow: hidden;
+}
+.dist-row .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+.dist-row .n {
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-align: right;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* ---- 复习方法三步(真实序列,编号有信息量)---- */
+.howto {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+@media (max-width: 720px) {
+    .howto {
+        grid-template-columns: 1fr;
+    }
+}
+.howto .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+}
+.howto .step b {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 14.5px;
+    margin-bottom: 4px;
+}
+.howto .step b .no {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 600;
+}
+.howto .step p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.7;
 }
 
 /* ============ 行式目录 ============ */
@@ -633,16 +725,18 @@ a.pill:hover {
     margin: 1.6em 0;
 }
 
-/* shiki 双主题 */
+/* shiki 双主题:默认亮色,html.dark 时切暗色变量。
+   必须 !important —— shiki 把亮色写在行内 style,普通规则干不过它 */
 .shiki {
     background-color: var(--surface-2) !important;
     border: 1px solid var(--border);
 }
 .shiki span {
-    color: var(--shiki-light);
+    color: var(--shiki-light) !important;
 }
 .dark .shiki span {
-    color: var(--shiki-dark);
+    color: var(--shiki-dark) !important;
+    background-color: transparent !important;
 }
 .dark .shiki {
     background-color: var(--shiki-dark-bg) !important;

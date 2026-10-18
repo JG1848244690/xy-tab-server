@@ -13,7 +13,7 @@
  * 幂等:全部 onConflictDoNothing / 先查后插,可重复运行。
  */
 import 'dotenv/config'
-import { and, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, count, eq, isNotNull, isNull } from 'drizzle-orm'
 import db from '../src/db/index.js'
 import { articles, banks, questions, tagRegistry, users } from '../src/db/schema.js'
 
@@ -73,7 +73,74 @@ async function main() {
         .from(users)
         .where(eq(users.email, OWNER_EMAIL))
         .limit(1)
-    if (!owner) throw new Error(`找不到 ${OWNER_EMAIL},先跑用户迁移`)
+    // 本地/测试库没有这个账号时自动补一个(密码随机不登录,只为满足 FK)
+    let ownerId = owner?.id
+    if (!ownerId) {
+        const [created] = await db
+            .insert(users)
+            .values({
+                email: OWNER_EMAIL,
+                username: '内容组',
+                password: '$2b$10$seedonlynotusableforlogin00000000000000000000000000000',
+            })
+            .onConflictDoNothing()
+            .returning()
+        ownerId = created!.id
+        console.log('seed owner created (local/test db)')
+    }
+    if (!ownerId) throw new Error('unreachable: owner id missing')
+
+    // ---- 0. 空库兜底:没有题目时放 3 道示例题(生产 81 题在库,不会命中)----
+    // output:export 下 question/[slug] 的 gSP 为空数组会让构建失败
+    const [{ n: questionCount }] = await db
+        .select({ n: count() })
+        .from(questions)
+    if (Number(questionCount) === 0) {
+        await db.insert(questions).values(
+            [
+                {
+                    title: '下面这段代码输出什么?为什么?',
+                    type: 'markdown' as const,
+                    content:
+                        '```js\nasync function m() {\n  console.log(1)\n  const n = await 1\n  console.log(n)\n}\n\nm()\nconsole.log(2)\n```\n\n考察 async 函数的返回值与事件循环。',
+                    answer:
+                        '**输出 `1`、`2`、`1`。**\n\n- `m()` 同步执行到第一个 `await` 前打出 `1`\n- `await 1` 把 thenable 后续挂进微任务,主栈继续走完打出 `2`\n- 微任务里 `n = 1`(await 非 Promise 值会透传),打出 `1`\n\n> 💡 **记忆口诀**:await 让路,主栈先跑;微任务排队,回头再算。',
+                    difficulty: 'medium' as const,
+                    tags: ['Promise', '事件循环'],
+                    slug: 'promise-syntax-sugar',
+                    visibility: 'shared' as const,
+                },
+                {
+                    title: '手写防抖 debounce',
+                    type: 'markdown' as const,
+                    content: '实现一个 `debounce(fn, wait)`,首次立即执行的可选参数加分。',
+                    answer:
+                        '核心:**闭包记 timer,每次触发先清再设**。\n\n```js\nfunction debounce(fn, wait, immediate = false) {\n  let timer = null\n  return function (...args) {\n    if (immediate && !timer) fn.apply(this, args)\n    clearTimeout(timer)\n    timer = setTimeout(() => {\n      timer = null\n      if (!immediate) fn.apply(this, args)\n    }, wait)\n  }\n}\n```\n\n追问点:`this` 与参数保留、immediate 首次执行、取消方法。',
+                    difficulty: 'easy' as const,
+                    tags: ['手写', '闭包'],
+                    slug: 'handwrite-debounce',
+                    visibility: 'shared' as const,
+                },
+                {
+                    title: '浏览器里 0.1 + 0.2 !== 0.3 的原因与解法',
+                    type: 'markdown' as const,
+                    content: '为什么 `0.1 + 0.2 === 0.3` 是 false?工程上怎么比较浮点数?',
+                    answer:
+                        '**IEEE 754 双精度**的二进制表示:0.1 和 0.2 都是无法精确表示的小数,相加后产生误差 `0.30000000000000004`。\n\n解法:误差容忍比较 `Math.abs(a - b) < Number.EPSILON`,或整体转整数运算(金额用「分」)。\n\n**不要用** toFixed 做精确比较——它只是四舍五入。',
+                    difficulty: 'easy' as const,
+                    tags: ['javascript', '数据类型'],
+                    slug: 'float-0.1-plus-0.2',
+                    visibility: 'shared' as const,
+                },
+            ].map((q) => ({
+                ...q,
+                status: 'approved' as const,
+                publishedAt: new Date(),
+                createdBy: ownerId!,
+            })),
+        )
+        console.log('sample questions created: 3')
+    }
 
     // ---- 1. banks ----
     const bankIdBySlug = new Map<string, string>()

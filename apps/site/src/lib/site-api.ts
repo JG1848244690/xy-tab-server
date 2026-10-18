@@ -16,8 +16,9 @@ async function get<T>(path: string): Promise<T> {
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const res = await fetch(`${API_BASE}${path}`, {
-                // 构建期数据:next 缓存语义在 export 下要 force-cache
-                // (no-store 在 force-static 收集期会被拒)
+                // export 模式强制要求 force-cache(no-store 会直接构建失败);
+                // 数据新鲜度靠「不跨构建复用 .next」保证:CI 全新 checkout,
+                // 本地迭代先删 .next(见 README)
                 cache: 'force-cache',
                 signal: AbortSignal.timeout(30_000),
             })
