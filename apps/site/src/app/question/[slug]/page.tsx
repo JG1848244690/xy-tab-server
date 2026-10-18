@@ -93,9 +93,13 @@ export default async function QuestionPage({ params }: Props) {
                     {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
                     <span>{q.viewCount} 次浏览</span>
                     {q.tags?.map((t) => (
-                        <Link key={t} href={`/tag/${encodeURIComponent(t)}`} className="pill">
+                        <Link
+                            key={t}
+                            href={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, '-'))}`}
+                            className="pill"
+                        >
                             {t}
-                    </Link>
+                        </Link>
                     ))}
                 </div>
             </div>

@@ -13,7 +13,7 @@
  * 幂等:全部 onConflictDoNothing / 先查后插,可重复运行。
  */
 import 'dotenv/config'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import db from '../src/db/index.js'
 import { articles, banks, questions, tagRegistry, users } from '../src/db/schema.js'
 
@@ -118,6 +118,27 @@ async function main() {
         if (existing[0]) continue
         await db.insert(tagRegistry).values({ slug, name, description })
         console.log(`tag registered: ${slug}`)
+    }
+
+    // ---- 3.5 兜底登记:题库里出现过但没写介绍的标签 ----
+    // 登记了聚合页才存在(标签 pill 的内链才不是 404);介绍占位 <240 字
+    // → hasIntro=false → 站点侧 noindex,不算薄内容。清洗 agent 之后补正经文案
+    const tagRows = await db
+        .select({ tags: questions.tags })
+        .from(questions)
+        .where(and(eq(questions.status, 'approved'), isNotNull(questions.tags)))
+    const names = new Set(tagRows.flatMap((r) => r.tags ?? []))
+    for (const name of names) {
+        if (!name) continue
+        const slug = name.toLowerCase().replace(/\s+/g, '-')
+        const existing = await db.select().from(tagRegistry).where(eq(tagRegistry.slug, slug)).limit(1)
+        if (existing[0]) continue
+        await db.insert(tagRegistry).values({
+            slug,
+            name,
+            description: `关于${name}的面试题合集,共收录多道相关题目与分层解析。介绍文案整理中。`,
+        })
+        console.log(`tag registered (placeholder intro): ${slug}`)
     }
 
     // ---- 4. 欢迎文章 ----
