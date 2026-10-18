@@ -1,0 +1,103 @@
+name: Site CI
+
+# 面试站(Next.js SSG):构建期从 API 拉 /public/* 数据预生成全部页面。
+# 部署目标 /opt/hls-site,与 web 同款 releases/<sha> + current 原子切换。
+
+on:
+  push:
+    branches: [hls-api]
+    paths:
+      - 'apps/site/**'
+      - 'apps/api/src/routes/public/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    name: build · deploy static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DEPLOY_DIR: /opt/hls-site
+
+    defaults:
+      run:
+        working-directory: apps/site
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # 构建期要打上百个 API 请求(每题详情+相关题)。
+      # 过 Cloudflare 慢且偶发抖动;走 SSH 隧道直连源站,又快又稳。
+      # 端口 8080 是 runner 本地回环,构建结束随 job 消失。
+      - name: SSH tunnel to origin API
+        run: |
+          echo "${{ secrets.SERVER_SSH_KEY }}" > /tmp/site_build_key
+          chmod 600 /tmp/site_build_key
+          ssh -i /tmp/site_build_key -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+            -N -L 8080:127.0.0.1:4000 \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/health || (echo "::error::隧道建不起来" && exit 1)
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build (SSG)
+        env:
+          # 构建数据走隧道;站点自身的对外地址用于 canonical/sitemap
+          SITE_API_BASE: http://127.0.0.1:8080
+        run: pnpm run build
+
+      - name: Upload dist to server
+        # out/ 是 next build 的静态导出产物
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: 'apps/site/out/*'
+          target: '${{ env.DEPLOY_DIR }}/releases/${{ github.sha }}'
+          strip_components: 3
+          overwrite: true
+
+      - name: Atomic switch + cleanup
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: DEPLOY_DIR,SHA
+          script: |
+            set -e
+            cd "$DEPLOY_DIR"
+            chmod -R a+rX "releases/$SHA"
+            ln -sfn "releases/$SHA" current.tmp
+            mv -Tf current.tmp current
+            echo "=== current -> $(readlink current) ==="
+            ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+            ls -1dt releases/*/ | head -6
+        env:
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+          SHA: ${{ github.sha }}

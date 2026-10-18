@@ -28,6 +28,13 @@ lerna-debug.log*
 .DS_Store
 
 dev.db
-dist/.playwright-mcp/
+
+# 构建产物(任意层级的 dist / next 产物)
+dist/
+.next/
+out/
+
+# 本地临时产物
+.playwright-mcp/
 m-login.png
 todos-v3.png

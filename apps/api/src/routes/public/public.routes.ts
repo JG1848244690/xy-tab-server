@@ -68,6 +68,7 @@ const publicArticleItemSchema = selectArticlesSchema.pick({
     title: true,
     kind: true,
     excerpt: true,
+    comment: true,
     externalUrl: true,
     sourceDomain: true,
     tags: true,
