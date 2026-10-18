@@ -29,7 +29,7 @@ lerna-debug.log*
 
 dev.db
 
-# 构建产物(任意层级的 dist / next 产物)
+# 构建产物(任意层级�?dist / next 产物)
 dist/
 .next/
 out/
@@ -38,3 +38,4 @@ out/
 .playwright-mcp/
 m-login.png
 todos-v3.png
+/*.png
