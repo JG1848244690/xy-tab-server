@@ -8,7 +8,7 @@ Next.js 15 App Router + `output: 'export'` 纯静态导出。构建期从 API �
 | 变量 | 用途 | 默认 |
 |---|---|---|
 | `SITE_API_BASE` | 构建期数据源(API 地址)。CI 里走 SSH 隧道 `http://127.0.0.1:8080` | `https://hls.kskbl.com.cn/api-hls` |
-| `NEXT_PUBLIC_SITE_URL` | 站点对外 URL(canonical/sitemap/OG) | `https://tiku.kskbl.com.cn`(域名定下来后改) |
+| `NEXT_PUBLIC_SITE_URL` | 站点对外 URL(canonical/sitemap/OG) | `https://code.kskbl.com.cn` |
 | `NEXT_PUBLIC_BA_ID` | 百度统计 ID,不配则不注入脚本 | 无 |
 | `NEXT_PUBLIC_ICP` | 备案号(页脚) | 无 |
 | `NEXT_PUBLIC_WEB_URL` | 「我要出题」跳转的后台 SPA 地址 | `https://hls.kskbl.com.cn/test-center` |
@@ -39,7 +39,7 @@ pnpm --filter hls-site build     # 产物在 apps/site/out/
 
 ## 上线手动步骤(nginx,一次性)
 
-1. 决定域名(默认占位 `tiku.kskbl.com.cn`)并在 DNS 加解析
+1. 域名 `code.kskbl.com.cn` 在 DNS 加解析(A 记录指 47.94.85.91,或走 CF 橙云)
 2. 宝塔建站 + 证书,把 `deploy/nginx/site.kskbl.com.cn.conf` 内容按实际域名/证书路径改好
    放到 `/www/server/panel/vhost/nginx/extension/kskbl.com.cn/hls-site.conf`
 3. `nginx -t && nginx -s reload`

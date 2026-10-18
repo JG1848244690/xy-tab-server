@@ -129,7 +129,7 @@ export const siteApi = {
 
 /** 站点自身 URL(canonical/OG/sitemap 用),部署域名定了以后配 env */
 export const SITE_URL = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tiku.kskbl.com.cn'
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://code.kskbl.com.cn'
 ).replace(/\/$/, '')
 
 export const SITE_NAME = 'HLS 面试题库'
