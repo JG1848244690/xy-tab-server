@@ -357,6 +357,30 @@ export const insertTodosSchema = createInsertSchema(todos)
 // ============================================================
 
 // ============================================================
+// question_views —— 浏览去重流水(面试站 S4 反爬)
+// 同一 IP 哈希 + 同一天 + 同一题 = 一行;unique 约束兜底重复插入
+// ============================================================
+
+export const questionViews = pgTable(
+    'question_views',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        questionId: uuid('question_id')
+            .notNull()
+            .references(() => questions.id, { onDelete: 'cascade' }),
+        // YYYY-MM-DD(UTC);按天分位,便于定期清理
+        day: date('day').notNull(),
+        // sha256(ip + day) 截断 32 位:不存裸 IP,保留去重能力
+        ipHash: varchar('ip_hash', { length: 32 }).notNull(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (t) => [
+        uniqueIndex('question_views_dedup_idx').on(t.questionId, t.day, t.ipHash),
+        index('question_views_day_idx').on(t.day),
+    ],
+);
+
+// ============================================================
 // articles —— 原创图文 / 荐文卡(kind 区分)
 // ============================================================
 

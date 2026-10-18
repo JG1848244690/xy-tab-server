@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { siteApi } from '@/lib/site-api'
 import { groupIntoIssues } from '@/lib/digest'
@@ -42,23 +41,27 @@ export default async function DigestIssuePage({ params }: Props) {
     return (
         <>
             <h1 className="page-title">{issue} 期</h1>
-            <p style={{ color: 'var(--muted)' }}>本周 {current.articles.length} 篇值得读的。</p>
-            {current.articles.map((a) => (
-                <div key={a.slug} className="card curated-card">
-                    <h3>
-                        <Link href={`/article/${a.slug}`}>{a.title}</Link>
-                    </h3>
-                    <p>{a.comment ?? a.excerpt}</p>
-                    <div className="meta-row">
-                        {a.sourceDomain ? <span className="pill">{a.sourceDomain}</span> : null}
-                        <DigestClickClient slug={a.slug} />
+            <p className="page-sub">本周 {current.articles.length} 篇值得读的。</p>
+            <div className="list">
+                {current.articles.map((a) => (
+                    <div key={a.slug} className="row curated-row">
+                        <h3>
+                            <a href={`/article/${a.slug}`}>
+                                <span className="row-title">{a.title}</span>
+                            </a>
+                        </h3>
+                        <p>{a.comment ?? a.excerpt}</p>
+                        <div className="meta-row">
+                            {a.sourceDomain ? <span className="src">{a.sourceDomain}</span> : null}
+                            <DigestClickClient slug={a.slug} />
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
             <div className="section-head">
-                <Link href="/digest" style={{ color: 'var(--accent)', fontSize: 13 }}>
+                <a href="/digest" style={{ color: 'var(--accent)', fontSize: 13 }}>
                     ← 往期荟萃
-                </Link>
+                </a>
             </div>
         </>
     )

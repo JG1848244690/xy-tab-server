@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { QuestionCard } from '@/components/question-card'
+import { ListRow } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 
 export const metadata: Metadata = {
@@ -14,18 +14,21 @@ export default async function BanksPage() {
     return (
         <>
             <h1 className="page-title">题库</h1>
+            <p className="page-sub">按专题组织,每道题都经过审核链才能出现在这里。</p>
             {banks.data.length ? (
-                banks.data.map((b) => (
-                    <a key={b.slug} href={`/bank/${b.slug}`} className="card" style={{ display: 'block' }}>
-                        <h3>{b.title}</h3>
-                        <p>{b.description ?? `${b.questionCount} 道已发布题目`}</p>
-                        <div className="meta-row">
-                            <span className="pill">{b.questionCount} 题</span>
-                        </div>
-                    </a>
-                ))
+                <div className="list">
+                    {banks.data.map((b) => (
+                        <ListRow
+                            key={b.slug}
+                            href={`/bank/${b.slug}`}
+                            title={b.title}
+                            desc={b.description}
+                            badge={<span className="diff diff-easy">{b.questionCount} 题</span>}
+                        />
+                    ))}
+                </div>
             ) : (
-                <div className="empty">题库整理中,先看看热门题目吧</div>
+                <div className="empty">题库整理中,先看看首页的最新题目</div>
             )}
         </>
     )

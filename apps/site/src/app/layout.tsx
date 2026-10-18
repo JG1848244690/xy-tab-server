@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import { SiteFooter, SiteHeader } from '@/components/site-chrome'
+import { SiteFooter } from '@/components/site-chrome'
+import { SiteChrome } from '@/components/site-header'
 import { SITE_NAME, SITE_URL } from '@/lib/site-api'
 import './globals.css'
 
@@ -17,15 +18,28 @@ export const metadata: Metadata = {
     },
 }
 
+/** 防主题闪烁:首帧前定明暗,localStorage 优先,其次系统偏好 */
+const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d)}catch(e){}})()`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     const baiduId = process.env.NEXT_PUBLIC_BA_ID
     return (
-        <html lang="zh-CN">
+        <html lang="zh-CN" suppressHydrationWarning>
             <body>
-                <SiteHeader />
-                <main className="container">{children}</main>
+                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+                <SiteChrome
+                    brand={
+                        <>
+                            <span className="brand-mark">H</span>
+                            面试题库
+                        </>
+                    }
+                />
+                <main>
+                    <div className="container">{children}</div>
+                </main>
                 <SiteFooter />
-                {/* 百度统计:NEXT_PUBLIC_BA_ID 未配置时渲染 nothing */}
+                {/* 百度统计:NEXT_PUBLIC_BA_ID 未配置时不注入 */}
                 {baiduId ? (
                     <Script
                         src={`https://hm.baidu.com/hm.js?${baiduId}`}

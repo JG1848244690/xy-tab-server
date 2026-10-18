@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { QuestionCard } from '@/components/question-card'
+import { QuestionRow } from '@/components/rows'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -44,9 +44,13 @@ export default async function BankPage({ params }: Props) {
     return (
         <>
             <h1 className="page-title">{bank.title}</h1>
-            {bank.description ? <p style={{ color: 'var(--muted)' }}>{bank.description}</p> : null}
+            {bank.description ? <p className="page-sub">{bank.description}</p> : null}
             {bank.questions.length ? (
-                bank.questions.map((q) => <QuestionCard key={q.slug} q={q} />)
+                <div className="list">
+                    {bank.questions.map((q, i) => (
+                        <QuestionRow key={q.slug} q={q} index={i + 1} />
+                    ))}
+                </div>
             ) : (
                 <div className="empty">这个题库还没有已发布的题目</div>
             )}

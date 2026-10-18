@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { ListRow } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 
 export const metadata: Metadata = {
@@ -17,40 +17,44 @@ export default async function ArticlesPage() {
     return (
         <>
             <h1 className="page-title">文章</h1>
+            <p className="page-sub">原创图文与每周荐文导读。</p>
 
             <div className="section-head">
                 <h2>原创图文</h2>
             </div>
             {own.data.length ? (
-                own.data.map((a) => (
-                    <Link key={a.slug} href={`/article/${a.slug}`} className="card" style={{ display: 'block' }}>
-                        <h3>{a.title}</h3>
-                        <p>{a.excerpt}</p>
-                        <div className="meta-row">
-                            {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
-                            <span>{a.viewCount} 次浏览</span>
-                        </div>
-                    </Link>
-                ))
+                <div className="list">
+                    {own.data.map((a) => (
+                        <ListRow
+                            key={a.slug}
+                            href={`/article/${a.slug}`}
+                            title={a.title}
+                            desc={a.excerpt}
+                            meta={
+                                <>
+                                    {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
+                                    <span>{a.viewCount} 次浏览</span>
+                                </>
+                            }
+                        />
+                    ))}
+                </div>
             ) : (
                 <div className="empty">原创文章马上就来</div>
             )}
 
             <div className="section-head">
                 <h2>本周荐文</h2>
-                <Link href="/digest">往期荟萃 →</Link>
+                <a href="/digest">往期荟萃 →</a>
             </div>
             {curated.data.slice(0, 5).map((a) => (
-                <a
-                    key={a.slug}
-                    href={`/article/${a.slug}`}
-                    className="card curated-card"
-                    style={{ display: 'block' }}
-                >
-                    <h3>{a.title}</h3>
+                <a key={a.slug} href={`/article/${a.slug}`} className="row curated-row">
+                    <h3>
+                        <span className="row-title">{a.title}</span>
+                    </h3>
                     <p>{a.comment ?? a.excerpt}</p>
                     <div className="meta-row">
-                        {a.sourceDomain ? <span className="pill">{a.sourceDomain}</span> : null}
+                        {a.sourceDomain ? <span className="src">{a.sourceDomain}</span> : null}
                     </div>
                 </a>
             ))}

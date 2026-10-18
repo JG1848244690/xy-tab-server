@@ -44,6 +44,11 @@
 - 百度统计 + Search Console/百度站长提交
 
 ### 明确不进 MVP(放 backlog,防范围膨胀)
+- **收藏交互(S5,2026-10-18 确认的需求)**:user_favorites 表 + 站点内登录 +
+  题目页收藏按钮 + 收藏夹页;后续加 Google 等多种登录方式(users 表加 provider)。
+  不依赖 ISR——纯静态页 + 客户端调 API 即可,登录态不进 SSR
+- **ISR 迁移(S6)**:题目量 >500 或需要即时发布时,去 output:export 换
+  on-demand revalidation;代价是 1.6G 服务器上常驻一个 ~200MB 的 Next server
 - 爬取管线(P3.5)、岗位组合页 /job/[岗位](P3)、
 - IndexNow/蜜罐/viewCount 去重(P3)、AI 口诀/模拟面试官(P4)、开源内容策略(P4)
 - 图片走 OSS+CDN(已决定本地 static,量大了再迁)

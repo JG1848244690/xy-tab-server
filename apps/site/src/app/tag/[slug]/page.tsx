@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { QuestionCard } from '@/components/question-card'
+import { QuestionRow } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -55,7 +55,11 @@ export default async function TagPage({ params }: Props) {
             ) : null}
 
             {list.data.length ? (
-                list.data.map((q) => <QuestionCard key={q.slug} q={q} />)
+                <div className="list">
+                    {list.data.map((q, i) => (
+                        <QuestionRow key={q.slug} q={q} index={i + 1} />
+                    ))}
+                </div>
             ) : (
                 <div className="empty">这个标签下还没有已发布的题目</div>
             )}

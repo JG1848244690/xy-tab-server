@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { siteApi } from '@/lib/site-api'
 import { groupIntoIssues } from '@/lib/digest'
 
@@ -16,19 +15,19 @@ export default async function DigestPage() {
     return (
         <>
             <h1 className="page-title">每周荟萃</h1>
-            <p style={{ color: 'var(--muted)' }}>每周一期,只荐值得读完的。</p>
+            <p className="page-sub">一周一期,只荐值得读完的,附编辑点评。</p>
             {issues.length ? (
-                issues.map((issue) => (
-                    <Link key={issue.issue} href={`/digest/${issue.issue}`} className="card" style={{ display: 'block' }}>
-                        <h3>{issue.issue} 期</h3>
-                        <p>{issue.articles.length} 篇导读</p>
-                        <div className="meta-row">
-                            {issue.articles.slice(0, 3).map((a) => (
-                                <span key={a.slug}>{a.title}</span>
-                            ))}
-                        </div>
-                    </Link>
-                ))
+                <div className="list">
+                    {issues.map((issue) => (
+                        <a key={issue.issue} href={`/digest/${issue.issue}`} className="row">
+                            <h3>
+                                <span className="row-title">{issue.issue} 期</span>
+                                <span className="diff diff-easy">{issue.articles.length} 篇</span>
+                            </h3>
+                            <p>{issue.articles.map((a) => a.title).join(' · ')}</p>
+                        </a>
+                    ))}
+                </div>
             ) : (
                 <div className="empty">第一期筹备中</div>
             )}

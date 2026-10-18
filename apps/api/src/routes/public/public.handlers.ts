@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type {
     ListPublicQuestionsRoute,
@@ -15,6 +16,7 @@ import db from '../../db/index.js'
 import {
     articles,
     banks,
+    questionViews,
     questions,
     tagRegistry,
 } from '../../db/schema.js'
@@ -33,8 +35,13 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
 function publicQuestionConditions(bank?: string, tag?: string) {
     const conditions = [eq(questions.status, 'approved')]
     if (bank) conditions.push(eq(banks.slug, bank))
-    // 与登录侧 list 的 tag 过滤同款 jsonb 包含查询
-    if (tag) conditions.push(sql`${questions.tags} @> ${JSON.stringify([tag])}::jsonb`)
+    // 与该库共用的标签过滤:大小写无关(jsonb 元素逐个 lower 比对;
+    // 题目 tags 是 'JavaScript' 这类原始大小写,tag_registry 存的是小写 slug 名)
+    if (tag) {
+        conditions.push(
+            sql`exists (select 1 from jsonb_array_elements_text(${questions.tags}) t where lower(t) = lower(${tag}))`,
+        )
+    }
     return conditions
 }
 
@@ -104,15 +111,43 @@ export const getQuestion: AppRouteHandler<GetPublicQuestionRoute> = async (c) =>
 export const viewQuestion: AppRouteHandler<ViewQuestionRoute> = async (c) => {
     const { slug } = c.req.valid('param')
 
-    // SQL 侧自增,并保证只计 approved(MVP 不做 IP 去重,P3 再说)
-    const [row] = await db
-        .update(questions)
-        .set({ viewCount: sql`${questions.viewCount} + 1` })
-        .where(and(eq(questions.slug, slug), eq(questions.status, 'approved')))
-        .returning({ viewCount: questions.viewCount })
+    // 浏览计数去重(S4 反爬):同一 IP 同一天同一题只计一次。
+    // IP 取值与限流中间件同规则(cf-connecting-ip → x-real-ip → 对端);
+    // 存 hash 不存裸 IP。先插 view_events(唯一约束兜重),插成功才 +1
+    const ipHeader =
+        c.req.header('cf-connecting-ip') ?? c.req.header('x-real-ip') ?? 'unknown'
+    const day = new Date().toISOString().slice(0, 10)
+    const ipHash = createHash('sha256')
+        .update(`${ipHeader}:${day}`)
+        .digest('hex')
+        .slice(0, 32)
 
-    if (!row) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
-    return c.json({ viewCount: row.viewCount }, HttpStatusCodes.OK)
+    const [approved] = await db
+        .select({ id: questions.id })
+        .from(questions)
+        .where(and(eq(questions.slug, slug), eq(questions.status, 'approved')))
+        .limit(1)
+    if (!approved) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+
+    const inserted = await db
+        .insert(questionViews)
+        .values({ questionId: approved.id, day, ipHash })
+        .onConflictDoNothing()
+        .returning({ id: questionViews.id })
+
+    if (inserted.length) {
+        await db
+            .update(questions)
+            .set({ viewCount: sql`${questions.viewCount} + 1` })
+            .where(eq(questions.id, approved.id))
+    }
+
+    const [row] = await db
+        .select({ viewCount: questions.viewCount })
+        .from(questions)
+        .where(eq(questions.id, approved.id))
+
+    return c.json({ viewCount: row!.viewCount }, HttpStatusCodes.OK)
 }
 
 /** banks + 已发布题数;联表 group by 一次算完 */
@@ -196,7 +231,10 @@ export const listTags: AppRouteHandler<ListTagsRoute> = async (c) => {
             questionCount: sql<number>`(
                 select count(*) from "questions" q
                 where q.status = 'approved'
-                  and q.tags @> jsonb_build_array(${tagRegistry.name})::jsonb
+                  and exists (
+                      select 1 from jsonb_array_elements_text(q.tags) tag
+                      where lower(tag) = lower(${tagRegistry.name})
+                  )
             )`,
         })
         .from(tagRegistry)
@@ -225,6 +263,7 @@ export const listArticles: AppRouteHandler<ListArticlesRoute> = async (c) => {
             title: articles.title,
             kind: articles.kind,
             excerpt: articles.excerpt,
+            comment: articles.comment,
             externalUrl: articles.externalUrl,
             sourceDomain: articles.sourceDomain,
             tags: articles.tags,

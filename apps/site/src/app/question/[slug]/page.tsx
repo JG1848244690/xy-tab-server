@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { MetaRow } from '@/components/question-card'
+import { DiffBadge } from '@/components/rows'
 import { CopyButton } from '@/components/copy-button'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
 import { renderMarkdown as renderMarkdownSafe } from '@/lib/markdown'
@@ -86,13 +86,24 @@ export default async function QuestionPage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
             />
 
-            <h1 className="page-title">{q.title}</h1>
-            <MetaRow q={q} />
+            <div className="q-head">
+                <h1 className="page-title">{q.title}</h1>
+                <div className="meta-row">
+                    <DiffBadge difficulty={q.difficulty} />
+                    {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
+                    <span>{q.viewCount} 次浏览</span>
+                    {q.tags?.map((t) => (
+                        <Link key={t} href={`/tag/${encodeURIComponent(t)}`} className="pill">
+                            {t}
+                    </Link>
+                    ))}
+                </div>
+            </div>
 
-            <h2 style={{ fontSize: 17 }}>题干</h2>
+            <div className="q-section-label">题干</div>
             <div className="markdown" dangerouslySetInnerHTML={{ __html: contentHtml }} />
 
-            <h2 style={{ fontSize: 17 }}>参考答案</h2>
+            <div className="q-section-label answer-label">参考答案</div>
             <div
                 className="markdown answer-block"
                 dangerouslySetInnerHTML={{ __html: answerHtml }}
@@ -104,14 +115,17 @@ export default async function QuestionPage({ params }: Props) {
                     <div className="section-head">
                         <h2>相关题目</h2>
                     </div>
-                    {related.map((item) => (
-                        <Link key={item.slug} href={`/question/${item.slug}`} className="card" style={{ display: 'block' }}>
-                            <h3>{item.title}</h3>
-                            <div className="meta-row">
-                                <span className="pill">{item.difficulty}</span>
-                            </div>
-                        </Link>
-                    ))}
+                    <div className="list">
+                        {related.map((item) => (
+                            <a key={item.slug} href={`/question/${item.slug}`} className="row">
+                                <h3>
+                                    <span className="row-title">{item.title}</span>
+                                    <DiffBadge difficulty={item.difficulty} />
+                                </h3>
+                                {item.summary ? <p>{item.summary}</p> : null}
+                            </a>
+                        ))}
+                    </div>
                 </>
             ) : null}
         </>

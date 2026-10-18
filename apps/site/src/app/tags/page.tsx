@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { siteApi } from '@/lib/site-api'
 
 export const metadata: Metadata = {
@@ -14,14 +13,13 @@ export default async function TagsPage() {
     return (
         <>
             <h1 className="page-title">标签</h1>
+            <p className="page-sub">按主题横向串联题目;介绍不足 240 字的标签页不会被收录。</p>
             <div className="tag-cloud">
                 {tags.data.map((t) => (
-                    <Link key={t.slug} href={`/tag/${t.slug}`} className="card" style={{ display: 'block' }}>
-                        <h3>
-                            {t.name} <small style={{ color: 'var(--muted)' }}>{t.questionCount}</small>
-                        </h3>
-                        {t.description ? <p>{t.description.slice(0, 60)}…</p> : null}
-                    </Link>
+                    <a key={t.slug} href={`/tag/${t.slug}`}>
+                        {t.name}
+                        <small>{t.questionCount}</small>
+                    </a>
                 ))}
                 {tags.data.length === 0 ? <div className="empty">还没有登记标签</div> : null}
             </div>

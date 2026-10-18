@@ -22,6 +22,13 @@
       "when": 1792304465851,
       "tag": "0002_dapper_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792320445253,
+      "tag": "0003_groovy_havok",
+      "breakpoints": true
     }
   ]
 }

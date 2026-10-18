@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
-import { renderMarkdown } from '@/lib/markdown'
+import { renderMarkdownSafe } from '@/lib/markdown'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -52,18 +52,26 @@ export default async function ArticlePage({ params }: Props) {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
             />
-            <h1 className="page-title">{a.title}</h1>
-            <div className="meta-row" style={{ marginBottom: 20 }}>
-                <span className="pill">{a.kind === 'own' ? '原创' : '荐文'}</span>
-                {a.sourceDomain ? <span>{a.sourceDomain}</span> : null}
-                {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
+            <div className="q-head">
+                <h1 className="page-title">{a.title}</h1>
+                <div className="meta-row">
+                    <span className="pill">{a.kind === 'own' ? '原创' : '荐文'}</span>
+                    {a.sourceDomain ? <span className="src">{a.sourceDomain}</span> : null}
+                    {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
+                    <span>{a.viewCount} 次浏览</span>
+                </div>
             </div>
 
             {a.kind === 'curated' && a.externalUrl ? (
-                <div className="card curated-card">
+                <div className="markdown curated-row">
                     <p>{a.comment}</p>
                     <div className="meta-row">
-                        <a href={a.externalUrl} rel="nofollow noopener" target="_blank" style={{ color: 'var(--accent)' }}>
+                        <a
+                            href={a.externalUrl}
+                            rel="nofollow noopener"
+                            target="_blank"
+                            style={{ color: 'var(--accent)' }}
+                        >
                             阅读原文 ↗
                         </a>
                     </div>
@@ -73,7 +81,7 @@ export default async function ArticlePage({ params }: Props) {
             {a.contentMd ? (
                 <div
                     className="markdown"
-                    dangerouslySetInnerHTML={{ __html: await renderMarkdown(a.contentMd) }}
+                    dangerouslySetInnerHTML={{ __html: await renderMarkdownSafe(a.contentMd) }}
                 />
             ) : null}
         </>

@@ -97,15 +97,23 @@ describe.skipIf(!hasDb)('public read integration (real PG)', () => {
         expect(miss.status).toBe(404)
     })
 
-    it('view:approved 计数自增;非 approved 不计且 404', async () => {
+    it('view:同 IP 同天只计一次(S4 去重);换 IP 正常计;非 approved 不计且 404', async () => {
         await seedQuestion({ status: 'approved', slug: 'view-q', publishedAt: new Date() })
         await seedQuestion({ title: '未发', status: 'draft', slug: 'hidden-q' })
 
-        const r1 = await app.request('/public/questions/view-q/view', { method: 'POST' })
-        expect((await r1.json()).viewCount).toBe(1)
-        await app.request('/public/questions/view-q/view', { method: 'POST' })
-        const r3 = await app.request('/public/questions/view-q')
-        expect((await r3.json()).viewCount).toBe(2)
+        const view = (ip?: string) =>
+            app.request('/public/questions/view-q/view', {
+                method: 'POST',
+                headers: ip ? { 'cf-connecting-ip': ip } : {},
+            })
+
+        // 同一 IP 打三次 → 只计 1
+        expect((await (await view('9.9.9.1')).json()).viewCount).toBe(1)
+        expect((await (await view('9.9.9.1')).json()).viewCount).toBe(1)
+        // 换 IP → 计到 2
+        expect((await (await view('9.9.9.2')).json()).viewCount).toBe(2)
+        // 无 IP 头 → unknown 桶,与上面不同,再 +1
+        expect((await (await view()).json()).viewCount).toBe(3)
 
         const hidden = await app.request('/public/questions/hidden-q/view', { method: 'POST' })
         expect(hidden.status).toBe(404)

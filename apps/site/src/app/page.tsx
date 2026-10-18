@@ -1,8 +1,6 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
-import { QuestionCard } from '@/components/question-card'
+import { QuestionRow } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
-import { track } from '@/lib/track'
 
 export const metadata: Metadata = {
     alternates: { canonical: '/' },
@@ -15,56 +13,78 @@ export default async function HomePage() {
         siteApi.tags(),
     ])
 
+    const questionCount = hot.total
+    const tagCount = tags.data.filter((t) => t.questionCount > 0).length
+
     return (
         <>
-            <h1 className="page-title">前端 / 算法面试题,每题都有人工复核的分层解析</h1>
-            <p style={{ color: 'var(--muted)' }}>
-                AI + 人工双审徽章 · 免费 · 不藏要点。适合面试前突击与日常复习。
-            </p>
-
-            <div className="section-head">
-                <h2>题库入口</h2>
-                <Link href="/banks">全部题库 →</Link>
-            </div>
-            <div className="tag-cloud">
-                {banks.data.length ? (
-                    banks.data.slice(0, 8).map((b) => (
-                        <Link key={b.slug} href={`/bank/${b.slug}`} className="card">
-                            <h3>{b.title}</h3>
-                            <p>{b.questionCount} 题</p>
-                        </Link>
-                    ))
-                ) : (
-                    <span className="empty">题库整理中</span>
-                )}
+            <div className="hero">
+                <h1>面试题,按原理分层讲透</h1>
+                <p>
+                    每道题都有 AI + 人工双审的分层参考答案、一句话结论与记忆口诀。
+                    免费开放,不藏要点。
+                </p>
+                <div className="hero-stats">
+                    <span>
+                        <strong>{questionCount}</strong>道题
+                    </span>
+                    <span>
+                        <strong>{banks.data.length}</strong>个题库
+                    </span>
+                    <span>
+                        <strong>{tagCount}</strong>个标签
+                    </span>
+                </div>
             </div>
 
-            {tags.data.length ? (
+            {banks.data.length ? (
+                <>
+                    <div className="section-head">
+                        <h2>题库</h2>
+                        <a href="/banks">全部 →</a>
+                    </div>
+                    <div className="list">
+                        {banks.data.slice(0, 4).map((b) => (
+                            <a key={b.slug} href={`/bank/${b.slug}`} className="row">
+                                <h3>
+                                    <span className="row-title">{b.title}</span>
+                                    <span className="diff diff-easy">{b.questionCount} 题</span>
+                                </h3>
+                                {b.description ? <p>{b.description}</p> : null}
+                            </a>
+                        ))}
+                    </div>
+                </>
+            ) : null}
+
+            {tagCount > 0 ? (
                 <>
                     <div className="section-head">
                         <h2>按标签复习</h2>
+                        <a href="/tags">全部 →</a>
                     </div>
                     <div className="tag-cloud">
                         {tags.data
                             .filter((t) => t.questionCount > 0)
                             .slice(0, 10)
                             .map((t) => (
-                                <Link key={t.slug} href={`/tag/${t.slug}`} className="card">
-                                    {t.name} · {t.questionCount}
-                                </Link>
+                                <a key={t.slug} href={`/tag/${t.slug}`}>
+                                    {t.name}
+                                    <small>{t.questionCount}</small>
+                                </a>
                             ))}
                     </div>
                 </>
             ) : null}
 
             <div className="section-head">
-                <h2>热门题目</h2>
+                <h2>最新题目</h2>
             </div>
-            {hot.data.length ? (
-                hot.data.map((q) => <QuestionCard key={q.slug} q={q} />)
-            ) : (
-                <div className="empty">内容马上就来</div>
-            )}
+            <div className="list">
+                {hot.data.map((q, i) => (
+                    <QuestionRow key={q.slug} q={q} index={i + 1} />
+                ))}
+            </div>
         </>
     )
 }
