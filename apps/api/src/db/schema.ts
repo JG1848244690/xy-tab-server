@@ -9,6 +9,7 @@ import {
     date,
     index,
     integer,
+    jsonb,
     pgEnum,
     pgTable,
     primaryKey,
@@ -16,8 +17,8 @@ import {
     timestamp,
     uniqueIndex,
     uuid,
+    vector,
     varchar,
-    jsonb,
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -38,6 +39,14 @@ export const questionStatusEnum = pgEnum('question_status', [
     'not_started',
     'in_progress',
     'completed',
+]);
+/** questions.status / articles.status:公开站的内容审核状态(面试站 P0)。
+ *  与 question_status(练习进度)是两回事 —— 一个管内容能不能见公网,一个管用户练没练 */
+export const reviewStatusEnum = pgEnum('review_status', [
+    'draft',
+    'pending_review',
+    'approved',
+    'rejected',
 ]);
 
 // ============================================================
@@ -77,6 +86,41 @@ export const insertUsersSchema = createInsertSchema(users).omit({
 });
 
 // ============================================================
+// banks —— 题库/合集(面试站 P0):聚合页是铺页面主力
+// ============================================================
+
+export const banks = pgTable(
+    'banks',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        slug: varchar('slug', { length: 255 }).notNull(),
+        title: varchar('title', { length: 255 }).notNull(),
+        description: text('description'),
+        // 封面路径(本地 static;图片上传 P3 才有,先存路径)
+        cover: varchar('cover', { length: 500 }),
+        tags: jsonb('tags').$type<string[]>(),
+        // 归属与 questions 同口径:创建者可管理,删号级联
+        createdBy: uuid('created_by')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' })
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
+    },
+    (t) => [uniqueIndex('banks_slug_idx').on(t.slug)],
+);
+
+export const selectBanksSchema = createSelectSchema(banks);
+export const insertBanksSchema = createInsertSchema(banks).omit({
+    id: true,
+    createdBy: true,
+    createdAt: true,
+    updatedAt: true,
+});
+
+// ============================================================
 // questions —— 题库
 // ============================================================
 
@@ -103,6 +147,29 @@ export const questions = pgTable(
         createdBy: uuid('created_by')
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
+
+        // ===== 面试站 P0:公开发布链(见 docs/interview-site-mvp-plan.md §2.1)=====
+        // 审核状态:draft 建完没送审;pending_review 在 agent/人审队列;
+        // approved 才会出现在公开读接口;rejected 不对外
+        status: reviewStatusEnum('status').default('draft').notNull(),
+        // AI 审核总分 0-100(agent 五维加权和)
+        reviewScore: integer('review_score'),
+        // 完整审核报告(分维度得分 + 修改建议),后台直接渲染
+        reviewResult: jsonb('review_result').$type<Record<string, unknown>>(),
+        // 内容指纹:agent 幂等 —— 题目没改(contentHash 不变)就不重审
+        contentHash: varchar('content_hash', { length: 64 }),
+        // SEO URL。由标题生成;存量题在迁移里给 q-<md5> 兜底,agent 清洗时再美化
+        slug: varchar('slug', { length: 255 }),
+        // 列表/meta/OG 摘要,agent 生成
+        summary: text('summary'),
+        publishedAt: timestamp('published_at', { mode: 'date' }),
+        // 热榜计数(MVP 不做严格去重,P3 再按 IP+天去重)
+        viewCount: integer('view_count').default(0).notNull(),
+        // pgvector 语义向量:爬取管线 P3.5 的向量去重用(HNSW + cosine)
+        embedding: vector('embedding', { dimensions: 1536 }),
+        // 所属题库/合集;一题可不属于任何 bank
+        bankId: uuid('bank_id').references(() => banks.id, { onDelete: 'set null' }),
+
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
@@ -115,6 +182,15 @@ export const questions = pgTable(
         index('questions_tags_idx').using('gin', t.tags),
         // 可见性过滤(shared OR created_by = me)与 owner 权限校验都会扫这个
         index('questions_created_by_idx').on(t.createdBy),
+        // 公开站按 slug 读详情
+        uniqueIndex('questions_slug_idx').on(t.slug),
+        // 公开列表:status + 发布时间排序
+        index('questions_status_published_idx').on(t.status, t.publishedAt),
+        // HNSW 向量索引(cosine 距离),P3.5 向量去重 top-k 用
+        index('questions_embedding_idx').using(
+            'hnsw',
+            t.embedding.op('vector_cosine_ops'),
+        ),
     ],
 );
 
@@ -122,7 +198,22 @@ export const selectQuestionsSchema = createSelectSchema(questions);
 export const insertQuestionsSchema = createInsertSchema(questions)
     // createdBy 同样由中间件注入(handler 里总会用当前用户覆盖),
     // 不 omit 掉的话会出现在 OpenAPI 契约里,让人以为可以伪造归属
-    .omit({ id: true, createdBy: true, createdAt: true, updatedAt: true })
+    .omit({
+        id: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        // 发布链字段全部系统管理(审核 agent / 发布动作),不走创建表单
+        status: true,
+        reviewScore: true,
+        reviewResult: true,
+        contentHash: true,
+        slug: true,
+        summary: true,
+        publishedAt: true,
+        viewCount: true,
+        embedding: true,
+    })
     .extend({
         // visibility 由前端出题/编辑表单选择,默认进共享题库
         visibility: z.enum(['shared', 'private']).default('shared'),
@@ -132,6 +223,7 @@ export const insertQuestionsSchema = createInsertSchema(questions)
         title: z.string().min(1),
         content: z.string(),
         answer: z.string(),
+        bankId: z.string().uuid().optional(),
     });
 export const updateQuestionsSchema = insertQuestionsSchema.partial();
 
@@ -259,3 +351,175 @@ export const insertTodosSchema = createInsertSchema(todos)
         completed: z.boolean().default(false),
         description: z.string().optional(),
     });
+
+// ============================================================
+// 以下为面试站 P0 新增(见 docs/interview-site-mvp-plan.md §2.1)
+// ============================================================
+
+// ============================================================
+// articles —— 原创图文 / 荐文卡(kind 区分)
+// ============================================================
+
+/** articles.kind:own = 站内原创;curated = 外链导读(评论必填) */
+export const articleKindEnum = pgEnum('article_kind', ['own', 'curated']);
+
+export const articles = pgTable(
+    'articles',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        slug: varchar('slug', { length: 255 }).notNull(),
+        title: varchar('title', { length: 255 }).notNull(),
+        cover: varchar('cover', { length: 500 }),
+        kind: articleKindEnum('kind').default('own').notNull(),
+        // own:正文 markdown
+        contentMd: text('content_md'),
+        // curated:外链导读
+        externalUrl: varchar('external_url', { length: 1000 }),
+        sourceDomain: varchar('source_domain', { length: 255 }),
+        // curated 必填 2-3 句点评(why worth reading)
+        comment: text('comment'),
+        excerpt: text('excerpt'),
+        // 关联的题目 id(内链:文章 ↔ 题目互挂)
+        relatedQuestionIds: jsonb('related_question_ids').$type<string[]>(),
+        tags: jsonb('tags').$type<string[]>(),
+        // 审核链与 questions 同构:agent 评分 + 阈值
+        status: reviewStatusEnum('status').default('draft').notNull(),
+        reviewScore: integer('review_score'),
+        reviewResult: jsonb('review_result').$type<Record<string, unknown>>(),
+        contentHash: varchar('content_hash', { length: 64 }),
+        publishedAt: timestamp('published_at', { mode: 'date' }),
+        viewCount: integer('view_count').default(0).notNull(),
+        createdBy: uuid('created_by')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' })
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
+    },
+    (t) => [
+        uniqueIndex('articles_slug_idx').on(t.slug),
+        index('articles_status_published_idx').on(t.status, t.publishedAt),
+    ],
+);
+
+export const selectArticlesSchema = createSelectSchema(articles);
+export const insertArticlesSchema = createInsertSchema(articles).omit({
+    id: true,
+    createdBy: true,
+    createdAt: true,
+    updatedAt: true,
+    status: true,
+    reviewScore: true,
+    reviewResult: true,
+    contentHash: true,
+    publishedAt: true,
+    viewCount: true,
+});
+
+// ============================================================
+// tag_registry —— 标签聚合页的介绍文案登记
+// 有 ≥240 字介绍才允许聚合页被搜索引擎收录,空页 noindex(防薄内容惩罚)
+// ============================================================
+
+export const tagRegistry = pgTable(
+    'tag_registry',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        slug: varchar('slug', { length: 255 }).notNull(),
+        name: varchar('name', { length: 100 }).notNull(),
+        description: text('description'),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' })
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
+    },
+    (t) => [uniqueIndex('tag_registry_slug_idx').on(t.slug)],
+);
+
+export const selectTagRegistrySchema = createSelectSchema(tagRegistry);
+
+// ============================================================
+// review_logs —— AI 审核轨迹审计:agent 每跑一次落一行
+// ============================================================
+
+export const reviewLogs = pgTable(
+    'review_logs',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        questionId: uuid('question_id')
+            .notNull()
+            .references(() => questions.id, { onDelete: 'cascade' }),
+        // 触发时的内容指纹,便于回放"当时审的是什么版本"
+        contentHash: varchar('content_hash', { length: 64 }),
+        // agent 写回的状态判定
+        verdict: reviewStatusEnum('verdict').notNull(),
+        score: integer('score'),
+        // 完整报告(五维得分 + 建议 + 口诀)
+        report: jsonb('report').$type<Record<string, unknown>>(),
+        model: varchar('model', { length: 100 }),
+        latencyMs: integer('latency_ms'),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (t) => [index('review_logs_question_idx').on(t.questionId, t.createdAt)],
+);
+
+// ============================================================
+// 爬取管线占位表(P3.5 才写逻辑,P0 建表定形状)
+// 链路:source → crawl_run → staging_question →(agent 出题/审核)→ 正式表
+// ============================================================
+
+export const sources = pgTable(
+    'sources',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        // 稳定标识,如 'juejin-rss' / 'zhihu-rss' / 'jd-mining'
+        key: varchar('key', { length: 100 }).notNull(),
+        name: varchar('name', { length: 255 }).notNull(),
+        // 适配器类型:P3.5 的源适配器接口按这个分发
+        kind: varchar('kind', { length: 50 }).notNull(),
+        url: varchar('url', { length: 1000 }),
+        enabled: boolean('enabled').default(true).notNull(),
+        // robots 检查时间与结论,合规红线留痕
+        robotsCheckedAt: timestamp('robots_checked_at', { mode: 'date' }),
+        robotsAllowed: boolean('robots_allowed'),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (t) => [uniqueIndex('sources_key_idx').on(t.key)],
+);
+
+export const crawlRuns = pgTable(
+    'crawl_runs',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        sourceId: uuid('source_id')
+            .notNull()
+            .references(() => sources.id, { onDelete: 'cascade' }),
+        status: varchar('status', { length: 20 }).default('running').notNull(),
+        itemCount: integer('item_count').default(0).notNull(),
+        notes: text('notes'),
+        startedAt: timestamp('started_at', { mode: 'date' }).defaultNow().notNull(),
+        finishedAt: timestamp('finished_at', { mode: 'date' }),
+    },
+);
+
+export const stagingQuestions = pgTable(
+    'staging_questions',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        runId: uuid('run_id').references(() => crawlRuns.id, { onDelete: 'set null' }),
+        sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'set null' }),
+        // 原始情报:标题/链接只做选题线索,全链路原创化后不落原文(版权红线)
+        rawTitle: text('raw_title'),
+        rawUrl: varchar('raw_url', { length: 1000 }),
+        // 近似去重指纹(simhash/minhash 的十六进制),管线②用
+        fingerprint: varchar('fingerprint', { length: 128 }),
+        // 适配器吐出的原始结构化载荷
+        payload: jsonb('payload').$type<Record<string, unknown>>(),
+        status: varchar('status', { length: 20 }).default('pending').notNull(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (t) => [index('staging_questions_status_idx').on(t.status, t.createdAt)],
+);

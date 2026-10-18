@@ -48,7 +48,8 @@ jobs:
     # 与 TEST_DATABASE_URL 对齐; unhealthy 会自动取消整个 job
     services:
       postgres:
-        image: postgres:17-alpine
+        # pgvector 版:迁移里有 CREATE EXTENSION vector + embedding 列
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test

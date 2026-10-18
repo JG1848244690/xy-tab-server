@@ -1,0 +1,122 @@
+/**
+ * llm.ts —— OpenAI 兼容协议的最小客户端
+ *
+ * 为什么手写 fetch 不装 openai SDK:只用 chat/completions 一个端点,
+ * SDK 多几百 KB 依赖;兼容网关(DashScope/DeepSeek/自建 vLLM)都吃这个协议。
+ *
+ * 失败语义(见 plan §2.3 护栏):超时 30s、HTTP 非 2xx、JSON 解析失败
+ * → 统一抛 LlmError,由 agent 决定"重试一次"还是"留在 pending_review"。
+ */
+import { z } from 'zod'
+import env from '../../env.js'
+import { LLM_TIMEOUT_MS } from '../../lib/constants.js'
+
+/** LLM 不可用(没配)/不可达/超时/非 JSON 的统一错误 */
+export class LlmError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'LlmError'
+    }
+}
+
+/** agent 输出契约:五维 + 总分 + 差异化素材。失败自动重试一次也过不了就放弃 */
+export const agentReportSchema = z
+    .object({
+        dimensions: z.object({
+            correctness: z.number().min(0).max(20),
+            completeness: z.number().min(0).max(20),
+            clarity: z.number().min(0).max(20),
+            originality: z.number().min(0).max(20),
+            relevance: z.number().min(0).max(20),
+        }),
+        total: z.number().min(0).max(100),
+        summary: z.string().min(5).max(500),
+        slug: z
+            .string()
+            .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+            .max(80)
+            .optional(),
+        tags: z.array(z.string().min(1).max(30)).max(6).optional(),
+        suggestions: z.array(z.string()).max(5).optional(),
+        oneLiner: z.string().max(100).optional(),
+        mnemonic: z.string().max(80).optional(),
+    })
+    // 总分与五维之和一致:防止模型算术漂移导致阈值判定失真
+    .refine((r) => {
+        const sum = Object.values(r.dimensions).reduce((a, b) => a + b, 0)
+        return Math.abs(sum - r.total) <= 1
+    }, { message: 'total 必须等于五维得分之和(±1)' })
+
+export type AgentReport = z.infer<typeof agentReportSchema>
+
+/** agent 是否已配置(三项 env 齐全才算) */
+export function llmConfigured(): boolean {
+    return Boolean(env.LLM_BASE_URL && env.LLM_MODEL && env.LLM_API_KEY)
+}
+
+/** 从回复里抠 JSON:容错 ```json 围栏和前后废话 */
+function extractJson(text: string): unknown {
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+    const raw = fenced ? fenced[1] : text
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start === -1 || end <= start) throw new LlmError('回复里没有 JSON 对象')
+    return JSON.parse(raw.slice(start, end + 1))
+}
+
+type ChatMessage = { role: 'system' | 'user'; content: string }
+
+/** 单次调用:返回解析+校验后的报告。zod 失败由调用方重试 */
+export async function chatJson(
+    messages: ChatMessage[],
+    schema: z.ZodType<AgentReport>,
+): Promise<{ report: AgentReport; latencyMs: number }> {
+    const started = Date.now()
+    const res = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.LLM_API_KEY}`,
+        },
+        body: JSON.stringify({
+            model: env.LLM_MODEL,
+            messages,
+            temperature: 0.2,
+        }),
+        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    })
+
+    if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new LlmError(`LLM HTTP ${res.status}: ${body.slice(0, 200)}`)
+    }
+
+    const data = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>
+    }
+    const content = data.choices?.[0]?.message?.content
+    if (!content) throw new LlmError('LLM 回复为空')
+
+    const report = schema.parse(extractJson(content))
+    return { report, latencyMs: Date.now() - started }
+}
+
+/**
+ * 带重试的调用:zod 校验失败/超时共重试 retries 次(plan §2.3"校验失败自动重试一次")。
+ * 全部失败抛最后一次的错,由 agent 落失败审计。
+ */
+export async function chatJsonWithRetry(
+    messages: ChatMessage[],
+    schema: z.ZodType<AgentReport>,
+    retries: number,
+): Promise<{ report: AgentReport; latencyMs: number }> {
+    let lastError: unknown
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await chatJson(messages, schema)
+        } catch (e) {
+            lastError = e
+        }
+    }
+    throw lastError
+}

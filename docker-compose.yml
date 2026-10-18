@@ -8,7 +8,10 @@
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # pgvector 版官方镜像:与 postgres:17 同源,多出 vector 扩展
+    # (面试站 P0 的 questions.embedding / HNSW 索引依赖;CREATE EXTENSION 在迁移里)
+    # 卷不变,直接换镜像重启即可,数据无迁移成本
+    image: pgvector/pgvector:pg17
     # 不写 container_name,用 compose 默认命名 hlse-api-postgres-1
     # 避免跟本机/服务器上已有的其它 PG 容器撞名
     restart: unless-stopped
@@ -63,6 +66,10 @@ services:
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
       # B6:生产暴露 /doc、/reference 的开关,默认关
       ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
+      # 面试站 P0:AI 审核 agent(OpenAI 兼容)。留空 = agent 不可用(/review 返 503)
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000

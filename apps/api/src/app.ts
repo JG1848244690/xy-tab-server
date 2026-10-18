@@ -5,6 +5,8 @@ import auth from './routes/auth/auth.index.js'
 import questions from './routes/questions/questions.index.js'
 import todos from './routes/todos/todos.index.js'
 import stats from './routes/stats/stats.index.js'
+import review from './routes/review/review.index.js'
+import publicRoutes from './routes/public/public.index.js'
 import { cookieAuth } from './middlewares/auth.js'
 import { rateLimit } from './middlewares/rate-limit.js'
 
@@ -30,6 +32,10 @@ app.use('/todos', cookieAuth())
 app.use('/todos/*', cookieAuth())
 app.use('/stats', cookieAuth())
 app.use('/stats/*', cookieAuth())
+// 审核 agent 是写操作(改题目状态/回写报告),必须登录;创建者校验在 handler 里
+app.use('/review', cookieAuth())
+app.use('/review/*', cookieAuth())
+// /public/** 免登录:公开站数据源,审核链(approved)就是它的安全边界
 
 const routes = [
     index,
@@ -37,6 +43,8 @@ const routes = [
     questions,
     todos,
     stats,
+    review,
+    publicRoutes,
 ] as const
 
 routes.forEach((route) => {

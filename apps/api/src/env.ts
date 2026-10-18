@@ -44,6 +44,16 @@ const EnvSchema = z.object({
     // CORS 白名单,逗号分隔。留空 = 不限制(本地开发/同源直连);
     // 生产填自己的前端 origin,其他来源不下发 Access-Control-Allow-Origin
     CORS_ORIGINS: z.string().default(''),
+
+    // ===== 面试站 P0:AI 审核 agent(OpenAI 兼容协议) =====
+    // 三项都留空 = agent 不可用:/review/* 触发接口返 503,其余功能不受影响。
+    // 生产在服务器 .env 配;示例:
+    //   LLM_BASE_URL=https://api.openai.com/v1   (或任何兼容网关)
+    //   LLM_MODEL=gpt-4o-mini
+    //   LLM_API_KEY=sk-...
+    LLM_BASE_URL: z.string().default(''),
+    LLM_MODEL: z.string().default(''),
+    LLM_API_KEY: z.string().default(''),
 })
 
 export type env = z.infer<typeof EnvSchema>
