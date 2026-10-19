@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Code2 } from 'lucide-react'
 import Script from 'next/script'
 import { SiteFooter } from '@/components/site-chrome'
 import { SiteChrome } from '@/components/site-header'
@@ -30,8 +31,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SiteChrome
                     brand={
                         <>
-                            <span className="grid size-6 place-items-center rounded-lg bg-accent font-mono text-[13px] font-extrabold text-accent-foreground shadow-sm">
-                                H
+                            <span className="grid size-6 place-items-center rounded-lg bg-accent text-accent-foreground shadow-sm">
+                                <Code2 className="size-4" />
                             </span>
                             面试题库
                         </>

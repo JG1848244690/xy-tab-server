@@ -62,7 +62,6 @@ export default async function ArticlePage({ params }: Props) {
                     </span>
                     {a.sourceDomain ? <span className="font-mono text-xs">{a.sourceDomain}</span> : null}
                     {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
-                    <span>{a.viewCount} 次浏览</span>
                 </div>
             </div>
 

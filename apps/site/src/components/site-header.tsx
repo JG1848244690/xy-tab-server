@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ArrowRight, Menu, X } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 
 const NAV = [
@@ -15,7 +16,8 @@ const WEB_APP_URL =
     process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'
 
 /**
- * 页头:桌面单行导航,移动端汉堡抽屉;右侧主题切换。
+ * 页头:桌面 = 品牌 | 右侧导航+主题切换(ml-auto 撑开,正确分布);
+ * 移动端 = 品牌 | 汉堡抽屉 | 主题切换。
  */
 export function SiteChrome({ brand }: { brand: React.ReactNode }) {
     const [open, setOpen] = useState(false)
@@ -28,17 +30,17 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                 </a>
 
                 <button
-                    className="ml-auto grid size-9 place-items-center rounded-lg border border-border bg-card text-sm text-foreground/80 sm:hidden"
+                    className="ml-auto grid size-9 place-items-center rounded-lg border border-border bg-card text-foreground/80 sm:hidden"
                     aria-expanded={open}
                     aria-label={open ? '收起菜单' : '打开菜单'}
                     onClick={() => setOpen((v) => !v)}
                 >
-                    {open ? '✕' : '☰'}
+                    {open ? <X className="size-4" /> : <Menu className="size-4" />}
                 </button>
 
                 <nav
                     className={[
-                        'gap-1 text-sm sm:flex',
+                        'gap-1 text-sm sm:ml-auto sm:flex',
                         open
                             ? 'absolute top-14 left-0 right-0 flex-col items-stretch border-b border-border bg-card p-3 shadow-xl sm:static sm:flex-row sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none'
                             : 'hidden',
@@ -56,11 +58,12 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                     ))}
                     <a
                         href={WEB_APP_URL}
-                        className="flex min-h-11 items-center rounded-lg px-3 font-semibold text-accent transition-colors hover:bg-muted sm:min-h-0"
+                        className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 font-semibold text-accent transition-colors hover:bg-muted sm:min-h-0"
                         rel="nofollow"
                         onClick={() => setOpen(false)}
                     >
-                        我要出题 →
+                        我要出题
+                        <ArrowRight className="size-3.5" />
                     </a>
                 </nav>
 

@@ -80,6 +80,9 @@ importers:
 
   apps/site:
     dependencies:
+      lucide-react:
+        specifier: ^0.561.0
+        version: 0.561.0(react@19.2.1)
       marked:
         specifier: ^16.0.0
         version: 16.4.2

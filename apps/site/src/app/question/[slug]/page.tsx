@@ -96,7 +96,6 @@ export default async function QuestionPage({ params }: Props) {
                         <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[12.5px] text-muted-foreground">
                             <DiffBadge difficulty={q.difficulty} />
                             {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
-                            <span>{q.viewCount} 次浏览</span>
                         </div>
                     </div>
 
@@ -136,10 +135,6 @@ export default async function QuestionPage({ params }: Props) {
                         <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
                             <span className="text-muted-foreground">难度</span>
                             <DiffBadge difficulty={q.difficulty} />
-                        </div>
-                        <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
-                            <span className="text-muted-foreground">浏览</span>
-                            <b className="font-semibold">{q.viewCount}</b>
                         </div>
                         {q.publishedAt ? (
                             <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">

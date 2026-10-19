@@ -33,7 +33,6 @@ export function QuestionRow({ q, index }: { q: QuestionListItem; index?: number 
                 <p className="mx-0 mt-1 line-clamp-2 text-[13.5px] text-muted-foreground">{q.summary}</p>
             ) : null}
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{q.viewCount} 次浏览</span>
                 {q.tags?.slice(0, 3).map((t) => (
                     <span key={t} className="rounded-full border border-border px-2 py-px text-muted-foreground">
                         {t}

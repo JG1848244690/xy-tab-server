@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { track } from '@/lib/track'
 
 /** 复制答案到剪贴板(题目页唯一的客户端交互之一) */
@@ -18,7 +19,8 @@ export function CopyButton({ text, slug }: { text: string; slug: string }) {
                 })
             }}
         >
-            {copied ? '已复制 ✓' : '复制答案'}
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? '已复制' : '复制答案'}
         </button>
     )
 }

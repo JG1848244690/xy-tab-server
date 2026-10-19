@@ -33,7 +33,6 @@ export default async function ArticlesPage() {
                             meta={
                                 <>
                                     {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
-                                    <span>{a.viewCount} 次浏览</span>
                                 </>
                             }
                         />
