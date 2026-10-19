@@ -30,13 +30,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SiteChrome
                     brand={
                         <>
-                            <span className="brand-mark">H</span>
+                            <span className="grid size-6 place-items-center rounded-lg bg-accent font-mono text-[13px] font-extrabold text-accent-foreground shadow-sm">
+                                H
+                            </span>
                             面试题库
                         </>
                     }
                 />
-                <main>
-                    <div className="container">{children}</div>
+                <main className="py-9 sm:py-10">
+                    <div className="mx-auto max-w-[1120px] px-5 sm:px-6">{children}</div>
                 </main>
                 <SiteFooter />
                 {/* 百度统计:NEXT_PUBLIC_BA_ID 未配置时不注入 */}

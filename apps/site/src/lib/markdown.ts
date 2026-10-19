@@ -33,13 +33,17 @@ const marked = new Marked(
                 const langId = highlighter.getLoadedLanguages().includes(lang as never)
                     ? lang
                     : 'text'
-                return highlighter.codeToHtml(code, {
+                const html = highlighter.codeToHtml(code, {
                     lang: langId,
                     themes: { dark: 'github-dark', light: 'github-light' },
                 })
+                // shiki 返回完整 <pre>;marked-highlight 还会再包一层 <pre> →
+                // 双层嵌套。剥掉 shiki 的外壳,只留 code+span 内芯,
+                // 外壳的样式(pre 底色/边框/圆角)由 prose 的 CSS 双主题接管
+                return html.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '')
             } catch {
-                // 高亮失败不阻塞构建:退化为无高亮的 <pre>
-                return code
+                // 高亮失败不阻塞构建:退化为转义文本
+                return code.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]!)
             }
         },
     }),

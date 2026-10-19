@@ -22,38 +22,50 @@ export default async function HomePage() {
     }
     const maxDiff = Math.max(byDiff.easy, byDiff.medium, byDiff.hard, 1)
 
-    const featured = hot(p1.data)
+    const featured = [...p1.data].sort((a, b) => b.viewCount - a.viewCount)[0]
     const activeTags = tags.data.filter((t) => t.questionCount > 0)
 
     return (
         <>
-            <section className="hero">
-                <h1>面试题,按原理分层讲透</h1>
-                <p>
-                    每道题都有 AI + 人工双审的分层参考答案、一句话结论与记忆口诀。
-                    免费开放,不藏要点。
-                </p>
-                <div className="hero-line">
-                    <span>
-                        共 <strong>{p1.total}</strong> 道题
-                    </span>
-                    <span>·</span>
-                    <span>
-                        <strong>{banks.data.length}</strong> 个专题题库
-                    </span>
-                    <span>·</span>
-                    <span>持续更新</span>
+            {/* hero:左文案 + 右今日一题(产品自证);移动端纵排 */}
+            <section className="grid items-center gap-10 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
+                <div>
+                    <h1 className="text-balance text-[32px] font-bold leading-[1.2] tracking-[-0.028em] sm:text-4xl">
+                        面试题,按原理分层讲透
+                    </h1>
+                    <p className="mt-4 max-w-[52ch] text-base text-muted-foreground">
+                        每道题都有 AI + 人工双审的分层参考答案、一句话结论与记忆口诀。
+                        免费开放,不藏要点。
+                    </p>
+                    <div className="mt-5 flex flex-wrap items-center gap-2.5 text-[13.5px] text-muted-foreground">
+                        <span className="rounded-full border border-border bg-card px-3 py-1">
+                            <b className="font-semibold text-foreground">{p1.total}</b> 道题
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-3 py-1">
+                            <b className="font-semibold text-foreground">{banks.data.length}</b> 个专题题库
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-3 py-1">
+                            持续更新
+                        </span>
+                    </div>
                 </div>
 
                 {featured ? (
-                    <a href={`/question/${featured.slug}`} className="featured">
-                        <div className="f-label">今日一题</div>
-                        <h2 className="f-title">{featured.title}</h2>
-                        <p>{featured.summary ?? '点击查看题干与分层解析。'}</p>
-                        <div className="meta-row">
+                    <a
+                        href={`/question/${featured.slug}`}
+                        className="block rounded-2xl border border-border bg-card p-6 shadow-[0_2px_4px_rgb(16_24_40/0.04),0_12px_32px_rgb(16_24_40/0.08)] transition-colors hover:border-accent lg:mt-0"
+                    >
+                        <div className="mb-2 text-xs text-muted-foreground">今日一题</div>
+                        <h2 className="mb-1.5 text-lg font-semibold leading-snug tracking-[-0.01em]">
+                            {featured.title}
+                        </h2>
+                        <p className="line-clamp-2 text-sm text-muted-foreground">
+                            {featured.summary ?? '点击查看题干与分层解析。'}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <DiffBadge difficulty={featured.difficulty} />
                             {featured.tags?.slice(0, 3).map((t) => (
-                                <span key={t} className="pill">
+                                <span key={t} className="rounded-full border border-border px-2 py-px">
                                     {t}
                                 </span>
                             ))}
@@ -64,105 +76,120 @@ export default async function HomePage() {
 
             {banks.data.length ? (
                 <>
-                    <div className="section-head">
-                        <h2>题库</h2>
-                        <a href="/banks">全部 →</a>
+                    <div className="mt-10 mb-2 flex items-baseline justify-between">
+                        <h2 className="text-base font-semibold tracking-[-0.01em]">题库</h2>
+                        <a href="/banks" className="text-[13px] text-accent">全部 →</a>
                     </div>
-                    <div className="list">
+                    <div className="border-t border-border">
                         {banks.data.map((b) => (
-                            <a key={b.slug} href={`/bank/${b.slug}`} className="row">
-                                <h3>
-                                    <span className="row-title">{b.title}</span>
-                                    <span className="diff diff-easy">{b.questionCount} 题</span>
+                            <a
+                                key={b.slug}
+                                href={`/bank/${b.slug}`}
+                                className="group -mx-2 block rounded-lg border-b border-border px-2 py-4 transition-colors hover:bg-card"
+                            >
+                                <h3 className="flex items-baseline gap-3 text-[15.5px] font-semibold leading-snug">
+                                    <span className="min-w-0 transition-colors group-hover:text-accent">{b.title}</span>
+                                    <span className="flex-none rounded-full bg-easy-weak px-2.5 py-0.5 text-xs font-medium text-easy">
+                                        {b.questionCount} 题
+                                    </span>
                                 </h3>
-                                {b.description ? <p>{b.description}</p> : null}
+                                {b.description ? (
+                                    <p className="mt-1 text-[13.5px] text-muted-foreground">{b.description}</p>
+                                ) : null}
                             </a>
                         ))}
                     </div>
                 </>
             ) : null}
 
-            <div className="section-head">
-                <h2>难度分布</h2>
+            {/* 难度分布:构建期真实数据,纯 CSS 条形 */}
+            <div className="mt-10 mb-2">
+                <h2 className="text-base font-semibold tracking-[-0.01em]">难度分布</h2>
             </div>
-            <div className="dist">
-                <div className="dist-row">
-                    <span className="diff diff-easy">简单</span>
-                    <span className="bar">
-                        <i style={{ width: `${(byDiff.easy / maxDiff) * 100}%`, background: 'var(--easy)' }} />
-                    </span>
-                    <span className="n">{byDiff.easy}</span>
-                </div>
-                <div className="dist-row">
-                    <span className="diff diff-medium">中等</span>
-                    <span className="bar">
-                        <i style={{ width: `${(byDiff.medium / maxDiff) * 100}%`, background: 'var(--medium)' }} />
-                    </span>
-                    <span className="n">{byDiff.medium}</span>
-                </div>
-                <div className="dist-row">
-                    <span className="diff diff-hard">困难</span>
-                    <span className="bar">
-                        <i style={{ width: `${(byDiff.hard / maxDiff) * 100}%`, background: 'var(--hard)' }} />
-                    </span>
-                    <span className="n">{byDiff.hard}</span>
-                </div>
+            <div className="max-w-[560px] rounded-xl border border-border bg-card p-5">
+                {(
+                    [
+                        ['简单', 'easy'],
+                        ['中等', 'medium'],
+                        ['困难', 'hard'],
+                    ] as const
+                ).map(([label, key]) => (
+                    <div key={key} className="grid grid-cols-[44px_1fr_36px] items-center gap-3 py-1.5 text-[13px]">
+                        <span
+                            className={`rounded-full px-2.5 py-0.5 text-center text-xs font-medium ${
+                                key === 'easy'
+                                    ? 'bg-easy-weak text-easy'
+                                    : key === 'medium'
+                                        ? 'bg-medium-weak text-medium'
+                                        : 'bg-hard-weak text-hard'
+                            }`}
+                        >
+                            {label}
+                        </span>
+                        <span className="h-2 overflow-hidden rounded-full bg-muted">
+                            <span
+                                className="block h-full rounded-full"
+                                style={{
+                                    width: `${(byDiff[key] / maxDiff) * 100}%`,
+                                    background: `var(--${key})`,
+                                }}
+                            />
+                        </span>
+                        <span className="text-right font-mono text-muted-foreground">{byDiff[key]}</span>
+                    </div>
+                ))}
             </div>
 
             {activeTags.length > 0 ? (
                 <>
-                    <div className="section-head">
-                        <h2>按标签复习</h2>
-                        <a href="/tags">全部 →</a>
+                    <div className="mt-10 mb-3 flex items-baseline justify-between">
+                        <h2 className="text-base font-semibold tracking-[-0.01em]">按标签复习</h2>
+                        <a href="/tags" className="text-[13px] text-accent">全部 →</a>
                     </div>
-                    <div className="tag-cloud">
+                    <div className="flex flex-wrap gap-2">
                         {activeTags.slice(0, 12).map((t) => (
-                            <a key={t.slug} href={`/tag/${t.slug}`}>
+                            <a
+                                key={t.slug}
+                                href={`/tag/${t.slug}`}
+                                className="rounded-full border border-border bg-card px-4 py-1.5 text-[13.5px] text-foreground/85 transition-colors hover:border-accent hover:text-accent"
+                            >
                                 {t.name}
-                                <small>{t.questionCount}</small>
+                                <small className="ml-1.5 font-mono text-muted-foreground">{t.questionCount}</small>
                             </a>
                         ))}
                     </div>
                 </>
             ) : null}
 
-            <div className="section-head">
-                <h2>建议的复习节奏</h2>
+            <div className="mt-10 mb-3">
+                <h2 className="text-base font-semibold tracking-[-0.01em]">建议的复习节奏</h2>
             </div>
-            <div className="howto">
-                <div className="step">
-                    <b>
-                        <span className="no">1</span>先自己说答案
-                    </b>
-                    <p>只看题目,口头作答,再对照分层解析找差距。最痛苦的一遍,涨分最快。</p>
-                </div>
-                <div className="step">
-                    <b>
-                        <span className="no">2</span>口诀巩固骨架
-                    </b>
-                    <p>第二遍只看一句话结论和记忆口诀,把答案的骨架焊牢。</p>
-                </div>
-                <div className="step">
-                    <b>
-                        <span className="no">3</span>串成网
-                    </b>
-                    <p>考前用题目页底部的「相关题目」顺藤摸瓜,把同主题的题连成网络。</p>
-                </div>
+            <div className="grid gap-3 md:grid-cols-3">
+                {(
+                    [
+                        ['1', '先自己说答案', '只看题目,口头作答,再对照分层解析找差距。最痛苦的一遍,涨分最快。'],
+                        ['2', '口诀巩固骨架', '第二遍只看一句话结论和记忆口诀,把答案的骨架焊牢。'],
+                        ['3', '串成网', '考前用题目页底部的「相关题目」顺藤摸瓜,把同主题的题连成网络。'],
+                    ] as const
+                ).map(([no, title, desc]) => (
+                    <div key={no} className="rounded-xl border border-border bg-card p-4">
+                        <b className="mb-1 flex items-baseline gap-2 text-[14.5px]">
+                            <span className="font-mono font-semibold text-accent">{no}</span>
+                            {title}
+                        </b>
+                        <p className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">{desc}</p>
+                    </div>
+                ))}
             </div>
 
-            <div className="section-head">
-                <h2>最新题目</h2>
+            <div className="mt-10 mb-2 flex items-baseline justify-between">
+                <h2 className="text-base font-semibold tracking-[-0.01em]">最新题目</h2>
             </div>
-            <div className="list">
+            <div className="border-t border-border">
                 {p1.data.map((q, i) => (
                     <QuestionRow key={q.slug} q={q} index={i + 1} />
                 ))}
             </div>
         </>
     )
-}
-
-function hot(data: Awaited<ReturnType<typeof siteApi.questions>>['data']) {
-    // 今日一题:取浏览量最高的一道(数据真实,构建期确定)
-    return [...data].sort((a, b) => b.viewCount - a.viewCount)[0]
 }

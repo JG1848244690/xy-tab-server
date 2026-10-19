@@ -12,16 +12,26 @@ export default async function TagsPage() {
 
     return (
         <>
-            <h1 className="page-title">标签</h1>
-            <p className="page-sub">按主题横向串联题目;介绍不足 240 字的标签页不会被收录。</p>
-            <div className="tag-cloud">
+            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">标签</h1>
+            <p className="mt-2 mb-7 max-w-[62ch] text-[15px] text-muted-foreground">
+                按主题横向串联题目;介绍不足 240 字的标签页不会被收录。
+            </p>
+            <div className="flex flex-wrap gap-2">
                 {tags.data.map((t) => (
-                    <a key={t.slug} href={`/tag/${t.slug}`}>
+                    <a
+                        key={t.slug}
+                        href={`/tag/${t.slug}`}
+                        className="rounded-full border border-border bg-card px-4 py-1.5 text-[13.5px] text-foreground/85 transition-colors hover:border-accent hover:text-accent"
+                    >
                         {t.name}
-                        <small>{t.questionCount}</small>
+                        <small className="ml-1.5 font-mono text-muted-foreground">{t.questionCount}</small>
                     </a>
                 ))}
-                {tags.data.length === 0 ? <div className="empty">还没有登记标签</div> : null}
+                {tags.data.length === 0 ? (
+                    <div className="w-full rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                        还没有登记标签
+                    </div>
+                ) : null}
             </div>
         </>
     )

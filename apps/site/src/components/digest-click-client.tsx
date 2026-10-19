@@ -2,11 +2,11 @@
 
 import { track } from '@/lib/track'
 
-/** digest 期内的点击埋点(click_contribute 同款轻事件) */
+/** digest 期内的点击埋点 */
 export function DigestClickClient({ slug }: { slug: string }) {
     return (
         <button
-            style={{ all: 'unset', cursor: 'pointer', color: 'var(--muted)' }}
+            className="cursor-pointer border-none bg-none p-0 text-muted-foreground hover:text-accent"
             onClick={() => track('digest_click', { slug })}
         >
             站内导读 ↗

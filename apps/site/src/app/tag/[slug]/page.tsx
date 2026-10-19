@@ -6,7 +6,6 @@ import { siteApi } from '@/lib/site-api'
 
 type Props = { params: Promise<{ slug: string }> }
 
-/** 集合为空时的占位参数(output:export 不允许 gSP 返回空数组) */
 const EMPTY_PLACEHOLDER = '_empty'
 
 export const dynamicParams = false
@@ -37,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TagPage({ params }: Props) {
     const { slug } = await params
     if (slug === EMPTY_PLACEHOLDER) {
-        return <div className="empty">标签整理中</div>
+        return <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">标签整理中</div>
     }
     const tags = await siteApi.tags()
     const tag = tags.data.find((t) => t.slug === slug)
@@ -47,25 +46,33 @@ export default async function TagPage({ params }: Props) {
 
     return (
         <>
-            <h1 className="page-title">{tag.name} 面试题</h1>
+            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">
+                {tag.name} 面试题
+            </h1>
             {tag.description ? (
-                <div className="markdown" style={{ marginBottom: 24 }}>
-                    <p>{tag.description}</p>
-                </div>
-            ) : null}
+                <p className="mt-2 mb-7 max-w-[65ch] text-[15px] leading-relaxed text-muted-foreground">
+                    {tag.description}
+                </p>
+            ) : (
+                <p className="mt-2 mb-7 text-sm text-muted-foreground">
+                    介绍文案整理中,本页暂不参与收录。
+                </p>
+            )}
 
             {list.data.length ? (
-                <div className="list">
+                <div className="border-t border-border">
                     {list.data.map((q, i) => (
                         <QuestionRow key={q.slug} q={q} index={i + 1} />
                     ))}
                 </div>
             ) : (
-                <div className="empty">这个标签下还没有已发布的题目</div>
+                <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                    这个标签下还没有已发布的题目
+                </div>
             )}
 
-            <div className="section-head">
-                <Link href="/tags" style={{ color: 'var(--accent)', fontSize: 13 }}>
+            <div className="mt-6">
+                <Link href="/tags" className="text-[13px] text-accent">
                     ← 全部标签
                 </Link>
             </div>

@@ -86,68 +86,76 @@ export default async function QuestionPage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
             />
 
-            <div className="q-layout">
+            <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
                 {/* 阅读列 */}
-                <div>
-                    <div className="q-head">
-                        <h1 className="page-title">{q.title}</h1>
-                        <div className="meta-row">
+                <div className="min-w-0">
+                    <div className="border-b border-border pb-5">
+                        <h1 className="text-balance text-[26px] font-bold leading-[1.3] tracking-[-0.022em] sm:text-[28px]">
+                            {q.title}
+                        </h1>
+                        <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[12.5px] text-muted-foreground">
                             <DiffBadge difficulty={q.difficulty} />
                             {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
                             <span>{q.viewCount} 次浏览</span>
                         </div>
                     </div>
 
-                    <div className="q-section-label">题干</div>
-                    <div className="markdown" dangerouslySetInnerHTML={{ __html: contentHtml }} />
+                    <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">题干</h2>
+                    <div
+                        className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border"
+                        dangerouslySetInnerHTML={{ __html: contentHtml }}
+                    />
 
-                    <div className="q-section-label">参考答案</div>
+                    <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">参考答案</h2>
                     {q.answer.trim() ? (
-                        <div
-                            className="markdown answer-block"
-                            dangerouslySetInnerHTML={{ __html: answerHtml }}
-                        />
+                        <>
+                            <div
+                                className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border"
+                                dangerouslySetInnerHTML={{ __html: answerHtml }}
+                            />
+                            <CopyButton text={q.answer} slug={slug} />
+                        </>
                     ) : (
-                        <div className="empty">
+                        <div className="rounded-xl border border-dashed border-border bg-muted p-7 text-center text-sm text-muted-foreground">
                             这道题的答案还在整理中。可以先看题干自己作答,
-                            <a href={`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'}/test-center/practice/${q.id}`} style={{ color: 'var(--accent)' }}>
+                            <a
+                                href={`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'}/test-center/practice/${q.id}`}
+                                className="text-accent underline underline-offset-[3px]"
+                            >
                                 去练习页作答
                             </a>
                             ,或过几天再来。
                         </div>
                     )}
-                    {q.answer.trim() ? <CopyButton text={q.answer} slug={slug} /> : null}
                 </div>
 
                 {/* 信息栏:桌面 sticky,移动端落到正文后 */}
-                <aside className="q-aside">
-                    <div className="aside-card">
-                        <h3>题目信息</h3>
-                        <div className="kv">
-                            <span>难度</span>
-                            <b>
-                                <DiffBadge difficulty={q.difficulty} />
-                            </b>
+                <aside className="grid gap-4 self-start text-sm max-lg:static lg:sticky lg:top-[78px]">
+                    <div className="rounded-xl border border-border bg-card p-4">
+                        <h3 className="mb-2.5 text-[13px] font-semibold text-muted-foreground">题目信息</h3>
+                        <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
+                            <span className="text-muted-foreground">难度</span>
+                            <DiffBadge difficulty={q.difficulty} />
                         </div>
-                        <div className="kv">
-                            <span>浏览</span>
-                            <b>{q.viewCount}</b>
+                        <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
+                            <span className="text-muted-foreground">浏览</span>
+                            <b className="font-semibold">{q.viewCount}</b>
                         </div>
                         {q.publishedAt ? (
-                            <div className="kv">
-                                <span>发布</span>
-                                <b>{q.publishedAt.slice(0, 10)}</b>
+                            <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
+                                <span className="text-muted-foreground">发布</span>
+                                <b className="font-semibold">{q.publishedAt.slice(0, 10)}</b>
                             </div>
                         ) : null}
                         {q.tags?.length ? (
-                            <div className="kv" style={{ display: 'block' }}>
-                                <span style={{ display: 'block', marginBottom: 6 }}>标签</span>
-                                <div className="tags">
+                            <div className="pt-1">
+                                <span className="mb-1.5 block text-muted-foreground">标签</span>
+                                <div className="flex flex-wrap gap-1.5">
                                     {q.tags.map((t) => (
                                         <Link
                                             key={t}
                                             href={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, '-'))}`}
-                                            className="pill"
+                                            className="rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground transition-colors hover:border-accent hover:text-accent"
                                         >
                                             {t}
                                         </Link>
@@ -158,15 +166,19 @@ export default async function QuestionPage({ params }: Props) {
                     </div>
 
                     {related.length ? (
-                        <div className="aside-card">
-                            <h3>相关题目</h3>
-                            <div className="list">
+                        <div className="rounded-xl border border-border bg-card p-4">
+                            <h3 className="mb-2 text-[13px] font-semibold text-muted-foreground">相关题目</h3>
+                            <div>
                                 {related.slice(0, 8).map((item) => (
-                                    <a key={item.slug} href={`/question/${item.slug}`} className="row">
-                                        <h3>
-                                            <span className="row-title">{item.title}</span>
-                                            <DiffBadge difficulty={item.difficulty} />
-                                        </h3>
+                                    <a
+                                        key={item.slug}
+                                        href={`/question/${item.slug}`}
+                                        className="group -mx-1.5 flex items-baseline justify-between gap-2.5 rounded-lg px-1.5 py-2.5 text-[13.5px] transition-colors hover:bg-muted"
+                                    >
+                                        <span className="min-w-0 transition-colors group-hover:text-accent">
+                                            {item.title}
+                                        </span>
+                                        <DiffBadge difficulty={item.difficulty} />
                                     </a>
                                 ))}
                             </div>

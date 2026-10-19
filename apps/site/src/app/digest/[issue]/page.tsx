@@ -6,7 +6,6 @@ import { DigestClickClient } from '@/components/digest-click-client'
 
 type Props = { params: Promise<{ issue: string }> }
 
-/** 集合为空时的占位参数(output:export 不允许 gSP 返回空数组) */
 const EMPTY_PLACEHOLDER = '_empty'
 
 export const dynamicParams = false
@@ -31,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function DigestIssuePage({ params }: Props) {
     const { issue } = await params
     if (issue === EMPTY_PLACEHOLDER) {
-        return <div className="empty">第一期筹备中</div>
+        return <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">第一期筹备中</div>
     }
     const curated = await siteApi.articles({ kind: 'curated', size: 50 })
     const issues = groupIntoIssues(curated.data)
@@ -40,26 +39,31 @@ export default async function DigestIssuePage({ params }: Props) {
 
     return (
         <>
-            <h1 className="page-title">{issue} 期</h1>
-            <p className="page-sub">本周 {current.articles.length} 篇值得读的。</p>
-            <div className="list">
+            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">{issue} 期</h1>
+            <p className="mt-2 mb-7 text-[15px] text-muted-foreground">
+                本周 {current.articles.length} 篇值得读的。
+            </p>
+            <div className="border-t border-border">
                 {current.articles.map((a) => (
-                    <div key={a.slug} className="row curated-row">
-                        <h3>
-                            <a href={`/article/${a.slug}`}>
-                                <span className="row-title">{a.title}</span>
+                    <div
+                        key={a.slug}
+                        className="border-b border-border border-l-2 border-l-accent px-2 py-4"
+                    >
+                        <h3 className="m-0 text-[15.5px] font-semibold leading-snug">
+                            <a href={`/article/${a.slug}`} className="transition-colors hover:text-accent">
+                                {a.title}
                             </a>
                         </h3>
-                        <p>{a.comment ?? a.excerpt}</p>
-                        <div className="meta-row">
-                            {a.sourceDomain ? <span className="src">{a.sourceDomain}</span> : null}
+                        <p className="mt-1 text-[13.5px] text-muted-foreground">{a.comment ?? a.excerpt}</p>
+                        <div className="mt-1.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                            {a.sourceDomain ? <span>{a.sourceDomain}</span> : null}
                             <DigestClickClient slug={a.slug} />
                         </div>
                     </div>
                 ))}
             </div>
-            <div className="section-head">
-                <a href="/digest" style={{ color: 'var(--accent)', fontSize: 13 }}>
+            <div className="mt-6">
+                <a href="/digest" className="text-[13px] text-accent">
                     ← 往期荟萃
                 </a>
             </div>

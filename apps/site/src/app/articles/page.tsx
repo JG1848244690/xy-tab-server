@@ -16,14 +16,14 @@ export default async function ArticlesPage() {
 
     return (
         <>
-            <h1 className="page-title">文章</h1>
-            <p className="page-sub">原创图文与每周荐文导读。</p>
+            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">文章</h1>
+            <p className="mt-2 mb-7 text-[15px] text-muted-foreground">原创图文与每周荐文导读。</p>
 
-            <div className="section-head">
-                <h2>原创图文</h2>
+            <div className="mt-8 mb-2 flex items-baseline justify-between">
+                <h2 className="text-base font-semibold tracking-[-0.01em]">原创图文</h2>
             </div>
             {own.data.length ? (
-                <div className="list">
+                <div className="border-t border-border">
                     {own.data.map((a) => (
                         <ListRow
                             key={a.slug}
@@ -40,25 +40,33 @@ export default async function ArticlesPage() {
                     ))}
                 </div>
             ) : (
-                <div className="empty">原创文章马上就来</div>
+                <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                    原创文章马上就来
+                </div>
             )}
 
-            <div className="section-head">
-                <h2>本周荐文</h2>
-                <a href="/digest">往期荟萃 →</a>
+            <div className="mt-8 mb-2 flex items-baseline justify-between">
+                <h2 className="text-base font-semibold tracking-[-0.01em]">本周荐文</h2>
+                <a href="/digest" className="text-[13px] text-accent">往期荟萃 →</a>
             </div>
             {curated.data.slice(0, 5).map((a) => (
-                <a key={a.slug} href={`/article/${a.slug}`} className="row curated-row">
-                    <h3>
-                        <span className="row-title">{a.title}</span>
-                    </h3>
-                    <p>{a.comment ?? a.excerpt}</p>
-                    <div className="meta-row">
-                        {a.sourceDomain ? <span className="src">{a.sourceDomain}</span> : null}
+                <a
+                    key={a.slug}
+                    href={`/article/${a.slug}`}
+                    className="-mx-2 block rounded-lg border-b border-border border-l-2 border-l-accent px-2 py-4 transition-colors hover:bg-card"
+                >
+                    <h3 className="m-0 text-[15.5px] font-semibold leading-snug">{a.title}</h3>
+                    <p className="mt-1 text-[13.5px] text-muted-foreground">{a.comment ?? a.excerpt}</p>
+                    <div className="mt-1.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                        {a.sourceDomain ? <span>{a.sourceDomain}</span> : null}
                     </div>
                 </a>
             ))}
-            {curated.data.length === 0 ? <div className="empty">荐文征集ing</div> : null}
+            {curated.data.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                    荐文征集ing
+                </div>
+            ) : null}
         </>
     )
 }
