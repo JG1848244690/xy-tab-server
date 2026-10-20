@@ -70,6 +70,8 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      # 防滥用:CF Turnstile(注册真人验证)。留空 = 验证关闭
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     ports:
       # 左边是宿主机端口,可通过 .env 的 PORT 覆盖
       # 必须避开 tasks-api(宿主机 9999)和前端,服务器上用 .env 的 PORT 覆盖,例如 4000

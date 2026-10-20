@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ShieldCheck, ChevronDown, CircleAlert, CircleCheck, Sparkles } from 'lucide-react'
 import { reviewApi, type ReviewQueueItem } from '@/services/review-api'
 import { useAuthStore } from '@/store/auth-store'
+import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -257,10 +258,15 @@ export default function ReviewPage() {
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className="border-b px-6 pb-4 pt-6">
-                <h1 className="text-xl font-bold">审核工作台</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    AI 前置审核 → 人工裁决 → 发布。AI 的高分只是建议,通过权在人。
-                </p>
+                <div className="flex items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-xl font-bold">审核工作台</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            AI 前置审核 → 人工裁决 → 发布。AI 的高分只是建议,通过权在人。
+                        </p>
+                    </div>
+                    <QuotaBadge />
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">

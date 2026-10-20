@@ -75,13 +75,19 @@ export const users = pgTable(
         // 后台权限:admin 才能看审核工作台、人工裁决、发布(2026-10-20 加)
         // role 不进 JWT —— 每次请求查库判定,改角色即时生效
         role: userRoleEnum('role').default('user').notNull(),
+        // 注册时的 IP 哈希(sha256+盐 截断,不存裸 IP):防同 IP 批量注册多号
+        createdIpHash: varchar('created_ip_hash', { length: 32 }),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
             .notNull()
             .$onUpdate(() => new Date()),
     },
-    (t) => [uniqueIndex('users_email_idx').on(t.email)],
+    (t) => [
+        uniqueIndex('users_email_idx').on(t.email),
+        // 同 IP 注册频控的查询路径(hash + 时间范围)
+        index('users_created_ip_hash_idx').on(t.createdIpHash, t.createdAt),
+    ],
 );
 
 export const selectUsersSchema = createSelectSchema(users);
@@ -368,7 +374,6 @@ export const insertTodosSchema = createInsertSchema(todos)
 // question_views —— 浏览去重流水(面试站 S4 反爬)
 // 同一 IP 哈希 + 同一天 + 同一题 = 一行;unique 约束兜底重复插入
 // ============================================================
-
 export const questionViews = pgTable(
     'question_views',
     {
@@ -508,6 +513,24 @@ export const reviewLogs = pgTable(
         // 审计流水按时间倒序查
         index('review_logs_created_idx').on(t.createdAt),
     ],
+);
+
+// ============================================================
+// ai_quota —— AI 审核每日配额(防滥用,2026-10-20)
+// 每用户每天一行;used 在触发时 SQL 侧自增;跨天自然重置(新行)
+// ============================================================
+
+export const aiQuota = pgTable(
+    'ai_quota',
+    {
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        // UTC 日期分桶,与 question_views 的 day 口径一致
+        day: date('day').notNull(),
+        used: integer('used').default(0).notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
 
 // ============================================================

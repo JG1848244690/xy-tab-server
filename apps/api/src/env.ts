@@ -41,6 +41,10 @@ const EnvSchema = z.object({
     // 调试需要时在 .env 设 true 重启,用完关掉
     ENABLE_API_DOCS: z.enum(['true', 'false']).default('false'),
 
+    // ===== 防滥用(docs/abuse-defense-plan.md)=====
+    // CF Turnstile 服务端密钥:留空 = 验证关闭(本地/测试);生产配上后注册必验
+    TURNSTILE_SECRET_KEY: z.string().default(''),
+
     // CORS 白名单,逗号分隔。留空 = 不限制(本地开发/同源直连);
     // 生产填自己的前端 origin,其他来源不下发 Access-Control-Allow-Origin
     CORS_ORIGINS: z.string().default(''),

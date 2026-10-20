@@ -48,9 +48,38 @@ const humanDecisionBodySchema = z
         }
     })
 
-/** 触发结果:202 = 已入队;skipped = 内容没改且已过审,不重审 */
+/** 触发结果:入队 / skipped(内容没改且已过审,或人工驳回后未改内容) */
 const triggerResponseSchema = z.object({
     status: z.enum(['pending_review', 'skipped']),
+    /** 触发后的配额状态(用户可见,防滥用文档 §1) */
+    quota: z
+        .object({
+            used: z.number(),
+            limit: z.number(),
+            remaining: z.number(),
+        })
+        .optional(),
+})
+
+/** 配额查询(出题人可见自己的用量) */
+export const quota = createRoute({
+    method: 'get',
+    path: '/review/quota',
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                used: z.number(),
+                limit: z.number(),
+                remaining: z.number(),
+                limited: z.boolean(),
+                resetAt: z.string(),
+                /** admin 豁免配额 */
+                exempt: z.boolean(),
+            }),
+            '当前用户今日 AI 审核配额',
+        ),
+    },
 })
 
 /** /review/:id/result 的响应:题目当前审核态 + 最近一次审计 */
@@ -95,6 +124,10 @@ export const triggerOne = createRoute({
         [HttpStatusCodes.SERVICE_UNAVAILABLE]: jsonContent(
             z.object({ message: z.string() }),
             'LLM 未配置,审核 agent 不可用',
+        ),
+        [HttpStatusCodes.TOO_MANY_REQUESTS]: jsonContent(
+            z.object({ message: z.string() }),
+            '今日 AI 审核配额已用完(见 GET /review/quota)',
         ),
         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
             createErrorSchema(IdParamsSchema),
@@ -222,3 +255,4 @@ export type ResultRoute = typeof result
 export type StaleRoute = typeof stale
 export type QueueRoute = typeof queue
 export type HumanDecisionRoute = typeof humanDecision
+export type QuotaRoute = typeof quota

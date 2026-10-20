@@ -31,3 +31,14 @@ export const REVIEW_BATCH_MAX = 20
 
 /** pending_review 超过这么多分钟没出结果视为卡死,/review/stale 兜底重跑 */
 export const REVIEW_STALE_MINUTES = 30
+
+// ===== 防滥用(docs/abuse-defense-plan.md)=====
+
+/** AI 审核每日配额(每用户;admin 豁免;按触发计,失败也算) */
+export const AI_DAILY_LIMIT = 20
+
+/** 同一 IP 24 小时内最多注册账号数 */
+export const REGISTER_IP_DAILY_LIMIT = 2
+
+/** 同一 IP 历史累计最多注册账号数 */
+export const REGISTER_IP_TOTAL_LIMIT = 5

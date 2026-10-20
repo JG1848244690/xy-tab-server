@@ -11,5 +11,6 @@ const router = createRouter()
     .openapi(routes.stale, handlers.stale)
     .openapi(routes.queue, handlers.queue)
     .openapi(routes.humanDecision, handlers.humanDecision)
+    .openapi(routes.quota, handlers.quota)
 
 export default router

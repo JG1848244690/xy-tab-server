@@ -1,10 +1,13 @@
-import { eq } from 'drizzle-orm'
+import { and, count, eq, gte } from 'drizzle-orm'
 import type { LoginRoute, RegisterRoute, LogoutRoute, MeRoute } from './auth.routes.js'
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { users } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { errorBody } from '../../lib/errors.js'
+import { clientIp, ipHashOf } from '../../lib/client-ip.js'
+import { verifyTurnstile } from '../../lib/turnstile.js'
+import { REGISTER_IP_DAILY_LIMIT, REGISTER_IP_TOTAL_LIMIT } from '../../lib/constants.js'
 import env from '../../env.js'
 import {
     clearAuthCookie,
@@ -67,14 +70,52 @@ export const register: AppRouteHandler<RegisterRoute> = async (c) => {
         )
     }
 
-    const { email, password, name } = c.req.valid('json')
+    const { email, password, name, turnstileToken } = c.req.valid('json')
+    const ip = clientIp(c)
+
+    // 真人验证(CF Turnstile):SECRET 未配时直通(本地/测试),
+    // 生产必挂 —— 防批量注册的主防线
+    const humanVerified = await verifyTurnstile(turnstileToken, ip)
+    if (!humanVerified) {
+        return c.json(errorBody('真人验证未通过,请重试', 'TURNSTILE_FAILED'), HttpStatusCodes.FORBIDDEN)
+    }
+
+    // 同 IP 注册硬顶:24h 内 ≥2 个 或 累计 ≥5 个 → 拒绝(防多号,不封 IP)
+    // 查询容忍 mock 环境的空结果(?..)
+    const ipHash = ipHashOf(ip)
+    const since24h = new Date(Date.now() - 24 * 3600_000)
+    const [daily] = await db
+        .select({ n: count() })
+        .from(users)
+        .where(and(eq(users.createdIpHash, ipHash), gte(users.createdAt, since24h)))
+    if (Number(daily?.n ?? 0) >= REGISTER_IP_DAILY_LIMIT) {
+        return c.json(
+            errorBody('该网络注册过于频繁,请明天再试', 'REGISTER_LIMIT'),
+            HttpStatusCodes.FORBIDDEN,
+        )
+    }
+    const [total] = await db
+        .select({ n: count() })
+        .from(users)
+        .where(eq(users.createdIpHash, ipHash))
+    if (Number(total?.n ?? 0) >= REGISTER_IP_TOTAL_LIMIT) {
+        return c.json(
+            errorBody('该网络注册账号数已达上限', 'REGISTER_LIMIT'),
+            HttpStatusCodes.FORBIDDEN,
+        )
+    }
 
     // 不再做先查后插:并发注册同一邮箱时两边都能过查重,后到者撞唯一索引
     // 变 500(还把 PG 错误信息泄露给客户端)。onConflictDoNothing 让数据库
     // 一锤定音,returning 为空即冲突 → 409
     const [created] = await db
         .insert(users)
-        .values({ email, password: await hashPassword(password), username: name })
+        .values({
+            email,
+            password: await hashPassword(password),
+            username: name,
+            createdIpHash: ipHash,
+        })
         .onConflictDoNothing({ target: users.email })
         .returning()
 

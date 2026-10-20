@@ -17,6 +17,7 @@ import { MdEditor } from 'md-editor-rt'
 import 'md-editor-rt/lib/style.css'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
+import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // 添加样式确保 MdEditor 不会溢出
@@ -112,6 +113,8 @@ const Modal = () => {
     onSuccess: (data) => {
       // 刷新题目列表（如果有相关查询）
       queryClient.invalidateQueries({ queryKey: ['questions'] })
+      // 新题自动送 AI 审核消耗了配额,刷新徽章
+      queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
       // 刷新刚创建的题目详情，确保数据是最新的
       queryClient.invalidateQueries({ queryKey: ['question', data.id] })
       // 重置表单
@@ -214,7 +217,11 @@ const Modal = () => {
     <Dialog open={open.modal as boolean} onOpenChange={handleClose}>
       <DialogContent className="max-w-[95vw]! w-[95vw]! sm:max-w-[95vw]! max-h-[95vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>{isEditMode ? '编辑题目' : '添加题目'}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between gap-3">
+            {isEditMode ? '编辑题目' : '添加题目'}
+            {/* AI 配额可见(防滥用):新题保存即自动送 AI 前置审核,消耗 1 次 */}
+            <QuotaBadge />
+          </DialogTitle>
         </DialogHeader>
 
         {showLoading ? (

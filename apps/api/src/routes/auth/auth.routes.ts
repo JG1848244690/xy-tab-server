@@ -10,14 +10,16 @@ import { selectUserSchema } from '../../db/schema.js'
 
 const tags = ['Auth']
 
-/** 从 cookieAuth 中间件拿到的用户 */
-const userResponseSchema = selectUserSchema.extend({
-    /**
-     * 前端 /auth/me 期望的字段名是 name,不是 username
-     * (旧 Nest 的 auth.controller.ts 里显式做了 username -> name 的映射)
-     */
-    name: z.string().nullable(),
-})
+/** 从 cookieAuth 中间件拿到的用户;createdIpHash 是内部反滥用数据,不外露 */
+const userResponseSchema = selectUserSchema
+    .omit({ createdIpHash: true })
+    .extend({
+        /**
+         * 前端 /auth/me 期望的字段名是 name,不是 username
+         * (旧 Nest 的 auth.controller.ts 里显式做了 username -> name 的映射)
+         */
+        name: z.string().nullable(),
+    })
 
 const loginBodySchema = z.object({
     email: z.string().email(),
@@ -29,6 +31,8 @@ const registerBodySchema = z.object({
     // 只影响新注册;存量 hash 不动,老密码仍可登录
     password: z.string().min(8, '密码至少 8 位'),
     name: z.string().min(1),
+    // CF Turnstile token:服务端 SECRET 配置后必验(docs/abuse-defense-plan.md §3)
+    turnstileToken: z.string().optional(),
 })
 
 const loginResponseSchema = z.object({ user: userResponseSchema })

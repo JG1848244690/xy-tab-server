@@ -22,9 +22,11 @@ const app = createApp()
  * 服务器上的 nginx 也用同样的规则剥 /api。
  */
 // 登录/注册是唯一对全网裸奔的写入口,先过限流再进 handler
-// (固定窗口 30 req/min/IP;nginx 反代会带 x-forwarded-for)
+// 登录:固定窗口 30 req/min/IP(nginx 反代会带真实 IP)
+// 注册:更紧 —— 5 req/hour/IP,配合同 IP 账号数硬顶(防多号,见
+// docs/abuse-defense-plan.md);注册是低频动作,5/小时对真人绰绰有余
 app.use('/auth/login', rateLimit({ windowMs: 60_000, max: 30 }))
-app.use('/auth/register', rateLimit({ windowMs: 60_000, max: 30 }))
+app.use('/auth/register', rateLimit({ windowMs: 3_600_000, max: 5 }))
 app.use('/auth/me', cookieAuth())
 app.use('/questions', cookieAuth())
 app.use('/questions/*', cookieAuth())

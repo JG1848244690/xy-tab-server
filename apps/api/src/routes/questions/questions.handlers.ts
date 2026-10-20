@@ -20,6 +20,8 @@ import {
     selectQuestionsSchema,
 } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
+import { runReview, isReviewing } from '../review/agent.js'
+import { consumeQuota } from '../review/quota.js'
 
 // ============================================================
 // 列表
@@ -277,6 +279,27 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const body = c.req.valid('json')
 
     const [created] = await db.insert(questions).values({ ...body, createdBy: userId }).returning()
+
+    // 新题自动送 AI 前置审核(docs/review-workflow-plan.md:创建即触发,
+    // 验收标准"新加题自动触发 agent 审核")。
+    // - 配额内:扣 1 次 + 异步送审(AI 结果走人工队列)
+    // - 配额尽/admin 豁免/agent 忙:题照常创建,停在 draft,不阻塞
+    if (created && !isReviewing(created.id)) {
+        const admin = c.get('userRole') === 'admin'
+        if (!admin) {
+            const quotaState = await consumeQuota(userId)
+            if (!quotaState.limited) {
+                void runReview(created.id).catch((err) => {
+                    c.get('logger')?.error({ err, questionId: created.id }, 'review agent crashed')
+                })
+            }
+        } else {
+            void runReview(created.id).catch((err) => {
+                c.get('logger')?.error({ err, questionId: created.id }, 'review agent crashed')
+            })
+        }
+    }
+
     return c.json(selectQuestionsSchema.parse(created), HttpStatusCodes.OK)
 }
 

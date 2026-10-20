@@ -6,6 +6,7 @@ import type {
     StaleRoute,
     QueueRoute,
     HumanDecisionRoute,
+    QuotaRoute,
 } from './review.routes.js'
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
@@ -14,6 +15,7 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
 import { REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
 import { contentHashOf, runReview, isReviewing } from './agent.js'
 import { llmConfigured } from './llm.js'
+import { getQuota, consumeQuota } from './quota.js'
 import { errorBody } from '../../lib/errors.js'
 import { adminOnly } from '../../middlewares/admin.js'
 
@@ -76,6 +78,26 @@ export const triggerOne: AppRouteHandler<TriggerOneRoute> = async (c) => {
     if (humanReject && humanReject.contentHash === hash) {
         return c.json({ status: 'skipped' as const }, HttpStatusCodes.OK)
     }
+
+    // 配额:每用户每天 20 次,admin 豁免;按触发计(失败也是真实 LLM 成本)
+    const admin = isAdmin(c)
+    let quotaState: Awaited<ReturnType<typeof consumeQuota>> | null = null
+    if (!admin) {
+        quotaState = await consumeQuota(userId)
+        if (quotaState.limited) {
+            const retry = Math.ceil(
+                (new Date(quotaState.resetAt).getTime() - Date.now()) / 1000,
+            )
+            c.header('Retry-After', String(retry))
+            return c.json(
+                errorBody(
+                    `今日 AI 审核次数已用完(${quotaState.limit} 次),明天重置`,
+                    'QUOTA_EXCEEDED',
+                ),
+                HttpStatusCodes.TOO_MANY_REQUESTS,
+            )
+        }
+    }
     if (q.contentHash === hash && q.status === 'approved') {
         return c.json({ status: 'skipped' as const }, HttpStatusCodes.OK)
     }
@@ -87,7 +109,21 @@ export const triggerOne: AppRouteHandler<TriggerOneRoute> = async (c) => {
         })
     }
 
-    return c.json({ status: 'pending_review' as const }, HttpStatusCodes.OK)
+    return c.json(
+        {
+            status: 'pending_review' as const,
+            ...(quotaState
+                ? {
+                      quota: {
+                          used: quotaState.used,
+                          limit: quotaState.limit,
+                          remaining: quotaState.remaining,
+                      },
+                  }
+                : {}),
+        },
+        HttpStatusCodes.OK,
+    )
 }
 
 /** 批量触发:清洗存量/补审用。候选 = 自己的题里 状态未过审 或 内容指纹缺失 的 */
@@ -116,18 +152,25 @@ export const triggerBatch: AppRouteHandler<TriggerBatchRoute> = async (c) => {
 
     let triggered = 0
     let skipped = 0
-    await Promise.all(
-        candidates.map(async ({ id }) => {
-            if (isReviewing(id)) {
+    // 配额按题数扣:admin 豁免;普通用户扣到上限就停,多余的算 skipped
+    let quotaState: Awaited<ReturnType<typeof consumeQuota>> | null = null
+    for (const { id } of candidates) {
+        if (isReviewing(id)) {
+            skipped++
+            continue
+        }
+        if (!isAdmin(c)) {
+            quotaState = await consumeQuota(userId)
+            if (quotaState.limited) {
                 skipped++
-                return
+                continue
             }
-            triggered++
-            void runReview(id).catch((err) => {
-                c.get('logger')?.error({ err, questionId: id }, 'review agent crashed')
-            })
-        }),
-    )
+        }
+        triggered++
+        void runReview(id).catch((err) => {
+            c.get('logger')?.error({ err, questionId: id }, 'review agent crashed')
+        })
+    }
 
     return c.json({ triggered, skipped }, HttpStatusCodes.OK)
 }
@@ -321,6 +364,26 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
         { success: true, status: result.status, publishedAt: result.publishedAt },
         HttpStatusCodes.OK,
     )
+}
+
+/** 配额查询:出题人随时可看自己今天的用量(admin 显示豁免) */
+export const quota: AppRouteHandler<QuotaRoute> = async (c) => {
+    const userId = c.get('userId')!
+    if (isAdmin(c)) {
+        return c.json(
+            {
+                used: 0,
+                limit: 0,
+                remaining: 0,
+                limited: false,
+                resetAt: '',
+                exempt: true,
+            },
+            HttpStatusCodes.OK,
+        )
+    }
+    const state = await getQuota(userId)
+    return c.json({ ...state, exempt: false }, HttpStatusCodes.OK)
 }
 
 /**

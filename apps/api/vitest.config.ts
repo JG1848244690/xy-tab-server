@@ -13,6 +13,9 @@ export default defineConfig({
         // 多个集成测试文件会对同一个测试库各跑一次 migrate(),
         // 并行会抢迁移锁/重放迁移,串行最稳
         fileParallelism: false,
+        // 每个文件独立的模块图:db 单例/连接池互不影响
+        // (没有它,前一个文件 afterAll 的 client.end 会杀死后续文件的连接)
+        isolate: true,
         setupFiles: ['./vitest.setup.ts'],
     },
 })

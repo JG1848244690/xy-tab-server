@@ -26,6 +26,9 @@ vi.mock('../../db/index.js', () => ({
             chain.where = () => chain
             chain.orderBy = () => chain
             chain.limit = () => Promise.resolve(state.selectResult)
+            // count 聚合查询不调 .limit() 直接 await —— 链本身要可 then
+            chain.then = (resolve: (v: unknown) => unknown) =>
+                Promise.resolve(state.selectResult).then(resolve)
             return chain
         },
         insert: () => {
