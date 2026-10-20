@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Markdown } from '@/lib/markdown'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
-import { renderMarkdown } from '@/lib/markdown'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -82,10 +82,9 @@ export default async function ArticlePage({ params }: Props) {
             ) : null}
 
             {a.contentMd ? (
-                <div
-                    className="prose prose-sm mt-6 max-w-none sm:prose-base dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: await renderMarkdown(a.contentMd) }}
-                />
+                <div className="prose prose-sm mt-6 max-w-none sm:prose-base dark:prose-invert">
+                    <Markdown>{a.contentMd}</Markdown>
+                </div>
             ) : null}
         </>
     )

@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'highlight.js/styles/github-dark.css';
 @plugin '@tailwindcss/typography';
 
 /* 类切换式暗色(与后台 SPA 同机制) */
@@ -114,21 +115,16 @@ a {
     }
 }
 
-/* ============ markdown 正文(typography 之上的工程化微调)============ */
-/* 代码块:双主题底色接管(shiki 的外壳已在构建期剥掉,见 lib/markdown.ts) */
+/* ============ markdown 正文 ============ */
+/* 代码块:固定暗色编辑器风(两主题一致,类 MDN);token 色 = highlight.js 官方 github-dark 主题 */
 .prose pre {
-    background: var(--surface-2) !important;
+    background: #0d1117 !important;
+    color: #e6edf3;
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 15px 18px;
     font-size: 13.5px;
     line-height: 1.68;
-    font-family: var(--font-mono);
-    overflow-x: auto;
-}
-.dark .shiki span {
-    color: var(--shiki-dark) !important;
-    background-color: transparent !important;
 }
 /* 空答案的引导块 */
 .answer-empty {

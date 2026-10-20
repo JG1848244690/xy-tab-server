@@ -3,17 +3,22 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DiffBadge } from '@/components/rows'
 import { CopyButton } from '@/components/copy-button'
+import { Markdown } from '@/lib/markdown'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
-import { renderMarkdown as renderMarkdownSafe } from '@/lib/markdown'
 
 type Props = { params: Promise<{ slug: string }> }
+
+/** 集合为空时的占位参数:output:export 不允许 gSP 返回空数组 */
+const EMPTY_PLACEHOLDER = '_empty'
 
 export const dynamicParams = false
 
 /** 构建期:全部已发布题目各预生成一页(数据源 sitemap-data) */
 export async function generateStaticParams() {
     const data = await siteApi.sitemapData()
-    return data.questions.map((q) => ({ slug: q.slug }))
+    // slug 为空的题 = 还没被 agent 清洗过(正常状态),没有可公开的 URL,跳过
+    const slugged = data.questions.filter((q) => q.slug)
+    return slugged.length ? slugged.map((q) => ({ slug: q.slug! })) : [{ slug: EMPTY_PLACEHOLDER }]
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -38,12 +43,11 @@ async function relatedByTag(slug: string, tags: string[] | null) {
 
 export default async function QuestionPage({ params }: Props) {
     const { slug } = await params
+    if (slug === EMPTY_PLACEHOLDER) {
+        return <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">内容马上就来</div>
+    }
     const q = await siteApi.question(slug).catch(() => notFound())
-    const [contentHtml, answerHtml, related] = await Promise.all([
-        renderMarkdownSafe(q.content),
-        renderMarkdownSafe(q.answer),
-        relatedByTag(slug, q.tags),
-    ])
+    const related = await relatedByTag(slug, q.tags)
 
     // QAPage 结构化数据:题目富摘要 / AEO 引用的核心信号
     const qaJsonLd = {
@@ -100,18 +104,16 @@ export default async function QuestionPage({ params }: Props) {
                     </div>
 
                     <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">题干</h2>
-                    <div
-                        className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border"
-                        dangerouslySetInnerHTML={{ __html: contentHtml }}
-                    />
+                    <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
+                        <Markdown>{q.content}</Markdown>
+                    </div>
 
                     <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">参考答案</h2>
                     {q.answer.trim() ? (
                         <>
-                            <div
-                                className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border"
-                                dangerouslySetInnerHTML={{ __html: answerHtml }}
-                            />
+                            <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
+                                <Markdown>{q.answer}</Markdown>
+                            </div>
                             <CopyButton text={q.answer} slug={slug} />
                         </>
                     ) : (
