@@ -1,20 +1,20 @@
 /**
- * agent.ts —— 审核执行体(面试站 P0,plan §2.3)
+ * agent.ts —— 审核执行体(面试站 P0,plan §2.3;2026-10-20 修订:人工审核强制)
  *
  * 设计:
  *  - 进程内异步,不引入队列中间件(1.6G 小服务器没预算);
  *    inFlight Set 去重并发触发,进程重启丢队列由 /review/stale 兜底重跑
  *  - contentHash 幂等:题目没改就不重审(省 token,防重复发布动作)
  *  - 触发即置 pending_review;LLM 挂了留在该状态并落失败日志,不阻塞别人
- *  - 结果落 review_logs(审计)+ 回写 questions(状态/评分/报告/摘要/slug/tags)
+ *  - AI 只是前置筛选:高分 → human_pending(人工队列),低分 → rejected(打回留档);
+ *    只有人工「通过」才 approved + publishedAt(见 docs/review-workflow-plan.md)
  */
 import { createHash } from 'node:crypto'
-import { and, eq, ne } from 'drizzle-orm'
-import env from '../../env.js'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import db from '../../db/index.js'
 import { questions, reviewLogs } from '../../db/schema.js'
 import { LLM_JSON_RETRY, REVIEW_THRESHOLDS } from '../../lib/constants.js'
-import { LlmError, agentReportSchema, chatJsonWithRetry, llmConfigured } from './llm.js'
+import { LlmError, agentReportSchema, chatJsonWithRetry, llmConfigured, llmConfig } from './llm.js'
 import type { AgentReport } from './llm.js'
 import { reviewSystemPrompt } from './prompts/system.js'
 import { reviewRubricPrompt } from './prompts/rubric.js'
@@ -31,11 +31,19 @@ export function isReviewing(questionId: string): boolean {
     return inFlight.has(questionId)
 }
 
-/** 阈值判定:≥85 自动发布;60-84 待人审;<60 拒绝(常量表,见 lib/constants.ts) */
-export function verdictOf(total: number): 'approved' | 'pending_review' | 'rejected' {
-    if (total >= REVIEW_THRESHOLDS.APPROVE) return 'approved'
-    if (total >= REVIEW_THRESHOLDS.MIN) return 'pending_review'
-    return 'rejected'
+/**
+ * AI 判定 → 下一状态(人工审核强制:AI 不再自动发布)
+ *   total ≥ MIN(60) → 'human_pending'(进人工审核队列)
+ *   total < MIN(60) → 'rejected'(AI 打回,报告留档)
+ * isHighConfidence(≥85)只是展示/排序指标,见 lib/constants.ts
+ */
+export function verdictOf(total: number): 'human_pending' | 'rejected' {
+    return total >= REVIEW_THRESHOLDS.MIN ? 'human_pending' : 'rejected'
+}
+
+/** AI 高置信(仅展示与排序用,不再有发布语义) */
+export function isHighConfidence(total: number): boolean {
+    return total >= REVIEW_THRESHOLDS.APPROVE
 }
 
 /**
@@ -51,7 +59,25 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         if (!q) return 'skipped'
 
         const hash = contentHashOf(q)
-        // 幂等:内容没变且已过审 → 跳过(不重审不重发布)
+
+        // 人工驳回后,内容没改就不许重提 AI —— 逼着先把内容改好
+        const [humanReject] = await db
+            .select({ contentHash: reviewLogs.contentHash })
+            .from(reviewLogs)
+            .where(
+                and(
+                    eq(reviewLogs.questionId, questionId),
+                    eq(reviewLogs.source, 'human'),
+                    eq(reviewLogs.verdict, 'rejected'),
+                ),
+            )
+            .orderBy(desc(reviewLogs.createdAt))
+            .limit(1)
+        if (humanReject && humanReject.contentHash === hash) {
+            return 'skipped'
+        }
+
+        // 幂等:内容没变且已人工通过 → 跳过(不重审不重发布)
         if (q.contentHash === hash && q.status === 'approved') return 'skipped'
 
         // 先置 pending_review:LLM 挂了也停在这个状态,/review/stale 兜底
@@ -95,7 +121,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
                 contentHash: hash,
                 verdict: 'pending_review',
                 report: { error: err instanceof Error ? err.message : String(err) },
-                model: env.LLM_MODEL || null,
+                model: llmConfig().model || null,
             })
             return 'failed'
         }
@@ -133,7 +159,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
                 verdict,
                 score: report.total,
                 report: report as unknown as Record<string, unknown>,
-                model: env.LLM_MODEL || null,
+                model: llmConfig().model || null,
                 latencyMs,
             })
         })

@@ -41,13 +41,18 @@ export const questionStatusEnum = pgEnum('question_status', [
     'completed',
 ]);
 /** questions.status / articles.status:公开站的内容审核状态(面试站 P0)。
- *  与 question_status(练习进度)是两回事 —— 一个管内容能不能见公网,一个管用户练没练 */
+ *  与 question_status(练习进度)是两回事 —— 一个管内容能不能见公网,一个管用户练没练
+ *  human_pending = AI 审核通过、等待人工裁决(2026-10-20 起人工审核强制,AI 只做前置) */
 export const reviewStatusEnum = pgEnum('review_status', [
     'draft',
     'pending_review',
+    'human_pending',
     'approved',
     'rejected',
 ]);
+
+/** users.role:后台权限(user=普通,admin=可看审核工作台/人工裁决/发布) */
+export const userRoleEnum = pgEnum('user_role', ['user', 'admin']);
 
 // ============================================================
 // users
@@ -67,6 +72,9 @@ export const users = pgTable(
         username: varchar('username', { length: 100 }),
         // 头像存储路径(不含域名)。本轮没有 /users/avatar 接口,先保留字段
         avatarPath: varchar('avatar_path', { length: 500 }),
+        // 后台权限:admin 才能看审核工作台、人工裁决、发布(2026-10-20 加)
+        // role 不进 JWT —— 每次请求查库判定,改角色即时生效
+        role: userRoleEnum('role').default('user').notNull(),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
@@ -485,9 +493,21 @@ export const reviewLogs = pgTable(
         report: jsonb('report').$type<Record<string, unknown>>(),
         model: varchar('model', { length: 100 }),
         latencyMs: integer('latency_ms'),
+        // 来源:ai = agent 前置审核;human = 人工裁决(2026-10-20 加)
+        source: varchar('source', { length: 10 }).default('ai').notNull(),
+        // 人工裁决人(admin);AI 打回时为空
+        reviewerId: uuid('reviewer_id').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        // 人工意见 / 驳回理由
+        note: text('note'),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     },
-    (t) => [index('review_logs_question_idx').on(t.questionId, t.createdAt)],
+    (t) => [
+        index('review_logs_question_idx').on(t.questionId, t.createdAt),
+        // 审计流水按时间倒序查
+        index('review_logs_created_idx').on(t.createdAt),
+    ],
 );
 
 // ============================================================

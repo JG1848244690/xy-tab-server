@@ -1,11 +1,21 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/auth-store'
+
+interface NavItem {
+  title: string
+  href: string
+  icon: typeof Home
+  /** 仅 admin 可见(显隐在前,权限边界在后端 requireAdmin/adminOnly) */
+  adminOnly?: boolean
+  children?: Record<string, { breadcrumb: (id: string) => string }>
+}
 
 interface DashboardNavProps {
   collapsed?: boolean
 }
-export const navItems = [
+export const navItems: NavItem[] = [
   {
     title: '首页',
     href: '/home',
@@ -32,6 +42,13 @@ export const navItems = [
     icon: Palette,
   },
   {
+    // 审核工作台:只有 admin 能看到(AI 前置审核 + 人工裁决 + 打回记录)
+    title: '审核工作台',
+    href: '/review',
+    icon: ShieldCheck,
+    adminOnly: true,
+  },
+  {
     title: '统计',
     href: '/statistics',
     icon: ChartSpline,
@@ -45,10 +62,12 @@ export const navItems = [
 
 export function DashboardNav({ collapsed = false }: DashboardNavProps) {
   const { pathname } = useLocation()
+  const role = useAuthStore((s) => s.user?.role)
+  const visibleItems = navItems.filter((item) => !item.adminOnly || role === 'admin')
 
   return (
     <nav className="grid items-start px-4 text-sm font-medium">
-      {navItems.map((item, index) => {
+      {visibleItems.map((item, index) => {
         const Icon = item.icon
         const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 

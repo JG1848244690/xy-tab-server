@@ -8,8 +8,23 @@
  * → 统一抛 LlmError,由 agent 决定"重试一次"还是"留在 pending_review"。
  */
 import { z } from 'zod'
-import env from '../../env.js'
 import { LLM_TIMEOUT_MS } from '../../lib/constants.js'
+
+/**
+ * LLM 配置读取:调用时读 process.env 而非 env.ts 的快照 ——
+ * env.ts 在模块加载时 parse,测试里来不及注入;这里每次调用现读,
+ * 生产语义不变(容器 env / .env 都在 process.env 里)。
+ */
+/** LLM 配置读取:调用时读 process.env 而非 env.ts 的快照 ——
+ * env.ts 在模块加载时 parse,测试里来不及注入;这里每次调用现读,
+ * 生产语义不变(容器 env / .env 都在 process.env 里)。 */
+export function llmConfig() {
+    return {
+        baseUrl: (process.env.LLM_BASE_URL ?? '').replace(/\/$/, ''),
+        model: process.env.LLM_MODEL ?? '',
+        apiKey: process.env.LLM_API_KEY ?? '',
+    }
+}
 
 /** LLM 不可用(没配)/不可达/超时/非 JSON 的统一错误 */
 export class LlmError extends Error {
@@ -51,7 +66,8 @@ export type AgentReport = z.infer<typeof agentReportSchema>
 
 /** agent 是否已配置(三项 env 齐全才算) */
 export function llmConfigured(): boolean {
-    return Boolean(env.LLM_BASE_URL && env.LLM_MODEL && env.LLM_API_KEY)
+    const cfg = llmConfig()
+    return Boolean(cfg.baseUrl && cfg.model && cfg.apiKey)
 }
 
 /** 从回复里抠 JSON:容错 ```json 围栏和前后废话 */
@@ -72,14 +88,15 @@ export async function chatJson(
     schema: z.ZodType<AgentReport>,
 ): Promise<{ report: AgentReport; latencyMs: number }> {
     const started = Date.now()
-    const res = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
+    const cfg = llmConfig()
+    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.LLM_API_KEY}`,
+            Authorization: `Bearer ${cfg.apiKey}`,
         },
         body: JSON.stringify({
-            model: env.LLM_MODEL,
+            model: cfg.model,
             messages,
             temperature: 0.2,
         }),

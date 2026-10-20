@@ -14,6 +14,7 @@ const HomePage = lazy(() => import('@/pages/home/page'))
 const TodosPage = lazy(() => import('@/pages/todos/page'))
 const TestCenterPage = lazy(() => import('@/pages/test-center/page'))
 const PracticePage = lazy(() => import('@/pages/test-center/practice/[id]/page'))
+const ReviewPage = lazy(() => import('@/pages/review/page'))
 const StatisticsPage = lazy(() => import('@/pages/statistics/page'))
 const SettingsPage = lazy(() => import('@/pages/settings/page'))
 const DrawerPage = lazy(() => import('@/pages/drawer/page'))
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: '/todos', element: page(<TodosPage />) },
       { path: '/test-center', element: page(<TestCenterPage />) },
       { path: '/test-center/practice/:id', element: page(<PracticePage />) },
+      { path: '/review', element: page(<ReviewPage />) },
       { path: '/statistics', element: page(<StatisticsPage />) },
       { path: '/settings', element: page(<SettingsPage />) },
       { path: '/drawer', element: page(<DrawerPage />) },

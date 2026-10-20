@@ -30,6 +30,8 @@ function toUserResponse(row: typeof users.$inferSelect) {
         email: row.email,
         username: row.username,
         avatarPath: row.avatarPath,
+        // role:前端拿来决定「审核工作台」入口显隐;权限边界在后端
+        role: row.role,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         name: row.username,

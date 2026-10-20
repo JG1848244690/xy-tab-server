@@ -9,5 +9,7 @@ const router = createRouter()
     .openapi(routes.triggerBatch, handlers.triggerBatch)
     .openapi(routes.result, handlers.result)
     .openapi(routes.stale, handlers.stale)
+    .openapi(routes.queue, handlers.queue)
+    .openapi(routes.humanDecision, handlers.humanDecision)
 
 export default router

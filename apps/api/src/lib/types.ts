@@ -11,6 +11,8 @@ export interface AppBindings {
         // 由 src/middlewares/auth.ts 注入
         userId?: string
         userEmail?: string
+        // 由 src/middlewares/auth.ts 注入(users.role):admin 才能进审核工作台
+        userRole?: 'user' | 'admin'
     }
 }
 

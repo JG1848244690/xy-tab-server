@@ -1,0 +1,17 @@
+{
+  "reviewPaths": [
+    "/review/{id}",
+    "/review/batch",
+    "/review/{id}/result",
+    "/review/stale",
+    "/review/queue",
+    "/review/{id}/human"
+  ],
+  "humanRegistered": true,
+  "humanResponses": [
+    "200",
+    "403",
+    "404",
+    "422"
+  ]
+}

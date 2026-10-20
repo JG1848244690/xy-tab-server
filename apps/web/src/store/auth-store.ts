@@ -6,6 +6,8 @@ export interface User {
   email: string
   name?: string
   avatarPath?: string
+  /** 后台权限:admin 才显示「审核工作台」;权限边界在后端 */
+  role?: 'user' | 'admin'
 }
 
 interface AuthState {

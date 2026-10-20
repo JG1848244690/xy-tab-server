@@ -47,8 +47,9 @@ export const cookieAuth = () =>
         }
 
         // 确认用户仍存在(token 签发后账号可能已被删)
+        // 顺带取 role:role 不进 JWT,每次请求查库判定,改角色即时生效
         const [user] = await db
-            .select({ id: users.id, email: users.email })
+            .select({ id: users.id, email: users.email, role: users.role })
             .from(users)
             .where(eq(users.id, userId))
             .limit(1)
@@ -59,5 +60,6 @@ export const cookieAuth = () =>
 
         c.set('userId', user.id)
         c.set('userEmail', user.email)
+        c.set('userRole', user.role)
         await next()
     })

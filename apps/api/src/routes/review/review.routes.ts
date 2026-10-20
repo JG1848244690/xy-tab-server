@@ -12,6 +12,42 @@ const tags = ['Review']
 
 const IdParamsSchema = z.object({ id: z.string().uuid() })
 
+/** 人工审核队列条目 */
+const queueItemSchema = z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string().nullable(),
+    status: z.string(),
+    reviewScore: z.number().nullable(),
+    reviewResult: z.record(z.string(), z.unknown()).nullable(),
+    updatedAt: z.date(),
+    latestLog: z
+        .object({
+            verdict: z.string(),
+            score: z.number().nullable(),
+            source: z.string(),
+            note: z.string().nullable(),
+            createdAt: z.date(),
+        })
+        .nullable(),
+})
+
+/** 人工裁决:驳回必须给理由(服务端强制) */
+const humanDecisionBodySchema = z
+    .object({
+        decision: z.enum(['approve', 'reject']),
+        note: z.string().min(1).max(500).optional(),
+    })
+    .superRefine((v, ctx) => {
+        if (v.decision === 'reject' && !v.note) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['note'],
+                message: '驳回必须填写理由',
+            })
+        }
+    })
+
 /** 触发结果:202 = 已入队;skipped = 内容没改且已过审,不重审 */
 const triggerResponseSchema = z.object({
     status: z.enum(['pending_review', 'skipped']),
@@ -113,6 +149,69 @@ export const stale = createRoute({
     },
 })
 
+/** 人工审核队列(admin only):pending = AI 过了等人审;rejected = 被 AI 打回 */
+export const queue = createRoute({
+    method: 'get',
+    path: '/review/queue',
+    tags,
+    request: {
+        query: z.object({
+            tab: z.enum(['pending', 'rejected']).default('pending'),
+            page: z.coerce.number().int().positive().default(1),
+            size: z.coerce.number().int().positive().max(50).default(20),
+        }),
+    },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                data: z.array(queueItemSchema),
+                total: z.number(),
+                page: z.number(),
+                size: z.number(),
+            }),
+            '人工审核队列',
+        ),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            z.object({ message: z.string() }),
+            '仅 admin 可见',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(z.object({ tab: z.enum(['pending', 'rejected']) })),
+            '参数非法',
+        ),
+    },
+})
+
+/** 人工裁决(admin only):通过 → approved(公开站可见);驳回 → rejected */
+export const humanDecision = createRoute({
+    method: 'post',
+    path: '/review/{id}/human',
+    tags,
+    request: {
+        params: IdParamsSchema,
+        body: jsonContentRequired(humanDecisionBodySchema, '裁决结果'),
+    },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                success: z.boolean(),
+                status: z.string(),
+                publishedAt: z.date().nullable(),
+            }),
+            '裁决完成',
+        ),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            z.object({ message: z.string() }),
+            '仅 admin 可裁决',
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, '题目不存在'),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(humanDecisionBodySchema),
+            '参数非法(驳回必须填理由)',
+        ),
+    },
+})
+
 // ============================================================
 // handler 用的类型别名
 // ============================================================
@@ -121,3 +220,5 @@ export type TriggerOneRoute = typeof triggerOne
 export type TriggerBatchRoute = typeof triggerBatch
 export type ResultRoute = typeof result
 export type StaleRoute = typeof stale
+export type QueueRoute = typeof queue
+export type HumanDecisionRoute = typeof humanDecision
