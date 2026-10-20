@@ -39,3 +39,5 @@ out/
 m-login.png
 todos-v3.png
 /*.png
+
+apps/api/routecheck-result.json
