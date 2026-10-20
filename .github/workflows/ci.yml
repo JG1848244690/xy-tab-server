@@ -122,6 +122,11 @@ jobs:
           # GitHub Actions 自带层缓存,跨 workflow 复用
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # ⚠️ build 阶段绝不走缓存:2026-10-20 事故——gha 缓存把 10-18 的
+          # 编译产物原样还原(新代码没编译进镜像),Turnstile/配额全部静默丢失。
+          # deps 层照旧缓存,只多花编译的 1-2 分钟
+          no-cache-filters: |
+            build
 
       - name: Make package public
         # GHCR 默认 private,设成 public 方便服务器无 token 直接 pull(测试项目用)。
