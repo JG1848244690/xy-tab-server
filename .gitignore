@@ -14,6 +14,8 @@ node_modules/
 # env
 .env
 .env.production
+# 例外:web 的生产构建变量只含公开的 Turnstile site key(可入库)
+!apps/web/.env.production
 
 # logs
 logs/
@@ -29,7 +31,7 @@ lerna-debug.log*
 
 dev.db
 
-# 构建产物(任意层级�?dist / next 产物)
+# 构建产物(任意层级�?dist / next 产物)
 dist/
 .next/
 out/
