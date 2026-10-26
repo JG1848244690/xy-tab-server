@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -47,6 +47,13 @@ export const navItems: NavItem[] = [
     title: '审核',
     href: '/review',
     icon: ShieldCheck,
+    adminOnly: true,
+  },
+  {
+    // 图库:图片统一管理(上传/引用检查/清理),仅 admin
+    title: '图库',
+    href: '/media',
+    icon: Images,
     adminOnly: true,
   },
   {

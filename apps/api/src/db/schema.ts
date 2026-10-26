@@ -516,6 +516,37 @@ export const reviewLogs = pgTable(
 );
 
 // ============================================================
+// media_assets —— 图片统一管理(2026-10-26)
+// 所有通过后台上传的图片都落一行:文件写到 static 子域目录,
+// 这里记录路径/URL/大小/上传人,供「图库」页面管理、查引用、清理孤儿文件。
+// 外部 URL(历史内容里直接引用的)不进这张表。
+// ============================================================
+
+export const mediaAssets = pgTable(
+    'media_assets',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        // 相对 UPLOAD_DIR 的路径,如 2026/10/<uuid>.webp
+        path: varchar('path', { length: 500 }).notNull(),
+        // 对外可访问 URL(static 子域)
+        url: text('url').notNull(),
+        mime: varchar('mime', { length: 100 }).notNull(),
+        bytes: integer('bytes').notNull(),
+        uploadedBy: uuid('uploaded_by').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (t) => [
+        uniqueIndex('media_assets_path_idx').on(t.path),
+        index('media_assets_created_idx').on(t.createdAt),
+        index('media_assets_uploader_idx').on(t.uploadedBy, t.createdAt),
+    ],
+);
+
+export const selectMediaAssetsSchema = createSelectSchema(mediaAssets);
+
+// ============================================================
 // ai_quota —— AI 审核每日配额(防滥用,2026-10-20)
 // 每用户每天一行;used 在触发时 SQL 侧自增;跨天自然重置(新行)
 // ============================================================

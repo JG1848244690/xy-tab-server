@@ -18,6 +18,7 @@ import 'md-editor-rt/lib/style.css'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
 import { reviewApi } from '@/services/review-api'
+import { uploadEditorImages } from '@/services/media-api'
 import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
@@ -456,6 +457,7 @@ const Modal = () => {
                         previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}
                         codeTheme={editorTheme === 'dark' ? 'dark' : 'github'}
                         style={editorStyle}
+                        onUploadImg={uploadEditorImages}
                       />
                     )}
                   </div>
@@ -476,6 +478,7 @@ const Modal = () => {
                         previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}
                         codeTheme={editorTheme === 'dark' ? 'dark' : 'github'}
                         style={editorStyle}
+                        onUploadImg={uploadEditorImages}
                       />
                     )}
                   </div>
@@ -484,11 +487,11 @@ const Modal = () => {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              插入图片:用标准 markdown 语法{' '}
+              图片:直接粘贴/拖拽进编辑器会自动上传到图库并插入链接(也可手动写{' '}
               <code className="rounded bg-muted px-1 py-0.5">
-                {'![图片说明](https://static.kskbl.com.cn/xxx.png)'}
+                {'![图片说明](https://static.kskbl.com.cn/uploads/...)'}
               </code>
-              ,图片说明会显示为图注。
+              )。
             </p>
 
             <DialogFooter>

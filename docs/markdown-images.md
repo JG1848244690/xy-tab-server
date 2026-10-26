@@ -1,60 +1,99 @@
-# Markdown 图文支持(2026-10-26)
+# Markdown 图文 + 图片统一管理(2026-10-26)
 
-题目/story 正文和答案都支持标准 markdown 图片。图片不经过后端,托管在独立的
-**static 子域**(推荐 `static.kskbl.com.cn`),正文只存 URL。
+题目/文章正文和答案支持标准 markdown 图片。图片集中在 **static 子域**,
+通过「图库」统一上传、查引用、清理;正文只存 URL。
 
 ## 1. 写法
 
 ```md
-![事件循环执行顺序](https://static.kskbl.com.cn/questions/2026/10/event-loop.png)
+![事件循环执行顺序](https://static.kskbl.com.cn/uploads/2026/10/<uuid>.webp)
 ```
 
-- `alt`(图片说明)会同时作为**图注**显示在图片下方,请写有信息量的说明;
-- 图片单独成段时渲染为 figure(居中 + 图注);夹杂在文字中时按行内图片处理;
-- 点击图片在新标签打开原图;
-- 图片懒加载,高度上限 560px,宽度自适应正文,不会撑破布局;
-- 支持 `title`:`![说明](url "鼠标悬停提示")`。
+- `alt` 会同时作为**图注**显示在图片下方,请写有信息量的说明;
+- 图片单独成段时渲染为 figure(居中 + 图注);夹在文字中时按行内图片处理;
+- 点击图片在新标签打开原图;懒加载;高度上限 560px,宽度自适应正文;
+- 支持 `title`: `![说明](url "悬停提示")`;
+- **不启用 raw HTML**,只认 markdown 语法(UGC 不会变成 XSS 入口)。
 
-## 2. 服务端托管(推荐做法)
+## 2. 统一管理(图库)
 
-静态资源与业务 API 分离,独立子域、独立目录、nginx 直接发文件:
+后台导航「图库」(`/media`,仅 admin)是唯一的图片入口:
+
+| 能力 | 说明 |
+|---|---|
+| 上传 | 支持 png / jpeg / webp / gif,单张 ≤5MB;每用户每天 50 张(admin 豁免) |
+| 落盘 | `UPLOAD_DIR/YYYY/MM/<uuid>.<ext>` → 对外 `https://static.kskbl.com.cn/uploads/...` |
+| 引用检查 | 「被引用 N 处」实时扫描题目/文章正文;被引用的图片**禁止删除** |
+| 清理 | 「清理未使用」一次清掉所有 0 引用图片(文件 + 记录一起删) |
+| 复制链接 | 一键复制 markdown 用 URL |
+
+**编辑器直传**:出题/编辑对话框里直接**粘贴或拖拽图片**、或用工具栏图片按钮,
+会自动上传到图库并把 markdown 插进正文 —— 不需要手动传服务器。
+
+实现:
+- 上传 `POST /media/upload`(multipart `file`)→ `{ asset: { id, url, ... } }`
+- 列表 `GET /media?page&size&unused=1`(admin);删除 `DELETE /media/:id`(admin,被引用 409)
+- 清理 `POST /media/cleanup`(admin)
+- 元信息表 `media_assets`(迁移 0006);魔数识别,不信任客户端 content-type
+
+## 3. 服务端托管(当前服务器实况)
+
+- 域名:`static.kskbl.com.cn`(Cloudflare 橙云 → 源站 nginx)
+- nginx(宝塔):`/www/server/panel/vhost/nginx/html_static.kskbl.com.cn.conf`
+- 站点根:`/www/wwwroot/static`,上传目录 `/www/wwwroot/static/uploads`
+- 证书:Cloudflare Origin(复用,不要新申请)
+
+nginx 里为上传目录单独加长缓存(优先于宝塔的图片 30d 正则):
 
 ```nginx
-server {
-    listen 443 ssl http2;
-    server_name static.kskbl.com.cn;
-
-    root /opt/hls-static;          # 只放图片,不放任何代码
-    autoindex off;
-
-    location / {
-        add_header Cache-Control "public, max-age=31536000, immutable";
-        expires 1y;
-        try_files $uri =404;
-    }
+location ^~ /uploads/ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    access_log off;
+    try_files $uri =404;
 }
 ```
 
-目录建议按内容分: `/questions/2026/10/<slug>.webp`、`/articles/...`。
-文件名只用 `[a-z0-9-]`,不要用中文/空格(URL 编码后很丑)。
+API 域名(`hls.kskbl.com.cn`)需要放开上传体积(默认 1m 会 413):
+
+```nginx
+client_max_body_size 10m;
+```
+
+容器挂载(仓库 `docker-compose.yml` 已带):
+
+```yaml
+environment:
+  UPLOAD_DIR: /data/uploads
+  UPLOAD_PUBLIC_BASE: https://static.kskbl.com.cn/uploads
+volumes:
+  - /www/wwwroot/static/uploads:/data/uploads
+```
+
+宿主目录属主必须是容器用户 uid 1001:
+
+```bash
+mkdir -p /www/wwwroot/static/uploads
+chown -R 1001:1001 /www/wwwroot/static/uploads
+chmod 755 /www/wwwroot/static/uploads
+```
 
 ### 图片规范(建议)
 
 | 项 | 建议 |
 |---|---|
-| 格式 | WebP 优先(png/jpg 也可),动图 gif |
-| 单图体积 | ≤ 300KB(截图类注意压缩) |
-| 宽度 | 1200–1600px 足够(正文展示宽度约 720px,2x 屏用) |
-| 命名 | `语义-slug.webp`,同一主题加序号 |
-| 防盗链 | 可不开;要开的话允许空 referer(微信/直链) |
+| 格式 | WebP 优先(上传接口也收 png/jpg/gif) |
+| 单图体积 | ≤300KB(接口硬上限 5MB) |
+| 宽度 | 1200–1600px(正文展示约 720px,2x 屏用) |
+| 命名 | 由系统生成 `uuid`;靠图库的日期/引用管理,不要手动改名 |
 
-## 3. 安全性
+## 4. 本地上传文件
 
-- 渲染器**不启用 raw HTML**,只认 markdown 图片/链接语法,UGC 不会变成 XSS 入口;
-- 图片域名与主站分离(不同 origin),恶意图片拿不到主站 cookie;
-- 建议 static 子域只允许 GET/HEAD,禁止上传接口暴露公网写权限。
+生产由 nginx 直接服务;本地开发把 `UPLOAD_PUBLIC_BASE` 指向
+`http://127.0.0.1:9999/uploads`,由 API 的 `/uploads/*` 路由托管
+(见 `apps/api/src/app.ts`)。本地文件默认在 `apps/api/uploads`(已 gitignore)。
 
-## 4. 已支持的渲染位置
+## 5. 已支持的渲染位置
 
 | 页面 | 渲染器 |
 |---|---|
@@ -64,16 +103,8 @@ server {
 | 后台审核中心「原题详情」/「AI 改进版」 | md-editor-rt `MdPreview` |
 | 出题/编辑对话框预览 | md-editor-rt `MdEditor` |
 
-## 5. 后续可选(未做)
+## 6. 清理策略
 
-- 编辑器里直接粘贴/拖拽图片 → 自动上传到 static 子域并插入 URL;
-  需要一个上传接口 + 服务器可写目录 + nginx 静态路由(和本文档 §2 配套)。
-- 图片懒加载占位/骨架、图床 CDN。
-
-## 6. 落地清单(切到 static 子域时)
-
-1. DNS 加 `static` A/CNAME 记录;
-2. nginx 加 server 块(§2)+ 证书(Let's Encrypt);
-3. 建目录 `/opt/hls-static`,给部署/运维账号写权限;
-4. 图片上传后用 URL 在题目/文章里引用(本系统不需要改代码);
-5. 抽查:面试站题目页和后台「原题详情」都能看到图、图注和点击放大。
+- 日常:图库 → 「未使用」→ 抽空点「清理未使用」;
+- 被引用的图片删不掉(接口 409),避免出现"正文里图裂了";
+- 图片 URL 里是随机 uuid,天然不可枚举;需要换图时删掉引用再清理即可。

@@ -43,3 +43,6 @@ todos-v3.png
 /*.png
 
 apps/api/routecheck-result.json
+
+# 本地上传的图片(开发环境 UPLOAD_DIR 默认 ./uploads)
+apps/api/uploads/
