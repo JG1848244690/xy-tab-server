@@ -7,7 +7,7 @@ import {
     MIGRATIONS_SCHEMA,
     MIGRATIONS_TABLE,
 } from '../../db/migrations-table.js'
-import { questions, reviewLogs, users } from '../../db/schema.js'
+import { aiQuota, questions, reviewLogs, users } from '../../db/schema.js'
 import { hashPassword } from '../../lib/auth.js'
 import { truncateBusinessTables, req } from '../../test/helpers.js'
 
@@ -106,6 +106,8 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
 
     beforeEach(async () => {
         await truncateBusinessTables(db)
+        // 配额按天累计:每个用例从 0 开始,断言才有意义
+        await db.delete(aiQuota)
         // mock LLM:默认给 90 分(高置信,但仍是 human_pending)
         vi.stubGlobal(
             'fetch',
@@ -148,7 +150,7 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(forbidden.status).toBe(403)
 
         // admin:队列里有人,分数 90,且状态不是 approved
-        const queue = await req(app, ADMIN, '/review/queue?tab=pending')
+        const queue = await req(app, ADMIN, '/review/queue?status=pending')
         expect(queue.status).toBe(200)
         const body = await queue.json()
         expect(body.total).toBe(1)
@@ -211,7 +213,7 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         await req(app, CREATOR, `/review/${q.id}`, { method: 'POST' })
         expect(await waitForStatus(q.id, 'rejected')).toBe(true)
 
-        const queue = await req(app, ADMIN, '/review/queue?tab=rejected')
+        const queue = await req(app, ADMIN, '/review/queue?status=rejected')
         expect(queue.status).toBe(200)
         const body = await queue.json()
         expect(body.total).toBe(1)
@@ -229,14 +231,36 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
     it('审核中 tab:可见 pending_review 的题(非 admin 403)', async () => {
         const q = await seedQuestion({ status: 'pending_review' })
 
-        const queue = await req(app, ADMIN, '/review/queue?tab=reviewing')
+        const queue = await req(app, ADMIN, '/review/queue?status=reviewing')
         expect(queue.status).toBe(200)
         const body = await queue.json()
         expect(body.total).toBe(1)
         expect(body.data[0].id).toBe(q.id)
 
-        const forbidden = await req(app, CREATOR, '/review/queue?tab=reviewing')
+        const forbidden = await req(app, CREATOR, '/review/queue?status=reviewing')
         expect(forbidden.status).toBe(403)
+    })
+
+    it('队列单列表:status=all 返回全部 + 各状态计数 + 待人工优先排序', async () => {
+        const pending = await seedQuestion({ status: 'human_pending', reviewScore: 80 })
+        const rejected = await seedQuestion({ status: 'rejected', reviewScore: 30 })
+        const approved = await seedQuestion({ status: 'approved', reviewScore: 90 })
+        // 已过审的题不再出现在单列表的待办里,但仍要出现在 status=approved 下
+        const res = await req(app, ADMIN, '/review/queue?status=all')
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.counts).toEqual({
+            all: 3,
+            reviewing: 0,
+            pending: 1,
+            rejected: 1,
+            approved: 1,
+        })
+        expect(body.data.map((q: { id: string }) => q.id)).toEqual([
+            pending.id,
+            rejected.id,
+            approved.id,
+        ])
     })
 
     it('一键应用 AI 改进版:写回原题(标题/题干/答案/标签)并自动重审', async () => {
@@ -330,6 +354,85 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         })
         const res = await req(app, ADMIN, `/review/${q.id}/apply-revision`, { method: 'POST' })
         expect(res.status).toBe(404)
+    })
+
+    it('模型返回空 revised(空字符串)时视为没有改进版,审核正常完成', async () => {
+        const report = llmReport(80)
+        const payload = JSON.parse(report.choices[0].message.content as string)
+        payload.revised = { title: '', content: '', answer: '', tags: [] }
+        report.choices[0].message.content = JSON.stringify(payload)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response(JSON.stringify(report), { status: 200 })),
+        )
+
+        const q = await seedQuestion({})
+        await req(app, CREATOR, `/review/${q.id}`, { method: 'POST' })
+        // 不再因为空 revised 整次失败:状态正常进入 human_pending
+        expect(await waitForStatus(q.id, 'human_pending')).toBe(true)
+
+        const [row] = await db.select().from(questions).where(eq(questions.id, q.id))
+        const revised = (row!.reviewResult as { revised?: unknown }).revised
+        expect(revised).toBeUndefined()
+    })
+
+    it('AI 自动出题:按粘贴内容生成完整题目,标签别名归一/去重/最多 4 个', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async () =>
+                    new Response(
+                        JSON.stringify({
+                            choices: [
+                                {
+                                    message: {
+                                        content: JSON.stringify({
+                                            title: '事件循环中微任务与宏任务的执行顺序',
+                                            content: '给出代码,判断输出顺序并解释原因。',
+                                            answer: '结论:同步代码 → 微任务 → 宏任务。',
+                                            tags: [
+                                                'js',
+                                                'JavaScript',
+                                                '事件循环',
+                                                '微任务',
+                                                '宏任务',
+                                                '事件循环机制',
+                                            ],
+                                            difficulty: 'medium',
+                                            type: 'text',
+                                        }),
+                                    },
+                                },
+                            ],
+                        }),
+                        { status: 200 },
+                    ),
+            ),
+        )
+
+        const res = await req(app, CREATOR, '/review/generate', {
+            method: 'POST',
+            body: JSON.stringify({
+                source: '微任务在当前宏任务结束后、下一个宏任务开始前清空队列;Promise.then 属于微任务。',
+            }),
+        })
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.question.title).toContain('事件循环')
+        // js → JavaScript 与 JavaScript 去重;事件循环机制 → 事件循环;截断到 4 个
+        expect(body.question.tags).toEqual(['JavaScript', '事件循环', '微任务', '宏任务'])
+
+        // 生成也是 LLM 成本:消耗 1 次配额
+        const quota = await (await req(app, CREATOR, '/review/quota')).json()
+        expect(quota.used).toBe(1)
+    })
+
+    it('AI 自动出题:source 太短 → 422', async () => {
+        const res = await req(app, CREATOR, '/review/generate', {
+            method: 'POST',
+            body: JSON.stringify({ source: '太短' }),
+        })
+        expect(res.status).toBe(422)
     })
 
     it('admin 可代触发任意题;普通用户看别人的题仍 404', async () => {

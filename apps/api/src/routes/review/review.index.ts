@@ -5,6 +5,7 @@ import * as routes from './review.routes.js'
 // cookieAuth 中间件在 src/app.ts 按路径应用(/review 与 /review/*)
 
 const router = createRouter()
+    .openapi(routes.generate, handlers.generate)
     .openapi(routes.triggerOne, handlers.triggerOne)
     .openapi(routes.triggerBatch, handlers.triggerBatch)
     .openapi(routes.result, handlers.result)

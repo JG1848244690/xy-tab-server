@@ -5,6 +5,7 @@ import type {
     ResultRoute,
     StaleRoute,
     QueueRoute,
+    GenerateRoute,
     ApplyRevisionRoute,
     HumanDecisionRoute,
     QuotaRoute,
@@ -13,10 +14,12 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { questions, reviewLogs } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
-import { REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
+import { LLM_JSON_RETRY, REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
 import { contentHashOf, runReview, isReviewing } from './agent.js'
-import { llmConfigured } from './llm.js'
+import { llmConfigured, chatJsonWithRetry, generatedQuestionSchema } from './llm.js'
 import { getQuota, consumeQuota } from './quota.js'
+import { normalizeTags, popularTags } from './tags.js'
+import { generateSystemPrompt } from './prompts/generate.js'
 import { errorBody } from '../../lib/errors.js'
 import { adminOnly } from '../../middlewares/admin.js'
 
@@ -232,25 +235,27 @@ export const result: AppRouteHandler<ResultRoute> = async (c) => {
 // ============================================================
 
 /**
- * GET /review/queue?tab=pending|reviewing|rejected|approved
- *  - pending:AI 已完成且分数 ≥60,等人工裁决(human_pending)
- *  - reviewing:AI 审核中(pending_review),前端自动轮询
- *  - rejected:被 AI 打回(带完整报告 + 改进版,可一键应用/重提)
- *  - approved:已通过并发布
- * AI 高置信(≥85)排前面 —— 但**不自动发布**,人工点通过才算。
+ * GET /review/queue?status=all|reviewing|pending|rejected|approved
+ * 单列表(2026-10-26 起替代四 tab):
+ *  - 每行用四步进度展示:AI 审核中 → AI 审核通过 → 待人工审核 → 已通过
+ *  - 排序:待人工 > 审核中 > 未通过 > 已通过,同组按最近更新
+ *  - counts 给筛选按钮上的数字
  */
 export const queue: AppRouteHandler<QueueRoute> = async (c) => {
     if (!isAdmin(c)) {
         return c.json(errorBody('Forbidden', 'FORBIDDEN'), HttpStatusCodes.FORBIDDEN)
     }
-    const { tab, page, size } = c.req.valid('query')
-    const statusByTab = {
-        pending: 'human_pending',
+    const { status: statusFilter, page, size } = c.req.valid('query')
+    const statusByFilter = {
         reviewing: 'pending_review',
+        pending: 'human_pending',
         rejected: 'rejected',
         approved: 'approved',
     } as const
-    const status = statusByTab[tab]
+    const where =
+        statusFilter === 'all'
+            ? undefined
+            : eq(questions.status, statusByFilter[statusFilter])
 
     const rows = await db
         .select({
@@ -263,11 +268,16 @@ export const queue: AppRouteHandler<QueueRoute> = async (c) => {
             updatedAt: questions.updatedAt,
         })
         .from(questions)
-        .where(eq(questions.status, status))
+        .where(where)
         .orderBy(
-            tab === 'pending'
-                ? sql`${questions.reviewScore} desc nulls last, ${questions.updatedAt} asc`
-                : desc(questions.updatedAt),
+            // 工作台优先级:待人工 > 审核中 > 未通过 > 已通过
+            sql`case ${questions.status}
+                when 'human_pending' then 0
+                when 'pending_review' then 1
+                when 'rejected' then 2
+                else 3
+            end`,
+            desc(questions.updatedAt),
         )
         .limit(size)
         .offset((page - 1) * size)
@@ -275,7 +285,22 @@ export const queue: AppRouteHandler<QueueRoute> = async (c) => {
     const [{ value: total }] = await db
         .select({ value: sql<number>`count(*)` })
         .from(questions)
-        .where(eq(questions.status, status))
+        .where(where)
+
+    // 各状态计数:一次 GROUP BY 拿全,筛选按钮直接显示数字
+    const statusRows = await db
+        .select({ status: questions.status, value: sql<number>`count(*)` })
+        .from(questions)
+        .groupBy(questions.status)
+    const counts = { all: 0, reviewing: 0, pending: 0, rejected: 0, approved: 0 }
+    for (const row of statusRows) {
+        const n = Number(row.value)
+        counts.all += n
+        if (row.status === 'pending_review') counts.reviewing += n
+        else if (row.status === 'human_pending') counts.pending += n
+        else if (row.status === 'rejected') counts.rejected += n
+        else if (row.status === 'approved') counts.approved += n
+    }
 
     // 一次取回这些题的审计日志,内存里挑每题最新一条(避免 N+1)
     const ids = rows.map((r) => r.id)
@@ -307,6 +332,7 @@ export const queue: AppRouteHandler<QueueRoute> = async (c) => {
             total: Number(total),
             page,
             size,
+            counts,
         },
         HttpStatusCodes.OK,
     )
@@ -376,6 +402,89 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
 }
 
 /**
+ * POST /review/generate —— AI 自动出题(登录用户可用,扣 AI 配额)
+ *
+ * 用户把知识点 / 文档片段 / AI 回答粘进来,生成一道完整题目(不落库)。
+ * 前端可以选择「填进表单再编辑」或「生成并直接提交审核」——
+ * 落库仍走 POST /questions,保持「创建即自动送审」的唯一入口。
+ */
+export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
+    const userId = c.get('userId')!
+    const { source, type, difficulty } = c.req.valid('json')
+
+    if (!llmConfigured()) {
+        return c.json({ message: 'LLM 未配置,审核 agent 不可用' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+    }
+
+    // 生成也是真实 LLM 成本:和审核共用每日配额(admin 豁免)
+    let quotaState: Awaited<ReturnType<typeof consumeQuota>> | null = null
+    if (!isAdmin(c)) {
+        quotaState = await consumeQuota(userId)
+        if (quotaState.limited) {
+            const retry = Math.ceil(
+                (new Date(quotaState.resetAt).getTime() - Date.now()) / 1000,
+            )
+            c.header('Retry-After', String(retry))
+            return c.json(
+                errorBody(
+                    `今日 AI 审核次数已用完(${quotaState.limit} 次),明天重置`,
+                    'QUOTA_EXCEEDED',
+                ),
+                HttpStatusCodes.TOO_MANY_REQUESTS,
+            )
+        }
+    }
+
+    const candidates = await popularTags()
+    const hints = [
+        type ? `【指定题型】${type}(必须遵守)` : '',
+        difficulty ? `【指定难度】${difficulty}(必须遵守)` : '',
+        `【平台已有标签(优先复用)】${candidates.join('、') || '无'}`,
+    ]
+        .filter(Boolean)
+        .join('\n')
+
+    try {
+        const { report } = await chatJsonWithRetry(
+            [
+                { role: 'system' as const, content: generateSystemPrompt },
+                { role: 'user' as const, content: `${hints}\n\n【用户粘贴的内容】\n${source}` },
+            ],
+            generatedQuestionSchema,
+            LLM_JSON_RETRY,
+        )
+
+        return c.json(
+            {
+                question: {
+                    ...report,
+                    // 标签统一收敛(别名/去重/最多 4 个);题型与难度以用户指定为准
+                    tags: normalizeTags(report.tags),
+                    type: type ?? report.type,
+                    difficulty: difficulty ?? report.difficulty,
+                },
+                ...(quotaState
+                    ? {
+                          quota: {
+                              used: quotaState.used,
+                              limit: quotaState.limit,
+                              remaining: quotaState.remaining,
+                          },
+                      }
+                    : {}),
+            },
+            HttpStatusCodes.OK,
+        )
+    } catch (err) {
+        c.get('logger')?.error({ err, userId }, 'ai generate question failed')
+        return c.json(
+            { message: 'AI 生成失败,请稍后重试' },
+            HttpStatusCodes.SERVICE_UNAVAILABLE,
+        )
+    }
+}
+
+/**
  * POST /review/:id/apply-revision —— 一键应用 AI 改进版(admin 或创建者)
  *
  * AI 打回时(见 prompts/output.ts)会给出可直接落库的完整版本
@@ -437,13 +546,9 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
     if (typeof revised.title === 'string' && revised.title.trim()) {
         updates.title = revised.title.trim().slice(0, 255)
     }
-    if (Array.isArray(revised.tags)) {
-        const tags = revised.tags
-            .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
-            .map((t) => t.trim().slice(0, 30))
-            .slice(0, 6)
-        if (tags.length) updates.tags = tags
-    }
+    // 与审核/出题共用同一套标签收敛规则
+    const tags = normalizeTags(revised.tags)
+    if (tags.length) updates.tags = tags
 
     // 原题就地更新(不新建):内容变了 → contentHash 不匹配 → 重审必然执行。
     // 配额先扣:额度用尽时不应留下"改了内容却没送审"的中间态

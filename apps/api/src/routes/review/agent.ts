@@ -20,6 +20,7 @@ import { reviewSystemPrompt } from './prompts/system.js'
 import { reviewRubricPrompt } from './prompts/rubric.js'
 import { reviewOutputPrompt } from './prompts/output.js'
 import { revisionSystemPrompt } from './prompts/revision.js'
+import { normalizeTags, popularTags } from './tags.js'
 
 /** 题目内容指纹:任一字符改动都会换 hash → 触发重审 */
 export const contentHashOf = (q: { title: string; content: string; answer: string }) =>
@@ -106,6 +107,9 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
             '',
             '【参考答案】',
             q.answer,
+            '',
+            '【平台已有标签(优先复用,避免自造小众标签)】',
+            (await popularTags()).join('、') || '无',
         ].join('\n')
 
         let report: AgentReport
@@ -136,6 +140,17 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         }
 
         const verdict = verdictOf(report.total)
+
+        // 模型用空串表示"不需要改进":归一成没有 revised,避免后台展示空改进版
+        if (report.revised && !(report.revised.content.trim() && report.revised.answer.trim())) {
+            const { revised: _drop, ...rest } = report
+            report = rest
+        }
+
+        // 标签收敛:别名归一 + 忽略大小写去重 + 最多 4 个;
+        // 归一后的结果同时写回报告,保证「已通过」列表与题目标签一致
+        const tags = normalizeTags(report.tags)
+        if (tags.length) report = { ...report, tags }
 
         // 兜底:AI 打回但主报告漏了改进版(模型偶发不守契约)→ 单独再生成一次。
         // 只影响"能不能一键应用",失败也不改变打回结论。
@@ -188,7 +203,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
                     contentHash: hash,
                     ...(slug ? { slug } : {}),
                     summary: report.summary,
-                    ...(report.tags?.length ? { tags: report.tags } : {}),
+                    ...(tags.length ? { tags } : {}),
                 })
                 .where(eq(questions.id, questionId))
             await tx.insert(reviewLogs).values({

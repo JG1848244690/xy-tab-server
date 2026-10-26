@@ -58,13 +58,17 @@ export const agentReportSchema = z
         /**
          * 改进版题目:当题目无意义 / 答案不充分时,agent 给出可直接落库的
          * 完整版本(2026-10-26)。后台可「一键应用」:写回题目 → 自动重审
+         *
+         * 注意:模型有时用 `{"title":"","content":"","answer":""}` 表示"不需要
+         * 改进"(实测),这里允许空串,由 agent 归一成「没有 revised」——
+         * 否则整个审核会被 zod 判失败、题卡在 pending_review。
          */
         revised: z
             .object({
-                title: z.string().min(1).max(255).optional(),
-                content: z.string().min(1),
-                answer: z.string().min(1),
-                tags: z.array(z.string().min(1).max(30)).max(6).optional(),
+                title: z.string().max(255).optional(),
+                content: z.string(),
+                answer: z.string(),
+                tags: z.array(z.string()).max(8).optional(),
             })
             .optional(),
     })
@@ -89,6 +93,21 @@ export const revisionSchema = z.object({
 })
 
 export type RevisionReport = z.infer<typeof revisionSchema>
+
+/**
+ * AI 自动出题的输出契约(prompts/generate.ts):
+ * 用户粘贴知识点 → 生成可直接建题的完整题目
+ */
+export const generatedQuestionSchema = z.object({
+    title: z.string().min(4).max(120),
+    content: z.string().min(10).max(20_000),
+    answer: z.string().min(10).max(20_000),
+    tags: z.array(z.string().min(1).max(30)).max(8).optional(),
+    difficulty: z.enum(['easy', 'medium', 'hard']),
+    type: z.enum(['markdown', 'text']),
+})
+
+export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>
 
 /** agent 是否已配置(三项 env 齐全才算) */
 export function llmConfigured(): boolean {

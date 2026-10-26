@@ -17,8 +17,11 @@ import { MdEditor } from 'md-editor-rt'
 import 'md-editor-rt/lib/style.css'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
+import { reviewApi } from '@/services/review-api'
 import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { CircleAlert, Loader2, Sparkles, Wand2 } from 'lucide-react'
 
 // 添加样式确保 MdEditor 不会溢出
 const editorStyle = {
@@ -48,6 +51,9 @@ const Modal = () => {
 
   const [tagsInput, setTagsInput] = useState('') // 用于输入标签，以逗号分隔
   const [isDataLoaded, setIsDataLoaded] = useState(false) // 标记数据是否已加载并填充
+  /** AI 自动出题:粘贴的原始知识点 */
+  const [aiSource, setAiSource] = useState('')
+  const [aiError, setAiError] = useState<string | null>(null)
 
   // 如果是编辑模式，加载题目数据
   const {
@@ -141,6 +147,58 @@ const Modal = () => {
     },
   })
 
+  // AI 自动出题:粘贴知识点 → 生成完整题目(只填表单,用户可改)
+  const aiGenerate = useMutation({
+    mutationFn: () =>
+      reviewApi.generate({
+        source: aiSource.trim(),
+        type: formData.type,
+        difficulty: formData.difficulty,
+      }),
+    onSuccess: ({ question }) => {
+      setAiError(null)
+      setFormData({
+        ...formData,
+        type: question.type,
+        title: question.title,
+        content: question.content,
+        answer: question.answer,
+        difficulty: question.difficulty,
+        tags: question.tags,
+      })
+      setTagsInput(question.tags.join(','))
+      queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
+    },
+    onError: (error) => setAiError(error instanceof Error ? error.message : 'AI 生成失败'),
+  })
+
+  // AI 自动出题 + 直接创建并送审(一键)
+  const aiCreate = useMutation({
+    mutationFn: async () => {
+      const { question } = await reviewApi.generate({
+        source: aiSource.trim(),
+        type: formData.type,
+        difficulty: formData.difficulty,
+      })
+      return questionsApi.create({
+        ...question,
+        visibility: formData.visibility ?? 'shared',
+      })
+    },
+    onSuccess: (data) => {
+      setAiError(null)
+      setAiSource('')
+      queryClient.invalidateQueries({ queryKey: ['questions'] })
+      queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+      updates({
+        open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
+        notice: `「${data.title}」已由 AI 生成并提交审核,通过后才会出现在题库`,
+      })
+    },
+    onError: (error) => setAiError(error instanceof Error ? error.message : 'AI 生成失败'),
+  })
+
   // 更新题目的 mutation
   const updateMutation = useMutation({
     mutationFn: (data: CreateQuestionDto) => questionsApi.update(editQuestionId!, data),
@@ -195,6 +253,8 @@ const Modal = () => {
     if (!isOpen) {
       // 关闭时重置所有状态
       setIsDataLoaded(false)
+      setAiSource('')
+      setAiError(null)
       setFormData({
         type: 'markdown',
         title: '',
@@ -253,6 +313,67 @@ const Modal = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 w-full min-w-0">
+            {!isEditMode && (
+              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-sm font-medium">
+                    <Wand2 className="h-4 w-4 text-primary" />
+                    AI 自动出题
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    粘贴知识点 / 文档片段 / AI 回答,自动生成完整题目
+                  </span>
+                </div>
+                <Textarea
+                  value={aiSource}
+                  onChange={(e) => setAiSource(e.target.value)}
+                  rows={4}
+                  placeholder="把知识点、文档片段或 AI 的回答粘贴到这里(20-8000 字)…"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      aiSource.trim().length < 20 || aiGenerate.isPending || aiCreate.isPending
+                    }
+                    onClick={() => aiGenerate.mutate()}
+                  >
+                    {aiGenerate.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-4 w-4" />
+                    )}
+                    AI 生成题目
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={
+                      aiSource.trim().length < 20 || aiGenerate.isPending || aiCreate.isPending
+                    }
+                    onClick={() => aiCreate.mutate()}
+                  >
+                    {aiCreate.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    生成并提交审核
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    「AI 生成」只填表单可再改;「生成并提交」直接创建并送审(各扣 1 次配额,admin 豁免)
+                  </span>
+                </div>
+                {aiError ? (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <CircleAlert className="h-3.5 w-3.5" />
+                    {aiError}
+                  </p>
+                ) : null}
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="type">题目类型 *</Label>

@@ -154,17 +154,23 @@ app.use('/review/*', cookieAuth())          // 现有
 
 ### 10.2 审核中心(导航名 = 审核)
 
-队列 `GET /review/queue` 扩为四个视角:
+**2026-10-26 二次改版:四个 tab → 单列表 + 状态筛选 + 行内四步进度。**
 
-| tab | 状态 | 用途 |
+`GET /review/queue?status=all|reviewing|pending|rejected|approved`:
+
+| status | 对应库状态 | 说明 |
 |---|---|---|
-| pending | human_pending | AI 过了,等人工通过/驳回 |
-| reviewing | pending_review | AI 审核中,前端 4s 自动轮询 + 手动刷新 |
-| rejected | rejected | AI 打回:完整报告 + 改进版「一键应用并重审」/重触发/强行通过 |
+| reviewing | pending_review | AI 审核中 |
+| pending | human_pending | AI 已通过,等待人工裁决 |
+| rejected | rejected | 未通过(AI 打回或人工驳回) |
 | approved | approved | 已通过并发布 |
+| all(默认) | — | 全部,排序:待人工 > 审核中 > 未通过 > 已通过,同组按最近更新 |
 
-前端:状态 chip(审核中/待人审/未通过/已通过)、主动刷新按钮(fetching 时禁用
-防连点)、写操作的 mutation pending 防抖、审核中 tab 自动轮询。
+响应额外带 `counts`(各状态数量),筛选按钮直接显示;分页 20/页。
+每行用四步进度展示「AI 审核中 → AI 审核通过 → 待人工审核 → 已通过」:
+done 绿色、进行中蓝色(带 spinner)、失败红色;人工驳回时失败标在「待人工审核」
+这一步而不是 AI 那步。列表里还有 `pending_review` 的题时前端 4s 自动轮询,
+刷新按钮在请求中禁用(防连点),所有写操作 mutation pending 防抖。
 
 ### 10.3 题库列表口径
 
@@ -190,3 +196,27 @@ app.use('/review/*', cookieAuth())          // 现有
 北京 8/14/20/2 点)。**注意**:GitHub 只调度默认分支上的 workflow,本仓库默认分支
 是 `pgsql`(无 site.yml),需把默认分支切到 `hls-api` 后定时任务才生效;
 切换前仍可用 Actions 里手动 Run workflow。
+
+### 10.6 AI 自动出题(粘贴知识点 → 完整题目)
+
+`POST /review/generate`(登录用户,消耗 1 次 AI 配额,admin 豁免):
+
+- 入参 `{ source: 20-8000 字, type?, difficulty? }`;出参
+  `{ title, content, answer, tags, difficulty, type }`(**不落库**)。
+- 落库仍走 `POST /questions`(创建即自动送审),保持唯一入口。
+- 前端「添加题目」对话框顶部新增面板:
+  - 「AI 生成题目」→ 填进表单,用户可编辑后再提交;
+  - 「生成并提交审核」→ 生成 + 创建 + 自动送审一步完成。
+- 提示词见 `prompts/generate.ts`;与审核共用 json_object + zod + 重试。
+- 实测:粘贴 200 字 useEffect 知识点 → 生成题干/分层答案/4 个标签 →
+  自动审核 98 分 → 待人审 → 通过 → 题库可见。
+
+### 10.7 标签收敛(轻量,暂不做标签管理后台)
+
+- 提示词:tags 限定 **2-4 个**,并注入「平台已有标签」候选(热门 24 个),
+  引导复用而不是自造小众标签。
+- 代码:`review/tags.ts` 统一 `normalizeTags()`:常见别名归一(js→JavaScript、
+  vue3→Vue、事件循环机制→事件循环…)、忽略大小写去重、单标签 ≤20 字、
+  最多 4 个;审核、应用改进版、AI 出题三处共用。
+- 存量 81 题的标签仍是历史数据,等审核清洗那一轮一并重打;
+  标签合并/重命名/后台管理 UI 优先级低,后续需要再做。

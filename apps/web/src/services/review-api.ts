@@ -5,8 +5,16 @@ import { request } from '@/lib/request'
  * 队列接口 admin-only(后端 adminOnly 强校验);触发/应用修订允许 owner + admin
  */
 
-/** 队列四个视角:待人审 / 审核中 / 被 AI 打回 / 已通过 */
-export type ReviewTab = 'pending' | 'reviewing' | 'rejected' | 'approved'
+/** 审核队列筛选(单列表 + 状态筛选,2026-10-26 起替代四个 tab) */
+export type ReviewQueueFilter = 'all' | 'reviewing' | 'pending' | 'rejected' | 'approved'
+
+export interface ReviewQueueCounts {
+    all: number
+    reviewing: number
+    pending: number
+    rejected: number
+    approved: number
+}
 
 /** AI 打回时给出的改进版(可直接落库,2026-10-26) */
 export interface RevisedQuestion {
@@ -14,6 +22,16 @@ export interface RevisedQuestion {
     content: string
     answer: string
     tags?: string[]
+}
+
+/** AI 自动出题的结果(未落库,前端可编辑后再创建) */
+export interface GeneratedQuestion {
+    title: string
+    content: string
+    answer: string
+    tags: string[]
+    difficulty: 'easy' | 'medium' | 'hard'
+    type: 'markdown' | 'text'
 }
 
 export interface ReviewQueueItem {
@@ -45,13 +63,16 @@ export interface ReviewQueueItem {
 }
 
 export const reviewApi = {
-    /** 审核队列:待人审 / 审核中 / 被 AI 打回 / 已通过 */
-    queue: (tab: ReviewTab, page = 1, size = 20) =>
+    /** 审核队列:单列表 + 状态筛选 */
+    queue: (status: ReviewQueueFilter, page = 1, size = 20) =>
         request
-            .get<{ data: ReviewQueueItem[]; total: number; page: number; size: number }>(
-                '/review/queue',
-                { params: { tab, page, size } },
-            )
+            .get<{
+                data: ReviewQueueItem[]
+                total: number
+                page: number
+                size: number
+                counts: ReviewQueueCounts
+            }>('/review/queue', { params: { status, page, size } })
             .then((r) => r.data),
 
     /** 人工裁决:approve = 通过并发布;reject = 驳回(note 必填,后端强校验) */
@@ -81,6 +102,19 @@ export const reviewApi = {
                 queued: boolean
                 quota?: { used: number; limit: number; remaining: number }
             }>(`/review/${id}/apply-revision`)
+            .then((r) => r.data),
+
+    /** AI 自动出题:粘贴知识点/文档/AI 回答 → 生成完整题目(不落库) */
+    generate: (body: {
+        source: string
+        type?: 'markdown' | 'text'
+        difficulty?: 'easy' | 'medium' | 'hard'
+    }) =>
+        request
+            .post<{
+                question: GeneratedQuestion
+                quota?: { used: number; limit: number; remaining: number }
+            }>('/review/generate', body)
             .then((r) => r.data),
 
     /** 单题审核结果轮询 */

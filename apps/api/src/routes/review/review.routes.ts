@@ -182,11 +182,8 @@ export const stale = createRoute({
     },
 })
 
-/** 人工审核队列(admin only):四个视角 ——
- *  pending   = AI 过了等人审(human_pending)
- *  reviewing = AI 审核中(pending_review)
- *  rejected  = 被 AI 打回(rejected)
- *  approved  = 已通过(approved)
+/** 审核队列(admin only):单列表 + 状态筛选,行内用四步进度展示
+ *  status=all 时不筛;否则按状态过滤
  */
 export const queue = createRoute({
     method: 'get',
@@ -194,7 +191,9 @@ export const queue = createRoute({
     tags,
     request: {
         query: z.object({
-            tab: z.enum(['pending', 'reviewing', 'rejected', 'approved']).default('pending'),
+            status: z
+                .enum(['all', 'reviewing', 'pending', 'rejected', 'approved'])
+                .default('all'),
             page: z.coerce.number().int().positive().default(1),
             size: z.coerce.number().int().positive().max(50).default(20),
         }),
@@ -206,8 +205,16 @@ export const queue = createRoute({
                 total: z.number(),
                 page: z.number(),
                 size: z.number(),
+                /** 各状态计数(筛选按钮上的数字) */
+                counts: z.object({
+                    all: z.number(),
+                    reviewing: z.number(),
+                    pending: z.number(),
+                    rejected: z.number(),
+                    approved: z.number(),
+                }),
             }),
-            '人工审核队列',
+            '审核队列',
         ),
         [HttpStatusCodes.FORBIDDEN]: jsonContent(
             z.object({ message: z.string() }),
@@ -215,9 +222,62 @@ export const queue = createRoute({
         ),
         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
             createErrorSchema(
-                z.object({ tab: z.enum(['pending', 'reviewing', 'rejected', 'approved']) }),
+                z.object({
+                    status: z.enum(['all', 'reviewing', 'pending', 'rejected', 'approved']),
+                }),
             ),
             '参数非法',
+        ),
+    },
+})
+
+/** AI 自动出题:粘贴知识点/文档/AI 回答 → 生成完整题目(不落库,前端确认后走 /questions) */
+export const generate = createRoute({
+    method: 'post',
+    path: '/review/generate',
+    tags,
+    request: {
+        body: jsonContentRequired(
+            z.object({
+                /** 粘贴的知识点/文档片段/AI 回答 */
+                source: z.string().min(20).max(8000),
+                /** 可选:用户指定的题型/难度(优先于模型判断) */
+                type: z.enum(['markdown', 'text']).optional(),
+                difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+            }),
+            '粘贴的知识点 / 文档片段 / AI 回答',
+        ),
+    },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                question: z.object({
+                    title: z.string(),
+                    content: z.string(),
+                    answer: z.string(),
+                    tags: z.array(z.string()),
+                    difficulty: z.enum(['easy', 'medium', 'hard']),
+                    type: z.enum(['markdown', 'text']),
+                }),
+                quota: z
+                    .object({ used: z.number(), limit: z.number(), remaining: z.number() })
+                    .optional(),
+            }),
+            '生成好的完整题目(未落库,前端可编辑后再创建)',
+        ),
+        [HttpStatusCodes.SERVICE_UNAVAILABLE]: jsonContent(
+            z.object({ message: z.string() }),
+            'LLM 未配置或生成失败,请稍后重试',
+        ),
+        [HttpStatusCodes.TOO_MANY_REQUESTS]: jsonContent(
+            z.object({ message: z.string() }),
+            '今日 AI 配额已用完(见 GET /review/quota)',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(
+                z.object({ source: z.string(), type: z.string().optional() }),
+            ),
+            '参数非法(source 20-8000 字)',
         ),
     },
 })
@@ -299,6 +359,7 @@ export type TriggerBatchRoute = typeof triggerBatch
 export type ResultRoute = typeof result
 export type StaleRoute = typeof stale
 export type QueueRoute = typeof queue
+export type GenerateRoute = typeof generate
 export type ApplyRevisionRoute = typeof applyRevision
 export type HumanDecisionRoute = typeof humanDecision
 export type QuotaRoute = typeof quota

@@ -5,19 +5,19 @@ import {
     ChevronDown,
     CircleAlert,
     CircleCheck,
+    CircleX,
+    Circle,
     Sparkles,
     RefreshCw,
     Wand2,
     RotateCw,
-    Clock,
     Loader2,
+    Clock,
 } from 'lucide-react'
-import { reviewApi, type ReviewQueueItem, type ReviewTab } from '@/services/review-api'
+import { reviewApi, type ReviewQueueItem, type ReviewQueueFilter } from '@/services/review-api'
 import { useAuthStore } from '@/store/auth-store'
 import { QuotaBadge } from '@/components/ai-quota-badge'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Dialog,
     DialogContent,
@@ -28,58 +28,100 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 /**
  * 审核中心(仅 admin 可见,见 dashboard-nav 的显隐 + 后端 403 兜底)
  *
- * 四个视角(docs/review-workflow-plan.md):
- *   待人审   = AI ≥60,等人工通过 / 驳回
- *   审核中   = AI 正在跑(自动轮询,也可手动刷新)
- *   被AI打回 = AI <60,带完整报告 + 改进版(一键应用 → 原题重审)
- *   已通过   = 已发布(公开站下次重建可见)
+ * 2026-10-26 改版:四个 tab → 单列表 + 状态筛选,
+ * 每行用四步进度展示:AI 审核中 → AI 审核通过 → 待人工审核 → 已通过。
+ * 排序由后端保证:待人工 > 审核中 > 未通过 > 已通过。
  */
 
-const TAB_META: Record<ReviewTab, { label: string; empty: string }> = {
-    pending: { label: '待人审', empty: '人工审核队列空空如也' },
-    reviewing: { label: '审核中', empty: '当前没有正在审核的题目' },
-    rejected: { label: '被 AI 打回', empty: '没有被 AI 打回的题目' },
-    approved: { label: '已通过', empty: '还没有已通过的题目' },
+const FILTERS: Array<{ value: ReviewQueueFilter; label: string }> = [
+    { value: 'all', label: '全部' },
+    { value: 'reviewing', label: 'AI 审核中' },
+    { value: 'pending', label: '待人工审核' },
+    { value: 'rejected', label: '未通过' },
+    { value: 'approved', label: '已通过' },
+]
+
+const STEP_LABELS = ['AI 审核中', 'AI 审核通过', '待人工审核', '已通过'] as const
+
+type StepState = 'done' | 'active' | 'failed' | 'todo'
+
+/**
+ * 状态 → 四步进度。
+ * 注意:人工驳回(已通过的题被人工打回)时,失败的是「待人工审核」这一步,
+ * 不能笼统标成 AI 未通过。
+ */
+function stepStates(item: ReviewQueueItem): StepState[] {
+    const humanRejected =
+        item.latestLog?.source === 'human' && item.latestLog.verdict === 'rejected'
+    switch (item.status) {
+        case 'pending_review':
+            return ['active', 'todo', 'todo', 'todo']
+        case 'human_pending':
+            return ['done', 'done', 'active', 'todo']
+        case 'approved':
+            return ['done', 'done', 'done', 'done']
+        case 'rejected':
+            return humanRejected
+                ? ['done', 'done', 'failed', 'todo']
+                : ['done', 'failed', 'todo', 'todo']
+        default:
+            // draft:已创建、还没送审
+            return ['todo', 'todo', 'todo', 'todo']
+    }
 }
 
-/** 题目审核状态 chip(四个 tab 里都能一眼看到状态) */
-function StatusChip({ status, score }: { status: string; score: number | null }) {
-    const map: Record<string, { text: string; className: string }> = {
-        pending_review: {
-            text: '审核中',
-            className: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300',
-        },
-        human_pending: {
-            text: '待人审',
-            className: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300',
-        },
-        rejected: {
-            text: '未通过',
-            className: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
-        },
-        approved: {
-            text: '已通过',
-            className: 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300',
-        },
-        draft: {
-            text: '未送审',
-            className: 'border-muted bg-muted text-muted-foreground',
-        },
-    }
-    const m = map[status] ?? { text: status, className: 'border-muted bg-muted text-muted-foreground' }
+function StepProgress({ item }: { item: ReviewQueueItem }) {
+    const states = stepStates(item)
     return (
-        <div className="flex items-center gap-2">
-            <Badge variant="outline" className={m.className}>
-                {status === 'pending_review' && <Loader2 className="h-3 w-3 animate-spin" />}
-                {m.text}
-            </Badge>
-            {score !== null ? (
-                <span className="font-mono text-xs text-muted-foreground">AI {score} 分</span>
-            ) : null}
+        <div className="flex flex-wrap items-center gap-y-1">
+            {STEP_LABELS.map((label, i) => {
+                const state = states[i]
+                const icon =
+                    state === 'done' ? (
+                        <CircleCheck className="h-3.5 w-3.5" />
+                    ) : state === 'active' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : state === 'failed' ? (
+                        <CircleX className="h-3.5 w-3.5" />
+                    ) : (
+                        <Circle className="h-3.5 w-3.5" />
+                    )
+                return (
+                    <div key={label} className="flex items-center">
+                        <span
+                            className={cn(
+                                'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none',
+                                state === 'done' &&
+                                    'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300',
+                                state === 'active' &&
+                                    'border-blue-200 bg-blue-50 font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300',
+                                state === 'failed' &&
+                                    'border-red-200 bg-red-50 font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
+                                state === 'todo' &&
+                                    'border-muted bg-muted/40 text-muted-foreground',
+                            )}
+                        >
+                            {icon}
+                            {label}
+                        </span>
+                        {i < STEP_LABELS.length - 1 && (
+                            <span
+                                className={cn(
+                                    'mx-1 h-px w-3 sm:w-5',
+                                    states[i] === 'done' && states[i + 1] !== 'todo'
+                                        ? 'bg-green-300 dark:bg-green-800'
+                                        : 'bg-border',
+                                )}
+                            />
+                        )}
+                    </div>
+                )
+            })}
         </div>
     )
 }
@@ -183,9 +225,11 @@ function ReportPanel({ item }: { item: ReviewQueueItem }) {
     )
 }
 
-function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab }) {
+function QueueItemCard({ item }: { item: ReviewQueueItem }) {
     const queryClient = useQueryClient()
-    const [reportOpen, setReportOpen] = useState(tab !== 'approved')
+    const [reportOpen, setReportOpen] = useState(
+        item.status === 'human_pending' || item.status === 'rejected',
+    )
     const [rejectOpen, setRejectOpen] = useState(false)
     const [note, setNote] = useState('')
     const [tip, setTip] = useState<string | null>(null)
@@ -215,7 +259,7 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
         onError: (err) => setTip(err instanceof Error ? err.message : '应用失败'),
     })
 
-    // 原题重触发(内容改过 / 想再跑一次)
+    // 原题重触发(内容改过 / 想再跑一次 / 卡死兜底)
     const retrigger = useMutation({
         mutationFn: () => reviewApi.trigger(item.id),
         onSuccess: (res) => {
@@ -230,15 +274,25 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
     })
 
     const busy = human.isPending || applyRevised.isPending || retrigger.isPending
-    const hasRevised = Boolean(item.reviewResult?.revised?.content && item.reviewResult.revised.answer)
+    const hasRevised = Boolean(
+        item.reviewResult?.revised?.content && item.reviewResult.revised.answer,
+    )
+    const canRetry = ['draft', 'pending_review', 'rejected'].includes(item.status)
 
     return (
         <div className="rounded-lg border bg-card p-4">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <h3 className="truncate text-[15px] font-semibold">{item.title}</h3>
+                    <div className="mt-2">
+                        <StepProgress item={item} />
+                    </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <StatusChip status={item.status} score={item.reviewScore} />
+                        {item.reviewScore !== null ? (
+                            <span className="font-mono">AI {item.reviewScore} 分</span>
+                        ) : (
+                            <span>尚未评分</span>
+                        )}
                         <span>·</span>
                         <span>
                             {item.latestLog
@@ -261,7 +315,7 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
                             />
                         </Button>
                     ) : null}
-                    {tab === 'pending' ? (
+                    {item.status === 'human_pending' ? (
                         <>
                             <Button
                                 size="sm"
@@ -282,22 +336,7 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
                             </Button>
                         </>
                     ) : null}
-                    {tab === 'reviewing' ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => retrigger.mutate()}
-                        >
-                            {retrigger.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <RotateCw className="h-4 w-4" />
-                            )}
-                            重新提交
-                        </Button>
-                    ) : null}
-                    {tab === 'rejected' ? (
+                    {item.status === 'rejected' ? (
                         <>
                             {hasRevised ? (
                                 <Button
@@ -314,19 +353,6 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
                                 </Button>
                             ) : null}
                             <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() => retrigger.mutate()}
-                            >
-                                {retrigger.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <RotateCw className="h-4 w-4" />
-                                )}
-                                重新审核
-                            </Button>
-                            <Button
                                 size="sm"
                                 variant="outline"
                                 disabled={busy}
@@ -336,23 +362,38 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
                             </Button>
                         </>
                     ) : null}
+                    {canRetry ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => retrigger.mutate()}
+                        >
+                            {retrigger.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <RotateCw className="h-4 w-4" />
+                            )}
+                            {item.status === 'pending_review' ? '重新提交' : '重新审核'}
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
             {tip ? <p className="mt-2 text-xs text-primary">{tip}</p> : null}
+
+            {item.status === 'pending_review' ? (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    AI 正在审核,完成后自动进入「待人工审核」或「未通过」;列表会自动刷新
+                </p>
+            ) : null}
 
             {reportOpen && item.reviewResult && (
                 <div className="mt-3 border-t pt-3">
                     <ReportPanel item={item} />
                 </div>
             )}
-
-            {tab === 'reviewing' ? (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    AI 正在审核,完成后会自动进入「待人审」或「被 AI 打回」
-                </p>
-            ) : null}
 
             {/* 驳回理由对话框:必填,后端同样强校验 */}
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
@@ -387,51 +428,24 @@ function QueueItemCard({ item, tab }: { item: ReviewQueueItem; tab: ReviewTab })
     )
 }
 
-function QueueList({ tab }: { tab: ReviewTab }) {
-    const { data, isLoading, isFetching } = useQuery({
-        queryKey: ['review-queue', tab],
-        queryFn: () => reviewApi.queue(tab),
-        // 审核状态变化快(agent 异步写库),不能吃全局 60s 缓存
-        staleTime: 0,
-        refetchOnMount: 'always',
-        // 审核中自动轮询,其他 tab 只在手动刷新/操作后更新(省请求)
-        refetchInterval: tab === 'reviewing' ? 4000 : false,
-    })
-
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-            </div>
-        )
-    }
-
-    if (!data?.data.length) {
-        return (
-            <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-                {TAB_META[tab].empty}
-                {isFetching ? '(刷新中…)' : ''}
-            </div>
-        )
-    }
-
-    return (
-        <div className="space-y-3">
-            {data.data.map((item) => (
-                <QueueItemCard key={item.id} item={item} tab={tab} />
-            ))}
-        </div>
-    )
-}
-
 export default function ReviewPage() {
     const role = useAuthStore((s) => s.user?.role)
     const queryClient = useQueryClient()
-    const [tab, setTab] = useState<ReviewTab>('pending')
+    const [filter, setFilter] = useState<ReviewQueueFilter>('all')
+    const [page, setPage] = useState(1)
     // 任一队列请求在飞 → 刷新按钮转圈且禁用(防连点)
     const fetching = useIsFetching({ queryKey: ['review-queue'] }) > 0
+
+    const { data, isLoading } = useQuery({
+        queryKey: ['review-queue', filter, page],
+        queryFn: () => reviewApi.queue(filter, page),
+        // 审核状态变化快(agent 异步写库),不能吃全局 60s 缓存
+        staleTime: 0,
+        refetchOnMount: 'always',
+        // 列表里只要还有「AI 审核中」的题,就 4s 轮询一次
+        refetchInterval: (query) =>
+            query.state.data?.data.some((i) => i.status === 'pending_review') ? 4000 : false,
+    })
 
     // 权限边界在后端;这里只是导航显隐的兜底
     if (role !== 'admin') {
@@ -447,6 +461,11 @@ export default function ReviewPage() {
             </div>
         )
     }
+
+    const counts = data?.counts
+    const total = data?.total ?? 0
+    const totalPages = Math.max(1, Math.ceil(total / (data?.size ?? 20)))
+    const items = data?.data ?? []
 
     return (
         <div className="flex h-full flex-col overflow-hidden">
@@ -476,18 +495,81 @@ export default function ReviewPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-                <Tabs value={tab} onValueChange={(v) => setTab(v as ReviewTab)}>
-                    <TabsList>
-                        {(Object.keys(TAB_META) as ReviewTab[]).map((key) => (
-                            <TabsTrigger key={key} value={key}>
-                                {TAB_META[key].label}
-                            </TabsTrigger>
+                {/* 状态筛选(带各状态数量) */}
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {FILTERS.map((f) => {
+                        const active = filter === f.value
+                        const count = counts?.[f.value] ?? 0
+                        return (
+                            <Button
+                                key={f.value}
+                                variant={active ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    setFilter(f.value)
+                                    setPage(1)
+                                }}
+                            >
+                                {f.label}
+                                <span
+                                    className={cn(
+                                        'ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none',
+                                        active ? 'bg-primary-foreground/20' : 'bg-muted',
+                                    )}
+                                >
+                                    {count}
+                                </span>
+                            </Button>
+                        )
+                    })}
+                </div>
+
+                {isLoading ? (
+                    <div className="space-y-3">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
+                ) : items.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+                        {filter === 'all'
+                            ? '还没有提交审核的题目'
+                            : `当前没有「${FILTERS.find((f) => f.value === filter)?.label}」的题目`}
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {items.map((item) => (
+                            <QueueItemCard key={item.id} item={item} />
                         ))}
-                    </TabsList>
-                    <TabsContent value={tab} className="mt-4">
-                        <QueueList tab={tab} />
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                )}
+
+                {total > 0 && (
+                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                        <span>共 {total} 条</span>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page <= 1}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            >
+                                上一页
+                            </Button>
+                            <span className="font-mono text-xs">
+                                {page} / {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page >= totalPages}
+                                onClick={() => setPage((p) => p + 1)}
+                            >
+                                下一页
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

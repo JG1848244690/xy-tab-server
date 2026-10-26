@@ -20,6 +20,6 @@ export const revisionSystemPrompt = `你是前端面试题库的资深编辑。�
     "title": "<可选:原标题有误导或不利于搜索时才改写>",
     "content": "<改进后的完整题干(markdown)>",
     "answer": "<改进后的完整答案(markdown,分层,含代码示例)>",
-    "tags": ["<2-6 个与主题强相关的标签>"]
+    "tags": ["<2-4 个,优先复用平台已有标签,不要自造小众标签>"]
   }
 }`
