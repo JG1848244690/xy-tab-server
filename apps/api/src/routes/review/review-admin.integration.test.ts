@@ -295,6 +295,29 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(row!.reviewScore).toBe(90)
     })
 
+    it('AI 报告内嵌 ```js 代码块时仍能正确解析(围栏误伤回归)', async () => {
+        const report = llmReport(40)
+        const payload = JSON.parse(report.choices[0].message.content as string)
+        payload.revised = {
+            content: '请手写 Promise.all,并说明失败行为。',
+            answer: '结论:任一失败立即 reject。\n\n```js\nfunction promiseAll(list) {\n  return new Promise((resolve) => resolve(list))\n}\n```',
+            tags: ['Promise'],
+        }
+        report.choices[0].message.content = JSON.stringify(payload)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response(JSON.stringify(report), { status: 200 })),
+        )
+
+        const q = await seedQuestion({})
+        await req(app, CREATOR, `/review/${q.id}`, { method: 'POST' })
+        expect(await waitForStatus(q.id, 'rejected')).toBe(true)
+
+        const [row] = await db.select().from(questions).where(eq(questions.id, q.id))
+        const revised = (row!.reviewResult as { revised?: { answer?: string } }).revised
+        expect(revised?.answer).toContain('```js')
+    })
+
     it('最近一次 AI 报告没有改进版 → apply-revision 404', async () => {
         const q = await seedQuestion({ status: 'rejected' })
         await db.insert(reviewLogs).values({

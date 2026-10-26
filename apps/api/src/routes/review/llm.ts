@@ -96,17 +96,44 @@ export function llmConfigured(): boolean {
     return Boolean(cfg.baseUrl && cfg.model && cfg.apiKey)
 }
 
-/** 从回复里抠 JSON:容错 ```json 围栏和前后废话 */
+/**
+ * 从回复里抠 JSON。
+ *
+ * 关键坑(2026-10-26):`revised.answer` 里常含 ```js 代码块,旧实现先匹配
+ * ```json 围栏(语言标签可选)就会把答案里的 JS 当成 JSON 抠出来 →
+ * "Expected property name ... position 1" 偶发审核失败。
+ * 现在优先整段解析(json_object 模式的常态),再按围栏兜底。
+ */
 function extractJson(text: string): unknown {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-    const raw = fenced ? fenced[1] : text
-    const start = raw.indexOf('{')
-    const end = raw.lastIndexOf('}')
-    if (start === -1 || end <= start) {
-        // 带上片段:线上排查"模型没按契约输出"时能直接看到原因
-        throw new LlmError(`回复里没有 JSON 对象: ${text.slice(0, 120)}`)
+    const tryParse = (raw: string): unknown | undefined => {
+        const start = raw.indexOf('{')
+        const end = raw.lastIndexOf('}')
+        if (start === -1 || end <= start) return undefined
+        try {
+            return JSON.parse(raw.slice(start, end + 1))
+        } catch {
+            return undefined
+        }
     }
-    return JSON.parse(raw.slice(start, end + 1))
+
+    // 1. 整段就是 JSON(response_format=json_object 时最常见)
+    const direct = tryParse(text)
+    if (direct !== undefined) return direct
+
+    // 2. 显式 ```json 围栏
+    for (const m of text.matchAll(/```json\s*([\s\S]*?)```/gi)) {
+        const parsed = tryParse(m[1])
+        if (parsed !== undefined) return parsed
+    }
+
+    // 3. 其它围栏(模型用 ``` 包了 JSON)
+    for (const m of text.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) {
+        const parsed = tryParse(m[1])
+        if (parsed !== undefined) return parsed
+    }
+
+    // 4. 没救:带上片段,线上排查"模型没按契约输出"时能直接看到原因
+    throw new LlmError(`回复里没有可解析的 JSON 对象: ${text.slice(0, 120)}`)
 }
 
 /**
@@ -140,6 +167,9 @@ export async function chatJson<T>(
             model: cfg.model,
             messages,
             temperature: 0.2,
+            // 强制合法 JSON(DeepSeek/OpenAI 兼容网关都支持):实测能根治
+            // 模型偶发输出单引号/半截 JSON 导致的审核失败
+            response_format: { type: 'json_object' },
             ...thinkingParam(),
         }),
         signal: AbortSignal.timeout(LLM_TIMEOUT_MS),

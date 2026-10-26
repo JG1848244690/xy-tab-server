@@ -128,10 +128,12 @@ const Modal = () => {
         visibility: 'shared',
       })
       setTagsInput('')
-      // 关闭对话框
+      // 关闭对话框,并提示"新题去了审核中心"(2026-10-26:题库只显示已过审的题)
       updates({
         open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
+        notice: `「${data.title}」已提交 AI 审核,通过后才会出现在题库`,
       })
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] })
     },
     onError: (error) => {
       console.error('创建题目失败:', error)

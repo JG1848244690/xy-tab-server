@@ -173,11 +173,16 @@ app.use('/review/*', cookieAuth())          // 现有
 - 新增 `visibility=shared|private` 筛选;前端「可见性」独立成列(共享/私有)并可筛选,
   不再在标题后缀「私有」;列表默认每页 20 条。
 
-### 10.4 LLM 成本
+### 10.4 LLM 成本与稳定性
 
 - DeepSeek V4.1 默认开启 thinking:实测同一题 reasoning 2229 tokens / 15s;
   关闭后 7.7s、输出 1/3,且 JSON 契约更稳定。默认下发
   `thinking:{"type":"disabled"}`,可用 `LLM_THINKING=enabled|auto` 覆盖。
+- 请求强制 `response_format: {"type":"json_object"}`。
+- **围栏误伤修复**:`revised.answer` 内常含 ```js 代码块,旧解析器会把代码块当
+  JSON 抠出来 → "Expected property name ... position 1"。现在优先整段解析,
+  失败再依次尝试 ```json 围栏、其它围栏(见 `llm.ts extractJson`);已加集成
+  回归用例(报告内嵌 ```js 仍能落库)。
 
 ### 10.5 面试站定时重建
 

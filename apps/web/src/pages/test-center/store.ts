@@ -30,6 +30,8 @@ type StoreState = {
   open: Record<string, unknown>
   loading: Record<string, unknown>
   errMsg: Record<string, unknown>
+  /** 创建题目后的引导提示(新题先进审核中心,不直接进题库) */
+  notice: string | null
   getData: (params: Record<string, unknown>) => void
   updates: (params: Partial<StoreState>) => void
   clearStore: () => void
@@ -43,6 +45,7 @@ export const store = create<StoreState>((set, get) => ({
   open: { modal: false },
   loading: {},
   errMsg: {},
+  notice: null,
 
   getData: async (params) => {
     console.log(params)
@@ -98,6 +101,7 @@ export const store = create<StoreState>((set, get) => ({
       open: {},
       loading: {},
       errMsg: {},
+      notice: null,
     })
   },
 }))
