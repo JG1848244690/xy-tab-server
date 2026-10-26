@@ -58,6 +58,9 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         const [q] = await db.select().from(questions).where(eq(questions.id, questionId)).limit(1)
         if (!q) return 'skipped'
 
+        // 是否存量已发布(清洗场景:全程保持 approved,只补元数据)
+        const wasApproved = q.status === 'approved'
+
         const hash = contentHashOf(q)
 
         // 人工驳回后,内容没改就不许重提 AI —— 逼着先把内容改好
@@ -80,10 +83,15 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         // 幂等:内容没变且已人工通过 → 跳过(不重审不重发布)
         if (q.contentHash === hash && q.status === 'approved') return 'skipped'
 
-        // 先置 pending_review:LLM 挂了也停在这个状态,/review/stale 兜底
+        // 先置 pending_review:LLM 挂了也停在这个状态,/review/stale 兜底。
+        // 例外:已 approved 的存量题(清洗场景)全程保持 approved,
+        // 不给公开站制造"消失的题目"
         await db
             .update(questions)
-            .set({ status: 'pending_review', contentHash: hash })
+            .set({
+                status: wasApproved ? 'approved' : 'pending_review',
+                contentHash: hash,
+            })
             .where(eq(questions.id, questionId))
 
         const userContent = [
@@ -131,7 +139,6 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         // 存量清洗语义:已是 approved 的题(公开在站上)不因 AI 重审而降级 ——
         // AI 只补元数据(slug/summary/分数);低分也保持 approved,仅落一条
         // 打回建议的日志供人工参考(删它的决定必须由人做)
-        const wasApproved = q.status === 'approved'
         const finalStatus = wasApproved ? 'approved' : verdict
 
         // slug 策略:agent 给了就用;查重,撞了拼 hash 尾巴;没给保留原值
