@@ -74,6 +74,12 @@ jobs:
           SITE_API_BASE: http://127.0.0.1:8080
         run: pnpm run build
 
+      # 定时重建(同一 commit 可能构建多次):用 run_id 做后缀,避免复用同一
+      # releases/<sha> 目录导致旧页面/旧哈希资源残留。
+      - name: Resolve release name
+        id: release
+        run: echo "name=${{ github.sha }}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
       - name: Upload dist to server
         # out/ 是 next build 的静态导出产物
         uses: appleboy/scp-action@v0.1.7
@@ -82,7 +88,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: 'apps/site/out/*'
-          target: '${{ env.DEPLOY_DIR }}/releases/${{ github.sha }}'
+          target: '${{ env.DEPLOY_DIR }}/releases/${{ steps.release.outputs.name }}'
           strip_components: 3
           overwrite: true
 
@@ -92,16 +98,16 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: DEPLOY_DIR,SHA
+          envs: DEPLOY_DIR,REL
           script: |
             set -e
             cd "$DEPLOY_DIR"
-            chmod -R a+rX "releases/$SHA"
-            ln -sfn "releases/$SHA" current.tmp
+            chmod -R a+rX "releases/$REL"
+            ln -sfn "releases/$REL" current.tmp
             mv -Tf current.tmp current
             echo "=== current -> $(readlink current) ==="
             ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
             ls -1dt releases/*/ | head -6
         env:
           DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
-          SHA: ${{ github.sha }}
+          REL: ${{ steps.release.outputs.name }}

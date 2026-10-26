@@ -10,16 +10,23 @@ on:
     branches: ['**']
     paths-ignore:
       - 'apps/web/**'
+      - 'apps/site/**'
       - 'docs/**'
       - 'deploy/**'
       - '**.md'
+      # 纯站点/前端 workflow 改动不该触发后端镜像重建 + 重启容器
+      - '.github/workflows/site.yml'
+      - '.github/workflows/web.yml'
   pull_request:
     branches: [master, main, hls-api]
     paths-ignore:
       - 'apps/web/**'
+      - 'apps/site/**'
       - 'docs/**'
       - 'deploy/**'
       - '**.md'
+      - '.github/workflows/site.yml'
+      - '.github/workflows/web.yml'
 
 jobs:
   ci:
