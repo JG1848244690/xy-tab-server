@@ -81,6 +81,21 @@ describe.skipIf(!hasDb)('public read integration (real PG)', () => {
         expect(body.data[0].slug).toBe('pub-q')
     })
 
+    it('tags 存成 JSON 标量(脏数据)时,tag 过滤不 500,只是匹配不到', async () => {
+        // 历史导入可能把 tags 存成字符串而不是数组:jsonb_array_elements_text
+        // 直接吃标量会报 "cannot extract elements from a scalar" → 500
+        await seedQuestion({
+            status: 'approved',
+            slug: 'dirty-tags',
+            tags: 'oops' as unknown as string[],
+            publishedAt: new Date(),
+        })
+        const res = await app.request('/public/questions?tag=javascript')
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.total).toBe(0)
+    })
+
     it('详情按 slug:approved 给全量(含答案);draft slug 一律 404', async () => {
         await seedQuestion({ status: 'approved', slug: 'detail-q', publishedAt: new Date() })
 

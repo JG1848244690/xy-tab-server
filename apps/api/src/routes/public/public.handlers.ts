@@ -38,8 +38,12 @@ function publicQuestionConditions(bank?: string, tag?: string) {
     // 与该库共用的标签过滤:大小写无关(jsonb 元素逐个 lower 比对;
     // 题目 tags 是 'JavaScript' 这类原始大小写,tag_registry 存的是小写 slug 名)
     if (tag) {
+        // 防御:历史/外部导入数据可能把 tags 存成 JSON 标量(不是数组),
+        // 直接 jsonb_array_elements_text 会 "cannot extract elements from a scalar" → 500
         conditions.push(
-            sql`exists (select 1 from jsonb_array_elements_text(${questions.tags}) t where lower(t) = lower(${tag}))`,
+            sql`exists (select 1 from jsonb_array_elements_text(
+                    case when jsonb_typeof(${questions.tags}) = 'array' then ${questions.tags} else '[]'::jsonb end
+                ) t where lower(t) = lower(${tag}))`,
         )
     }
     return conditions
@@ -233,7 +237,9 @@ export const listTags: AppRouteHandler<ListTagsRoute> = async (c) => {
                 select count(*) from "questions" q
                 where q.status = 'approved'
                   and exists (
-                      select 1 from jsonb_array_elements_text(q.tags) tag
+                      select 1 from jsonb_array_elements_text(
+                          case when jsonb_typeof(q.tags) = 'array' then q.tags else '[]'::jsonb end
+                      ) tag
                       where lower(tag) = lower(${tagRegistry.name})
                   )
             )`,

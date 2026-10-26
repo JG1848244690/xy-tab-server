@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useTheme } from 'next-themes'
+import { MdPreview } from 'md-editor-rt'
+import 'md-editor-rt/lib/style.css'
 import {
     ShieldCheck,
     ChevronDown,
@@ -122,29 +125,42 @@ function StepBar({ item }: { item: ReviewQueueItem }) {
     )
 }
 
-/** 给预览用的纯文本:去掉代码围栏标记、压掉多余空白 */
+/** 给预览用的纯文本:去掉代码围栏标记、把图片语法折成 [图片:说明]、压掉多余空白 */
 function plainPreview(text: string): string {
     return text
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_m, alt: string) =>
+            alt ? `[图片:${alt}] ` : '[图片] ',
+        )
         .replace(/```[a-zA-Z]*/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
 }
 
-/** 原题详情:题干 + 参考答案 + 标签 */
-function QuestionPanel({ item }: { item: ReviewQueueItem }) {
+/** 原题详情:题干 + 参考答案 + 标签(用 MdPreview 渲染,图片/代码块都能看) */
+function QuestionPanel({
+    item,
+    editorTheme,
+}: {
+    item: ReviewQueueItem
+    editorTheme: 'dark' | 'light'
+}) {
     return (
-        <div className="mt-3 max-h-80 space-y-4 overflow-y-auto border-t pt-3 text-sm">
+        <div className="mt-3 max-h-96 space-y-4 overflow-y-auto border-t pt-3 text-sm">
             <div>
-                <p className="text-xs font-medium text-muted-foreground">题干</p>
-                <pre className="mt-1 whitespace-pre-wrap break-words font-sans leading-relaxed">
-                    {item.content}
-                </pre>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">题干</p>
+                <MdPreview
+                    id={`review-q-${item.id}`}
+                    modelValue={item.content}
+                    theme={editorTheme}
+                />
             </div>
             <div>
-                <p className="text-xs font-medium text-muted-foreground">参考答案</p>
-                <pre className="mt-1 whitespace-pre-wrap break-words font-sans leading-relaxed">
-                    {item.answer}
-                </pre>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">参考答案</p>
+                <MdPreview
+                    id={`review-a-${item.id}`}
+                    modelValue={item.answer}
+                    theme={editorTheme}
+                />
             </div>
             {item.tags?.length ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -163,7 +179,13 @@ function QuestionPanel({ item }: { item: ReviewQueueItem }) {
 }
 
 /** AI 审核意见:评分 + 建议 + 改进版(标题/内容/答案都明确分区) */
-function ReportPanel({ item }: { item: ReviewQueueItem }) {
+function ReportPanel({
+    item,
+    editorTheme,
+}: {
+    item: ReviewQueueItem
+    editorTheme: 'dark' | 'light'
+}) {
     const r = item.reviewResult
     if (!r) return null
 
@@ -227,16 +249,20 @@ function ReportPanel({ item }: { item: ReviewQueueItem }) {
                     ) : null}
                     <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
                         <div>
-                            <p className="text-xs text-muted-foreground">题干</p>
-                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans text-[13px]">
-                                {r.revised.content}
-                            </pre>
+                            <p className="mb-1 text-xs text-muted-foreground">题干</p>
+                            <MdPreview
+                                id={`review-rev-q-${item.id}`}
+                                modelValue={r.revised.content}
+                                theme={editorTheme}
+                            />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">答案</p>
-                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans text-[13px]">
-                                {r.revised.answer}
-                            </pre>
+                            <p className="mb-1 text-xs text-muted-foreground">答案</p>
+                            <MdPreview
+                                id={`review-rev-a-${item.id}`}
+                                modelValue={r.revised.answer}
+                                theme={editorTheme}
+                            />
                         </div>
                     </div>
                     {r.revised.tags?.length ? (
@@ -259,6 +285,8 @@ function ReportPanel({ item }: { item: ReviewQueueItem }) {
 
 function QueueItemCard({ item }: { item: ReviewQueueItem }) {
     const queryClient = useQueryClient()
+    const { resolvedTheme } = useTheme()
+    const editorTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
     // 默认全部折叠:先看清题目和状态,再按需展开
     const [openPanel, setOpenPanel] = useState<'question' | 'report' | null>(null)
     const [rejectOpen, setRejectOpen] = useState(false)
@@ -453,8 +481,12 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
                 ) : null}
             </div>
 
-            {openPanel === 'question' ? <QuestionPanel item={item} /> : null}
-            {openPanel === 'report' ? <ReportPanel item={item} /> : null}
+            {openPanel === 'question' ? (
+                <QuestionPanel item={item} editorTheme={editorTheme} />
+            ) : null}
+            {openPanel === 'report' ? (
+                <ReportPanel item={item} editorTheme={editorTheme} />
+            ) : null}
 
             {/* 驳回理由对话框:必填,后端同样强校验 */}
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>

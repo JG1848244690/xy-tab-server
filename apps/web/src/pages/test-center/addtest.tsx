@@ -483,6 +483,14 @@ const Modal = () => {
               </div>
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              插入图片:用标准 markdown 语法{' '}
+              <code className="rounded bg-muted px-1 py-0.5">
+                {'![图片说明](https://static.kskbl.com.cn/xxx.png)'}
+              </code>
+              ,图片说明会显示为图注。
+            </p>
+
             <DialogFooter>
               <Button
                 type="button"

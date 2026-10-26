@@ -89,7 +89,9 @@ export async function popularTags(limit = 24): Promise<string[]> {
         const rows = (await db.execute(sql`
             select tag
             from (
-                select jsonb_array_elements_text(tags) as tag
+                select jsonb_array_elements_text(
+                    case when jsonb_typeof(tags) = 'array' then tags else '[]'::jsonb end
+                ) as tag
                 from questions
                 where tags is not null and status = 'approved'
             ) t
