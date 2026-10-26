@@ -20,6 +20,10 @@ const queueItemSchema = z.object({
     status: z.string(),
     reviewScore: z.number().nullable(),
     reviewResult: z.record(z.string(), z.unknown()).nullable(),
+    /** 原题内容(审核时需要对照;仅 admin 接口返回) */
+    content: z.string(),
+    answer: z.string(),
+    tags: z.array(z.string()).nullable(),
     updatedAt: z.date(),
     latestLog: z
         .object({

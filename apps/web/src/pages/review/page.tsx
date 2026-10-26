@@ -5,14 +5,13 @@ import {
     ChevronDown,
     CircleAlert,
     CircleCheck,
-    CircleX,
-    Circle,
     Sparkles,
     RefreshCw,
     Wand2,
     RotateCw,
     Loader2,
     Clock,
+    FileText,
 } from 'lucide-react'
 import { reviewApi, type ReviewQueueItem, type ReviewQueueFilter } from '@/services/review-api'
 import { useAuthStore } from '@/store/auth-store'
@@ -31,11 +30,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 /**
- * 审核中心(仅 admin 可见,见 dashboard-nav 的显隐 + 后端 403 兜底)
+ * 审核中心(仅 admin)
  *
- * 2026-10-26 改版:四个 tab → 单列表 + 状态筛选,
- * 每行用四步进度展示:AI 审核中 → AI 审核通过 → 待人工审核 → 已通过。
- * 排序由后端保证:待人工 > 审核中 > 未通过 > 已通过。
+ * 2026-10-26 改版:四个 tab → 单列表 + 状态筛选;
+ * 每行一条细进度条(4 段)表示 AI 审核中 → AI 通过 → 人工审核 → 已通过。
+ * 原题详情 / AI 审核意见默认折叠,点开才看 —— 避免默认展开一大片干扰判断。
  */
 
 const FILTERS: Array<{ value: ReviewQueueFilter; label: string }> = [
@@ -46,13 +45,30 @@ const FILTERS: Array<{ value: ReviewQueueFilter; label: string }> = [
     { value: 'approved', label: '已通过' },
 ]
 
+/** 四步:AI 审核中 → AI 审核通过 → 待人工审核 → 已通过 */
 const STEP_LABELS = ['AI 审核中', 'AI 审核通过', '待人工审核', '已通过'] as const
+
+const DIM_LABELS: Record<string, string> = {
+    correctness: '正确性',
+    completeness: '完整性',
+    clarity: '清晰度',
+    originality: '原创性',
+    relevance: '相关性',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+    draft: '待送审',
+    pending_review: 'AI 审核中',
+    human_pending: '待人工审核',
+    rejected: '未通过',
+    approved: '已通过',
+}
 
 type StepState = 'done' | 'active' | 'failed' | 'todo'
 
 /**
  * 状态 → 四步进度。
- * 注意:人工驳回(已通过的题被人工打回)时,失败的是「待人工审核」这一步,
+ * 人工驳回(已通过的题被人工打回)时,失败在「待人工审核」这一步,
  * 不能笼统标成 AI 未通过。
  */
 function stepStates(item: ReviewQueueItem): StepState[] {
@@ -70,149 +86,165 @@ function stepStates(item: ReviewQueueItem): StepState[] {
                 ? ['done', 'done', 'failed', 'todo']
                 : ['done', 'failed', 'todo', 'todo']
         default:
-            // draft:已创建、还没送审
             return ['todo', 'todo', 'todo', 'todo']
     }
 }
 
-function StepProgress({ item }: { item: ReviewQueueItem }) {
+function statusLabel(item: ReviewQueueItem): string {
+    if (item.status === 'rejected' && item.latestLog?.source === 'human') return '人工驳回'
+    return STATUS_LABEL[item.status] ?? item.status
+}
+
+/** 细进度条:4 段,颜色克制 —— 完成/进行中统一用主色,失败才用红色 */
+function StepBar({ item }: { item: ReviewQueueItem }) {
     const states = stepStates(item)
     return (
-        <div className="flex flex-wrap items-center gap-y-1">
-            {STEP_LABELS.map((label, i) => {
-                const state = states[i]
-                const icon =
-                    state === 'done' ? (
-                        <CircleCheck className="h-3.5 w-3.5" />
-                    ) : state === 'active' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : state === 'failed' ? (
-                        <CircleX className="h-3.5 w-3.5" />
-                    ) : (
-                        <Circle className="h-3.5 w-3.5" />
-                    )
-                return (
-                    <div key={label} className="flex items-center">
-                        <span
-                            className={cn(
-                                'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none',
-                                state === 'done' &&
-                                    'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300',
-                                state === 'active' &&
-                                    'border-blue-200 bg-blue-50 font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300',
-                                state === 'failed' &&
-                                    'border-red-200 bg-red-50 font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
-                                state === 'todo' &&
-                                    'border-muted bg-muted/40 text-muted-foreground',
-                            )}
-                        >
-                            {icon}
-                            {label}
-                        </span>
-                        {i < STEP_LABELS.length - 1 && (
-                            <span
-                                className={cn(
-                                    'mx-1 h-px w-3 sm:w-5',
-                                    states[i] === 'done' && states[i + 1] !== 'todo'
-                                        ? 'bg-green-300 dark:bg-green-800'
-                                        : 'bg-border',
-                                )}
-                            />
+        <span
+            className="flex items-center gap-2"
+            title={STEP_LABELS.map((l, i) => `${l}: ${states[i]}`).join('\n')}
+        >
+            <span className="flex w-24 gap-1">
+                {states.map((state, i) => (
+                    <span
+                        key={i}
+                        className={cn(
+                            'h-1 flex-1 rounded-full',
+                            state === 'done' && 'bg-primary',
+                            state === 'active' && 'bg-primary/50 animate-pulse',
+                            state === 'failed' && 'bg-destructive',
+                            state === 'todo' && 'bg-muted',
                         )}
-                    </div>
-                )
-            })}
+                    />
+                ))}
+            </span>
+            <span className="text-xs text-muted-foreground">{statusLabel(item)}</span>
+        </span>
+    )
+}
+
+/** 给预览用的纯文本:去掉代码围栏标记、压掉多余空白 */
+function plainPreview(text: string): string {
+    return text
+        .replace(/```[a-zA-Z]*/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+/** 原题详情:题干 + 参考答案 + 标签 */
+function QuestionPanel({ item }: { item: ReviewQueueItem }) {
+    return (
+        <div className="mt-3 max-h-80 space-y-4 overflow-y-auto border-t pt-3 text-sm">
+            <div>
+                <p className="text-xs font-medium text-muted-foreground">题干</p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans leading-relaxed">
+                    {item.content}
+                </pre>
+            </div>
+            <div>
+                <p className="text-xs font-medium text-muted-foreground">参考答案</p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans leading-relaxed">
+                    {item.answer}
+                </pre>
+            </div>
+            {item.tags?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                    {item.tags.map((t) => (
+                        <span
+                            key={t}
+                            className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                            {t}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
         </div>
     )
 }
 
-/** AI 报告渲染:五维 + 建议 + 口诀 + 改进版预览 */
+/** AI 审核意见:评分 + 建议 + 改进版(标题/内容/答案都明确分区) */
 function ReportPanel({ item }: { item: ReviewQueueItem }) {
     const r = item.reviewResult
     if (!r) return null
 
-    // agent 失败的报告只有 error 字段
     if (r.error) {
         return (
-            <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="mt-3 flex items-center gap-2 border-t pt-3 text-sm text-destructive">
                 <CircleAlert className="h-4 w-4 flex-none" />
                 AI 审核失败:{r.error}
             </div>
         )
     }
 
-    const dims = r.dimensions ?? {}
-    const dimList = Object.entries(dims) as Array<[string, number]>
+    const dims = Object.entries(r.dimensions ?? {}) as Array<[string, number]>
 
     return (
-        <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary" />
-                AI 总分
-                <span className="font-mono text-base font-semibold text-foreground">
-                    {item.reviewScore}
-                </span>
-                {item.reviewScore !== null && item.reviewScore >= 85 && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                        高置信
+        <div className="mt-3 space-y-3 border-t pt-3 text-sm">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    AI 评分
+                    <span className="font-mono text-sm font-semibold text-foreground">
+                        {item.reviewScore}
                     </span>
-                )}
+                </span>
+                <span className="text-border">|</span>
+                <span>
+                    {dims.map(([key, val], i) => (
+                        <span key={key}>
+                            {i > 0 ? ' · ' : ''}
+                            {DIM_LABELS[key] ?? key} {val}
+                        </span>
+                    ))}
+                </span>
             </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-5">
-                {dimList.map(([key, val]) => (
-                    <div key={key} className="flex items-center justify-between gap-2 rounded-md bg-muted px-2.5 py-1">
-                        <span className="text-xs text-muted-foreground">{key}</span>
-                        <span className="font-mono text-xs font-semibold">{val}</span>
-                    </div>
-                ))}
-            </div>
-            {r.oneLiner && (
-                <p className="text-[13px] text-muted-foreground">
-                    一句话答案:{r.oneLiner}
-                </p>
-            )}
-            {r.mnemonic && (
-                <p className="text-[13px] text-muted-foreground">记忆口诀:{r.mnemonic}</p>
-            )}
+
             {r.suggestions?.length ? (
-                <div className="rounded-md bg-muted px-3 py-2">
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">修改建议</p>
-                    <ul className="list-disc space-y-1 pl-4 text-[13px]">
+                <div>
+                    <p className="text-xs font-medium text-muted-foreground">修改建议</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4 text-[13px]">
                         {r.suggestions.map((s, i) => (
                             <li key={i}>{s}</li>
                         ))}
                     </ul>
                 </div>
             ) : null}
+
+            {r.oneLiner || r.mnemonic ? (
+                <div className="space-y-1 text-[13px] text-muted-foreground">
+                    {r.oneLiner ? <p>一句话答案:{r.oneLiner}</p> : null}
+                    {r.mnemonic ? <p>记忆口诀:{r.mnemonic}</p> : null}
+                </div>
+            ) : null}
+
             {r.revised ? (
-                <div className="rounded-md border px-3 py-2">
-                    <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-primary">
-                        <Wand2 className="h-3.5 w-3.5" />
-                        AI 改进版(可直接一键应用,应用后自动重审)
+                <div className="rounded-md border bg-muted/30 p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        AI 建议的改进版(点「一键应用」可替换原题并重审)
                     </p>
                     {r.revised.title ? (
                         <p className="mb-1 text-[13px] font-semibold">{r.revised.title}</p>
                     ) : null}
-                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1 text-[13px]">
+                    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
                         <div>
-                            <span className="text-xs text-muted-foreground">题干</span>
-                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans">
+                            <p className="text-xs text-muted-foreground">题干</p>
+                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans text-[13px]">
                                 {r.revised.content}
                             </pre>
                         </div>
                         <div>
-                            <span className="text-xs text-muted-foreground">答案</span>
-                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans">
+                            <p className="text-xs text-muted-foreground">答案</p>
+                            <pre className="mt-0.5 whitespace-pre-wrap break-words font-sans text-[13px]">
                                 {r.revised.answer}
                             </pre>
                         </div>
                     </div>
                     {r.revised.tags?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                            {r.revised.tags.map((t, i) => (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {r.revised.tags.map((t) => (
                                 <span
-                                    key={i}
-                                    className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                    key={t}
+                                    className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground"
                                 >
                                     {t}
                                 </span>
@@ -227,9 +259,8 @@ function ReportPanel({ item }: { item: ReviewQueueItem }) {
 
 function QueueItemCard({ item }: { item: ReviewQueueItem }) {
     const queryClient = useQueryClient()
-    const [reportOpen, setReportOpen] = useState(
-        item.status === 'human_pending' || item.status === 'rejected',
-    )
+    // 默认全部折叠:先看清题目和状态,再按需展开
+    const [openPanel, setOpenPanel] = useState<'question' | 'report' | null>(null)
     const [rejectOpen, setRejectOpen] = useState(false)
     const [note, setNote] = useState('')
     const [tip, setTip] = useState<string | null>(null)
@@ -249,17 +280,19 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
         },
     })
 
-    // 一键应用 AI 改进版 → 写回原题 + 自动重审
     const applyRevised = useMutation({
         mutationFn: () => reviewApi.applyRevision(item.id),
         onSuccess: (res) => {
-            setTip(res.queued ? '已应用 AI 改进版,正在重审…' : '改进版已写回,审核 agent 正忙,稍后请手动重试')
+            setTip(
+                res.queued
+                    ? '已应用 AI 改进版,正在重审…'
+                    : '改进版已写回,审核 agent 正忙,稍后请手动重试',
+            )
             invalidate()
         },
         onError: (err) => setTip(err instanceof Error ? err.message : '应用失败'),
     })
 
-    // 原题重触发(内容改过 / 想再跑一次 / 卡死兜底)
     const retrigger = useMutation({
         mutationFn: () => reviewApi.trigger(item.id),
         onSuccess: (res) => {
@@ -274,47 +307,42 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
     })
 
     const busy = human.isPending || applyRevised.isPending || retrigger.isPending
+    const hasReport = Boolean(item.reviewResult && !item.reviewResult.error)
     const hasRevised = Boolean(
         item.reviewResult?.revised?.content && item.reviewResult.revised.answer,
     )
     const canRetry = ['draft', 'pending_review', 'rejected'].includes(item.status)
 
+    const toggle = (panel: 'question' | 'report') =>
+        setOpenPanel((cur) => (cur === panel ? null : panel))
+
     return (
         <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <h3 className="truncate text-[15px] font-semibold">{item.title}</h3>
-                    <div className="mt-2">
-                        <StepProgress item={item} />
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                    <h3 className="text-[15px] font-semibold">{item.title}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {plainPreview(item.content)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+                        <StepBar item={item} />
                         {item.reviewScore !== null ? (
-                            <span className="font-mono">AI {item.reviewScore} 分</span>
-                        ) : (
-                            <span>尚未评分</span>
-                        )}
-                        <span>·</span>
+                            <>
+                                <span className="font-mono">AI {item.reviewScore} 分</span>
+                                <span>·</span>
+                            </>
+                        ) : null}
                         <span>
                             {item.latestLog
                                 ? new Date(item.latestLog.createdAt).toLocaleString('zh-CN')
                                 : '-'}
                         </span>
-                        {item.latestLog?.note ? <span>· 备注:{item.latestLog.note}</span> : null}
+                        {item.latestLog?.note ? (
+                            <span className="truncate">· 备注:{item.latestLog.note}</span>
+                        ) : null}
                     </div>
                 </div>
                 <div className="flex flex-none flex-wrap items-center justify-end gap-2">
-                    {item.reviewResult && !item.reviewResult.error ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReportOpen((v) => !v)}
-                        >
-                            AI 报告
-                            <ChevronDown
-                                className={`h-4 w-4 transition-transform ${reportOpen ? 'rotate-180' : ''}`}
-                            />
-                        </Button>
-                    ) : null}
                     {item.status === 'human_pending' ? (
                         <>
                             <Button
@@ -326,7 +354,7 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
                                 通过并发布
                             </Button>
                             <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
                                 disabled={busy}
                                 onClick={() => setRejectOpen(true)}
@@ -349,16 +377,16 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
                                     ) : (
                                         <Wand2 className="h-4 w-4" />
                                     )}
-                                    一键应用 AI 改进版并重审
+                                    一键应用 AI 改进版
                                 </Button>
                             ) : null}
                             <Button
-                                size="sm"
                                 variant="outline"
+                                size="sm"
                                 disabled={busy}
                                 onClick={() => human.mutate({ decision: 'approve' })}
                             >
-                                不认同,强行通过
+                                强行通过
                             </Button>
                         </>
                     ) : null}
@@ -389,11 +417,44 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
                 </p>
             ) : null}
 
-            {reportOpen && item.reviewResult && (
-                <div className="mt-3 border-t pt-3">
-                    <ReportPanel item={item} />
-                </div>
-            )}
+            {/* 展开入口:原题 / AI 意见,默认都不展开 */}
+            <div className="mt-3 flex items-center gap-1 border-t pt-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                    onClick={() => toggle('question')}
+                >
+                    <FileText className="h-3.5 w-3.5" />
+                    原题详情
+                    <ChevronDown
+                        className={cn(
+                            'h-3.5 w-3.5 transition-transform',
+                            openPanel === 'question' && 'rotate-180',
+                        )}
+                    />
+                </Button>
+                {hasReport ? (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                        onClick={() => toggle('report')}
+                    >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        AI 审核意见
+                        <ChevronDown
+                            className={cn(
+                                'h-3.5 w-3.5 transition-transform',
+                                openPanel === 'report' && 'rotate-180',
+                            )}
+                        />
+                    </Button>
+                ) : null}
+            </div>
+
+            {openPanel === 'question' ? <QuestionPanel item={item} /> : null}
+            {openPanel === 'report' ? <ReportPanel item={item} /> : null}
 
             {/* 驳回理由对话框:必填,后端同样强校验 */}
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
@@ -433,30 +494,25 @@ export default function ReviewPage() {
     const queryClient = useQueryClient()
     const [filter, setFilter] = useState<ReviewQueueFilter>('all')
     const [page, setPage] = useState(1)
-    // 任一队列请求在飞 → 刷新按钮转圈且禁用(防连点)
     const fetching = useIsFetching({ queryKey: ['review-queue'] }) > 0
 
     const { data, isLoading } = useQuery({
         queryKey: ['review-queue', filter, page],
         queryFn: () => reviewApi.queue(filter, page),
-        // 审核状态变化快(agent 异步写库),不能吃全局 60s 缓存
         staleTime: 0,
         refetchOnMount: 'always',
-        // 列表里只要还有「AI 审核中」的题,就 4s 轮询一次
+        // 列表里还有「AI 审核中」的题时自动刷新
         refetchInterval: (query) =>
             query.state.data?.data.some((i) => i.status === 'pending_review') ? 4000 : false,
     })
 
-    // 权限边界在后端;这里只是导航显隐的兜底
     if (role !== 'admin') {
         return (
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                     <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                     <p className="text-lg">需要管理员权限</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        审核中心仅对 admin 开放。
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">审核中心仅对 admin 开放。</p>
                 </div>
             </div>
         )
@@ -474,7 +530,7 @@ export default function ReviewPage() {
                     <div>
                         <h1 className="text-xl font-bold">审核</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            出题 → AI 前置审核 → 人工裁决 → 发布。新题先进这里,通过后才出现在题库。
+                            新题先进这里,通过后才出现在题库。
                         </p>
                     </div>
                     <div className="flex flex-none items-center gap-2">
@@ -487,7 +543,7 @@ export default function ReviewPage() {
                                 void queryClient.invalidateQueries({ queryKey: ['review-queue'] })
                             }
                         >
-                            <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={cn('h-4 w-4', fetching && 'animate-spin')} />
                             刷新
                         </Button>
                     </div>
@@ -495,7 +551,6 @@ export default function ReviewPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-                {/* 状态筛选(带各状态数量) */}
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                     {FILTERS.map((f) => {
                         const active = filter === f.value

@@ -52,6 +52,10 @@ export interface ReviewQueueItem {
         revised?: RevisedQuestion
         error?: string
     } | null
+    /** 原题内容(审核时对照用) */
+    content: string
+    answer: string
+    tags: string[] | null
     updatedAt: string
     latestLog: {
         verdict: string

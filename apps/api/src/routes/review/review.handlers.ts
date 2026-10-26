@@ -265,6 +265,9 @@ export const queue: AppRouteHandler<QueueRoute> = async (c) => {
             status: questions.status,
             reviewScore: questions.reviewScore,
             reviewResult: questions.reviewResult,
+            content: questions.content,
+            answer: questions.answer,
+            tags: questions.tags,
             updatedAt: questions.updatedAt,
         })
         .from(questions)
