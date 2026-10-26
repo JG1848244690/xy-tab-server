@@ -74,6 +74,38 @@ function sized(n: number | string | null | undefined): number {
     return Number(n ?? 0)
 }
 
+/**
+ * 可选:删除图片后清 Cloudflare 边缘缓存(未配置 token 时跳过)
+ *
+ * 图片走 static 子域(CF 橙云),nginx 长缓存会被 CF 记住 —— 源站删了文件,
+ * 边缘仍可能返回旧图。配置 CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID 后,
+ * 删除/清理会顺带 purge 对应 URL;没配则依赖 1 天的缓存 TTL 自然过期。
+ */
+async function purgeCdn(urls: string[]): Promise<void> {
+    const token = process.env.CLOUDFLARE_API_TOKEN
+    const zoneId = process.env.CLOUDFLARE_ZONE_ID
+    if (!token || !zoneId || !urls.length) return
+    // CF 单次最多 30 个 URL
+    for (let i = 0; i < urls.length; i += 30) {
+        try {
+            await fetch(
+                `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ files: urls.slice(i, i + 30) }),
+                    signal: AbortSignal.timeout(8_000),
+                },
+            )
+        } catch {
+            // 清缓存失败不影响删除结果;TTL 兜底
+        }
+    }
+}
+
 export const upload: AppRouteHandler<UploadRoute> = async (c) => {
     const userId = c.get('userId')!
 
@@ -225,7 +257,12 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
     const { id } = c.req.valid('param')
 
     const [asset] = await db
-        .select({ id: mediaAssets.id, path: mediaAssets.path, usage: usageExpr })
+        .select({
+            id: mediaAssets.id,
+            path: mediaAssets.path,
+            url: mediaAssets.url,
+            usage: usageExpr,
+        })
         .from(mediaAssets)
         .where(eq(mediaAssets.id, id))
         .limit(1)
@@ -241,6 +278,7 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
 
     await db.delete(mediaAssets).where(eq(mediaAssets.id, id))
     await unlink(join(uploadDir(), asset.path)).catch(() => {})
+    await purgeCdn([asset.url])
     return c.json({ message: 'success' }, HttpStatusCodes.OK)
 }
 
@@ -250,7 +288,7 @@ export const cleanup: AppRouteHandler<CleanupRoute> = async (c) => {
     }
     // 一次最多清 500 张,避免长事务;没清完再点一次
     const stale = await db
-        .select({ id: mediaAssets.id, path: mediaAssets.path })
+        .select({ id: mediaAssets.id, path: mediaAssets.path, url: mediaAssets.url })
         .from(mediaAssets)
         .where(sql`${usageExpr} = 0`)
         .limit(500)
@@ -266,5 +304,6 @@ export const cleanup: AppRouteHandler<CleanupRoute> = async (c) => {
             stale.map((r) => r.id),
         ),
     )
+    await purgeCdn(stale.map((r) => r.url))
     return c.json({ deleted: stale.length }, HttpStatusCodes.OK)
 }

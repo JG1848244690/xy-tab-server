@@ -76,6 +76,9 @@ services:
       # 文件由 nginx(static.kskbl.com.cn)直接服务,不经过 API
       UPLOAD_DIR: /data/uploads
       UPLOAD_PUBLIC_BASE: ${UPLOAD_PUBLIC_BASE:-https://static.kskbl.com.cn/uploads}
+      # 可选:删除图片时清 Cloudflare 边缘缓存(不配则靠 1 天缓存 TTL 自然过期)
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID:-}
     volumes:
       # 上传文件持久化到宿主目录(static 子域根下的 uploads/)
       # 目录需提前建好并允许容器用户(uid 1001)写入

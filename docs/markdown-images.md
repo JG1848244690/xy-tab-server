@@ -43,16 +43,29 @@
 - 站点根:`/www/wwwroot/static`,上传目录 `/www/wwwroot/static/uploads`
 - 证书:Cloudflare Origin(复用,不要新申请)
 
-nginx 里为上传目录单独加长缓存(优先于宝塔的图片 30d 正则):
+nginx 里为上传目录单独加缓存(优先于宝塔的图片 30d 正则):
 
 ```nginx
 location ^~ /uploads/ {
-    expires 1y;
-    add_header Cache-Control "public, max-age=31536000, immutable";
+    expires 1d;
+    add_header Cache-Control "public, max-age=86400";
     access_log off;
     try_files $uri =404;
 }
 ```
+
+为什么不上 1 年:图片走 Cloudflare 橙云,源站删了文件后边缘还可能返回旧图。
+1 天缓存 + 删除时可选 purge(见下)兼顾性能与"删得掉"。
+
+删除后清 CF 缓存(可选,推荐配):
+
+```bash
+# /opt/hls-api/.env
+CLOUDFLARE_API_TOKEN=...   # 需要 Zone.Cache Purge 权限
+CLOUDFLARE_ZONE_ID=...
+```
+
+未配置时:源站立即 404,CF 边缘最多再存在 1 天(到期自动回源 404)。
 
 API 域名(`hls.kskbl.com.cn`)需要放开上传体积(默认 1m 会 413):
 
