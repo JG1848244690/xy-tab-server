@@ -11,6 +11,10 @@ on:
       - 'apps/api/src/routes/public/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/site.yml'
+  # 定时重建(2026-10-26):审核通过的题不必等下一次 push,
+  # 每 6 小时从线上 API 重新拉数据生成静态页(UTC 0/6/12/18 = 北京 8/14/20/2 点)
+  schedule:
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 concurrency:

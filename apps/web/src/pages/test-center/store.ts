@@ -18,6 +18,7 @@ export type FilterType = {
   ordering?: string
   status?: string
   difficulty?: string
+  visibility?: string
   tag?: string
   search?: string
 }
@@ -37,7 +38,8 @@ type StoreState = {
 export const store = create<StoreState>((set, get) => ({
   payments: [],
   totalCount: 0,
-  filter: { page: 1, size: 10 },
+  // 列表默认每页 20 条(2026-10-26 UX 调整)
+  filter: { page: 1, size: 20 },
   open: { modal: false },
   loading: {},
   errMsg: {},
@@ -90,7 +92,7 @@ export const store = create<StoreState>((set, get) => ({
   },
   clearStore: () => {
     set({
-      filter: { page: 1, size: 10 },
+      filter: { page: 1, size: 20 },
       payments: [],
       totalCount: 0,
       open: {},

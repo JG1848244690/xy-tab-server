@@ -55,6 +55,18 @@ export const agentReportSchema = z
         suggestions: z.array(z.string()).max(5).optional(),
         oneLiner: z.string().max(100).optional(),
         mnemonic: z.string().max(80).optional(),
+        /**
+         * 改进版题目:当题目无意义 / 答案不充分时,agent 给出可直接落库的
+         * 完整版本(2026-10-26)。后台可「一键应用」:写回题目 → 自动重审
+         */
+        revised: z
+            .object({
+                title: z.string().min(1).max(255).optional(),
+                content: z.string().min(1),
+                answer: z.string().min(1),
+                tags: z.array(z.string().min(1).max(30)).max(6).optional(),
+            })
+            .optional(),
     })
     // 总分与五维之和一致:防止模型算术漂移导致阈值判定失真
     .refine((r) => {
@@ -63,6 +75,20 @@ export const agentReportSchema = z
     }, { message: 'total 必须等于五维得分之和(±1)' })
 
 export type AgentReport = z.infer<typeof agentReportSchema>
+
+/**
+ * 兜底修订的契约:主报告漏了 revised 时单独调用一次(见 prompts/revision.ts)
+ */
+export const revisionSchema = z.object({
+    revised: z.object({
+        title: z.string().min(1).max(255).optional(),
+        content: z.string().min(10),
+        answer: z.string().min(10),
+        tags: z.array(z.string().min(1).max(30)).max(6).optional(),
+    }),
+})
+
+export type RevisionReport = z.infer<typeof revisionSchema>
 
 /** agent 是否已配置(三项 env 齐全才算) */
 export function llmConfigured(): boolean {
@@ -76,17 +102,32 @@ function extractJson(text: string): unknown {
     const raw = fenced ? fenced[1] : text
     const start = raw.indexOf('{')
     const end = raw.lastIndexOf('}')
-    if (start === -1 || end <= start) throw new LlmError('回复里没有 JSON 对象')
+    if (start === -1 || end <= start) {
+        // 带上片段:线上排查"模型没按契约输出"时能直接看到原因
+        throw new LlmError(`回复里没有 JSON 对象: ${text.slice(0, 120)}`)
+    }
     return JSON.parse(raw.slice(start, end + 1))
+}
+
+/**
+ * thinking 档位(2026-10-26):DeepSeek V4.1 默认会思考 —— 实测同一道题
+ * thinking 开启时 reasoning_tokens≈2200、耗时 15s,关闭后 7.7s、输出量 1/3,
+ * 且 JSON 契约更稳定。默认关闭省成本;需要更强推理时用 LLM_THINKING=enabled,
+ * 接别的网关不认该参数时用 LLM_THINKING=auto(不下发)。
+ */
+function thinkingParam(): Record<string, unknown> {
+    const mode = (process.env.LLM_THINKING ?? 'disabled').toLowerCase()
+    if (mode === 'auto') return {}
+    return { thinking: { type: mode === 'enabled' ? 'enabled' : 'disabled' } }
 }
 
 type ChatMessage = { role: 'system' | 'user'; content: string }
 
 /** 单次调用:返回解析+校验后的报告。zod 失败由调用方重试 */
-export async function chatJson(
+export async function chatJson<T>(
     messages: ChatMessage[],
-    schema: z.ZodType<AgentReport>,
-): Promise<{ report: AgentReport; latencyMs: number }> {
+    schema: z.ZodType<T>,
+): Promise<{ report: T; latencyMs: number }> {
     const started = Date.now()
     const cfg = llmConfig()
     const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
@@ -99,6 +140,7 @@ export async function chatJson(
             model: cfg.model,
             messages,
             temperature: 0.2,
+            ...thinkingParam(),
         }),
         signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     })
@@ -122,11 +164,11 @@ export async function chatJson(
  * 带重试的调用:zod 校验失败/超时共重试 retries 次(plan §2.3"校验失败自动重试一次")。
  * 全部失败抛最后一次的错,由 agent 落失败审计。
  */
-export async function chatJsonWithRetry(
+export async function chatJsonWithRetry<T>(
     messages: ChatMessage[],
-    schema: z.ZodType<AgentReport>,
+    schema: z.ZodType<T>,
     retries: number,
-): Promise<{ report: AgentReport; latencyMs: number }> {
+): Promise<{ report: T; latencyMs: number }> {
     let lastError: unknown
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {

@@ -45,12 +45,22 @@ const EMPTY_STATS = {
 const visibleBank = (userId: string) =>
     or(eq(questions.visibility, 'shared'), eq(questions.createdBy, userId))!
 
+/**
+ * 题库列表口径(2026-10-26 起):只显示**已过审**的题。
+ * 新提交的题先留在审核中心(draft/pending_review/rejected),
+ * 人工通过后才出现在题库 —— 与后台工作台的职责边界一致。
+ */
+const approvedBank = (userId: string) =>
+    and(visibleBank(userId), eq(questions.status, 'approved'))!
+
 export const list: AppRouteHandler<ListRoute> = async (c) => {
     const userId = c.get('userId')!
-    const { type, difficulty, tag, status, page, size, ordering, search } = c.req.valid('query')
+    const { type, difficulty, visibility, tag, status, page, size, ordering, search } =
+        c.req.valid('query')
 
-    // 可见性永远第一位;后面再叠加业务过滤
-    const conditions = [visibleBank(userId)]
+    // 可见性 + 过审永远第一位;后面再叠加业务过滤
+    const conditions = [approvedBank(userId)]
+    if (visibility) conditions.push(eq(questions.visibility, visibility))
     if (type) conditions.push(eq(questions.type, type))
     if (difficulty) conditions.push(eq(questions.difficulty, difficulty))
     if (search) conditions.push(ilike(questions.title, `%${search}%`))
@@ -527,11 +537,11 @@ export const getStats: AppRouteHandler<GetStatsRoute> = async (c) => {
         .where(eq(questionStats.userId, userId))
         .groupBy(questionStats.status)
 
-    // total 的口径 = 当前用户可见题库(shared + 自己的题),不再是全表
+    // total 的口径 = 当前用户可见且已过审的题库(shared + 自己的题)
     const totalPromise = db
         .select({ value: count() })
         .from(questions)
-        .where(visibleBank(userId))
+        .where(approvedBank(userId))
 
     const [statusRows, [{ value: total }]] = await Promise.all([statusRowsPromise, totalPromise])
 
@@ -554,7 +564,8 @@ export const getStats: AppRouteHandler<GetStatsRoute> = async (c) => {
         total: Number(total),
         completed,
         inProgress,
-        notStarted: Number(total) - completed - inProgress,
+        // 未过审题可能留有旧的练习统计,兜零避免负数
+        notStarted: Math.max(0, Number(total) - completed - inProgress),
         accuracy: Math.round(accuracy * 100) / 100,
         totalTime,
     })

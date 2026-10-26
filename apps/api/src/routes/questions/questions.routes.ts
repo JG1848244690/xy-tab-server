@@ -90,10 +90,12 @@ const detailSchema = questionFieldsSchema
 const listQuerySchema = z.object({
     type: z.enum(['markdown', 'text']).optional(),
     difficulty: difficultySchema.optional(),
+    /** 可见性筛选:shared 共享 / private 私有(2026-10-26 列表独立列) */
+    visibility: z.enum(['shared', 'private']).optional(),
     tag: z.string().optional(),
     status: statusSchema.optional(),
     page: z.coerce.number().int().positive().default(1),
-    size: z.coerce.number().int().positive().max(100).default(10),
+    size: z.coerce.number().int().positive().max(100).default(20),
     /** 排序字段,`-` 前缀表示倒序。支持 stats. 前缀走 question_stats */
     ordering: z.string().optional(),
     search: z.string().optional(),

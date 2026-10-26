@@ -10,6 +10,7 @@ const router = createRouter()
     .openapi(routes.result, handlers.result)
     .openapi(routes.stale, handlers.stale)
     .openapi(routes.queue, handlers.queue)
+    .openapi(routes.applyRevision, handlers.applyRevision)
     .openapi(routes.humanDecision, handlers.humanDecision)
     .openapi(routes.quota, handlers.quota)
 

@@ -42,8 +42,9 @@ export const navItems: NavItem[] = [
     icon: Palette,
   },
   {
-    // 审核工作台:只有 admin 能看到(AI 前置审核 + 人工裁决 + 打回记录)
-    title: '审核工作台',
+    // 审核:只有 admin 能看到(AI 前置审核 + 人工裁决 + 打回记录)。
+    // 名字统一用「审核」——新题先进这里,过审才进题库(2026-10-26)
+    title: '审核',
     href: '/review',
     icon: ShieldCheck,
     adminOnly: true,

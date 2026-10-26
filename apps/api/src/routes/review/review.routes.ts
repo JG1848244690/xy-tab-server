@@ -182,14 +182,19 @@ export const stale = createRoute({
     },
 })
 
-/** 人工审核队列(admin only):pending = AI 过了等人审;rejected = 被 AI 打回 */
+/** 人工审核队列(admin only):四个视角 ——
+ *  pending   = AI 过了等人审(human_pending)
+ *  reviewing = AI 审核中(pending_review)
+ *  rejected  = 被 AI 打回(rejected)
+ *  approved  = 已通过(approved)
+ */
 export const queue = createRoute({
     method: 'get',
     path: '/review/queue',
     tags,
     request: {
         query: z.object({
-            tab: z.enum(['pending', 'rejected']).default('pending'),
+            tab: z.enum(['pending', 'reviewing', 'rejected', 'approved']).default('pending'),
             page: z.coerce.number().int().positive().default(1),
             size: z.coerce.number().int().positive().max(50).default(20),
         }),
@@ -209,8 +214,48 @@ export const queue = createRoute({
             '仅 admin 可见',
         ),
         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-            createErrorSchema(z.object({ tab: z.enum(['pending', 'rejected']) })),
+            createErrorSchema(
+                z.object({ tab: z.enum(['pending', 'reviewing', 'rejected', 'approved']) }),
+            ),
             '参数非法',
+        ),
+    },
+})
+
+/** 一键应用 AI 改进版(revised):写回题目 → 自动在原题上重触发审核 */
+export const applyRevision = createRoute({
+    method: 'post',
+    path: '/review/{id}/apply-revision',
+    tags,
+    request: { params: IdParamsSchema },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                applied: z.boolean(),
+                status: z.string(),
+                /** 是否已把重审任务丢进 agent(agent 正忙时为 false) */
+                queued: z.boolean(),
+                quota: z
+                    .object({ used: z.number(), limit: z.number(), remaining: z.number() })
+                    .optional(),
+            }),
+            '改进版已写回,并触发同题重审',
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            '题目不存在、无权操作,或最近一次 AI 报告没有改进版',
+        ),
+        [HttpStatusCodes.SERVICE_UNAVAILABLE]: jsonContent(
+            z.object({ message: z.string() }),
+            'LLM 未配置,审核 agent 不可用',
+        ),
+        [HttpStatusCodes.TOO_MANY_REQUESTS]: jsonContent(
+            z.object({ message: z.string() }),
+            '今日 AI 审核配额已用完(见 GET /review/quota)',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(IdParamsSchema),
+            'id 不是合法 uuid',
         ),
     },
 })
@@ -254,5 +299,6 @@ export type TriggerBatchRoute = typeof triggerBatch
 export type ResultRoute = typeof result
 export type StaleRoute = typeof stale
 export type QueueRoute = typeof queue
+export type ApplyRevisionRoute = typeof applyRevision
 export type HumanDecisionRoute = typeof humanDecision
 export type QuotaRoute = typeof quota

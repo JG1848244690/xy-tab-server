@@ -35,6 +35,8 @@ export interface Question {
 export interface QuestionsListParams {
   type?: 'markdown' | 'text'
   difficulty?: 'easy' | 'medium' | 'hard'
+  /** 可见性筛选:shared 共享 / private 私有 */
+  visibility?: 'shared' | 'private'
   tag?: string
   status?: 'not_started' | 'in_progress' | 'completed'
   page?: number

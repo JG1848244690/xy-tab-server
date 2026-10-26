@@ -14,11 +14,12 @@ import { and, desc, eq, ne } from 'drizzle-orm'
 import db from '../../db/index.js'
 import { questions, reviewLogs } from '../../db/schema.js'
 import { LLM_JSON_RETRY, REVIEW_THRESHOLDS } from '../../lib/constants.js'
-import { LlmError, agentReportSchema, chatJsonWithRetry, llmConfigured, llmConfig } from './llm.js'
+import { LlmError, agentReportSchema, chatJson, chatJsonWithRetry, llmConfigured, llmConfig, revisionSchema } from './llm.js'
 import type { AgentReport } from './llm.js'
 import { reviewSystemPrompt } from './prompts/system.js'
 import { reviewRubricPrompt } from './prompts/rubric.js'
 import { reviewOutputPrompt } from './prompts/output.js'
+import { revisionSystemPrompt } from './prompts/revision.js'
 
 /** 题目内容指纹:任一字符改动都会换 hash → 触发重审 */
 export const contentHashOf = (q: { title: string; content: string; answer: string }) =>
@@ -135,6 +136,30 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         }
 
         const verdict = verdictOf(report.total)
+
+        // 兜底:AI 打回但主报告漏了改进版(模型偶发不守契约)→ 单独再生成一次。
+        // 只影响"能不能一键应用",失败也不改变打回结论。
+        if (!report.revised && verdict === 'rejected') {
+            try {
+                const revisionContent = [
+                    userContent,
+                    '',
+                    '【AI 审核意见】',
+                    report.summary,
+                    ...(report.suggestions ?? []).map((s) => `- ${s}`),
+                ].join('\n')
+                const { report: revised } = await chatJson(
+                    [
+                        { role: 'system' as const, content: revisionSystemPrompt },
+                        { role: 'user' as const, content: revisionContent },
+                    ],
+                    revisionSchema,
+                )
+                report = { ...report, revised: revised.revised }
+            } catch {
+                // 改进版是增强项:生成失败照常打回,不阻塞状态流转
+            }
+        }
 
         // 存量清洗语义:已是 approved 的题(公开在站上)不因 AI 重审而降级 ——
         // AI 只补元数据(slug/summary/分数);低分也保持 approved,仅落一条

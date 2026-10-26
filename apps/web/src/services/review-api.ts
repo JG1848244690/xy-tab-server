@@ -1,9 +1,20 @@
 import { request } from '@/lib/request'
 
 /**
- * 审核工作台 API(docs/review-workflow-plan.md §4)
- * 全部接口 admin-only(后端 requireAdmin/adminOnly 强校验)
+ * 审核中心 API(docs/review-workflow-plan.md §4)
+ * 队列接口 admin-only(后端 adminOnly 强校验);触发/应用修订允许 owner + admin
  */
+
+/** 队列四个视角:待人审 / 审核中 / 被 AI 打回 / 已通过 */
+export type ReviewTab = 'pending' | 'reviewing' | 'rejected' | 'approved'
+
+/** AI 打回时给出的改进版(可直接落库,2026-10-26) */
+export interface RevisedQuestion {
+    title?: string
+    content: string
+    answer: string
+    tags?: string[]
+}
 
 export interface ReviewQueueItem {
     id: string
@@ -12,7 +23,7 @@ export interface ReviewQueueItem {
     status: string
     /** AI 总分 0-100 */
     reviewScore: number | null
-    /** 完整 AI 报告:五维 + 建议 + 口诀 */
+    /** 完整 AI 报告:五维 + 建议 + 口诀 + 改进版 */
     reviewResult: {
         dimensions?: Record<string, number>
         total?: number
@@ -20,6 +31,7 @@ export interface ReviewQueueItem {
         suggestions?: string[]
         oneLiner?: string
         mnemonic?: string
+        revised?: RevisedQuestion
         error?: string
     } | null
     updatedAt: string
@@ -33,8 +45,8 @@ export interface ReviewQueueItem {
 }
 
 export const reviewApi = {
-    /** 人工审核队列:pending = AI 过了等人审;rejected = 被 AI 打回 */
-    queue: (tab: 'pending' | 'rejected', page = 1, size = 20) =>
+    /** 审核队列:待人审 / 审核中 / 被 AI 打回 / 已通过 */
+    queue: (tab: ReviewTab, page = 1, size = 20) =>
         request
             .get<{ data: ReviewQueueItem[]; total: number; page: number; size: number }>(
                 '/review/queue',
@@ -49,6 +61,26 @@ export const reviewApi = {
                 `/review/${id}/human`,
                 { decision, note },
             )
+            .then((r) => r.data),
+
+    /** 在原题上重新触发 AI 审核(内容没改时后端可能返回 skipped) */
+    trigger: (id: string) =>
+        request
+            .post<{
+                status: 'pending_review' | 'skipped'
+                quota?: { used: number; limit: number; remaining: number }
+            }>(`/review/${id}`)
+            .then((r) => r.data),
+
+    /** 一键应用 AI 改进版并自动重审(写回原题,不新建) */
+    applyRevision: (id: string) =>
+        request
+            .post<{
+                applied: boolean
+                status: string
+                queued: boolean
+                quota?: { used: number; limit: number; remaining: number }
+            }>(`/review/${id}/apply-revision`)
             .then((r) => r.data),
 
     /** 单题审核结果轮询 */

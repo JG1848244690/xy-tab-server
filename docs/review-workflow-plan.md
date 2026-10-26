@@ -138,3 +138,50 @@ app.use('/review/*', cookieAuth())          // 现有
    (已是终态,无状态迁移;只有"之后新增的题"走新流程)
 
 预估:后端半天、前端工作台半天、测试半天,共一天到一天半。
+
+---
+
+## 10. 2026-10-26 产品化迭代(已实现)
+
+### 10.1 一键应用 AI 改进版
+
+- AI 输出契约新增 `revised: { title?, content, answer, tags? }`:总分 <60 或
+  completeness <12 时必须给可直接替换原题的完整版本(见 `prompts/output.ts`)。
+- 实测模型偶发遗漏 → `agent.ts` 兜底:打回且缺 `revised` 时,用
+  `prompts/revision.ts` 单独再调用一次(失败不改变打回结论)。
+- `POST /review/:id/apply-revision`(admin 或创建者):把 `revised` 写回**原题**
+  (不新建)→ 扣配额(admin 豁免)→ 同一题目 id 自动重审。
+
+### 10.2 审核中心(导航名 = 审核)
+
+队列 `GET /review/queue` 扩为四个视角:
+
+| tab | 状态 | 用途 |
+|---|---|---|
+| pending | human_pending | AI 过了,等人工通过/驳回 |
+| reviewing | pending_review | AI 审核中,前端 4s 自动轮询 + 手动刷新 |
+| rejected | rejected | AI 打回:完整报告 + 改进版「一键应用并重审」/重触发/强行通过 |
+| approved | approved | 已通过并发布 |
+
+前端:状态 chip(审核中/待人审/未通过/已通过)、主动刷新按钮(fetching 时禁用
+防连点)、写操作的 mutation pending 防抖、审核中 tab 自动轮询。
+
+### 10.3 题库列表口径
+
+- `GET /questions` 只返回 `status='approved'`(新题先进审核中心,过审才进题库);
+  `/questions/stats` 的 total 同口径。
+- 新增 `visibility=shared|private` 筛选;前端「可见性」独立成列(共享/私有)并可筛选,
+  不再在标题后缀「私有」;列表默认每页 20 条。
+
+### 10.4 LLM 成本
+
+- DeepSeek V4.1 默认开启 thinking:实测同一题 reasoning 2229 tokens / 15s;
+  关闭后 7.7s、输出 1/3,且 JSON 契约更稳定。默认下发
+  `thinking:{"type":"disabled"}`,可用 `LLM_THINKING=enabled|auto` 覆盖。
+
+### 10.5 面试站定时重建
+
+`.github/workflows/site.yml` 增加 `schedule: '0 */6 * * *'`(UTC 0/6/12/18 =
+北京 8/14/20/2 点)。**注意**:GitHub 只调度默认分支上的 workflow,本仓库默认分支
+是 `pgsql`(无 site.yml),需把默认分支切到 `hls-api` 后定时任务才生效;
+切换前仍可用 Actions 里手动 Run workflow。

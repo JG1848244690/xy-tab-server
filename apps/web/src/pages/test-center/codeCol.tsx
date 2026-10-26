@@ -18,20 +18,67 @@ import { useNavigate } from 'react-router-dom'
 // 提取为独立组件以正确使用 Hooks
 const TitleCell = ({ row }: { row: any }) => {
   const navigate = useNavigate()
-  const isPrivate = row.original.visibility === 'private'
   return (
     <div
-      className="text-center font-medium hover:underline cursor-pointer inline-flex items-center gap-1 justify-center"
+      className="text-center font-medium hover:underline cursor-pointer"
       onClick={() => navigate(`/test-center/practice/${row.original.id}`)}
     >
       {row.getValue('title')}
-      {isPrivate && (
-        <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-          私有
-        </span>
-      )}
     </div>
   )
+}
+
+/** 可见性列(2026-10-26):独立成列 + 表头可筛选,不再在标题后面挂「私有」小尾巴 */
+const visibilityColumn: ColumnDef<Question> = {
+  accessorKey: 'visibility',
+  header: ({ table }) => {
+    const currentFilter = (table.options.meta as any)?.currentFilter?.visibility
+    return (
+      <div className="flex justify-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost">
+              可见性
+              <Filter className={`ml-2 h-4 w-4 ${currentFilter ? 'text-blue-500' : ''}`} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center">
+            <DropdownMenuLabel>筛选可见性</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => table.options.meta?.onFilterChange?.('visibility', '')}>
+              全部
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => table.options.meta?.onFilterChange?.('visibility', 'shared')}
+            >
+              共享
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => table.options.meta?.onFilterChange?.('visibility', 'private')}
+            >
+              私有
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  },
+  cell: ({ row }) => {
+    const isPrivate = row.getValue('visibility') === 'private'
+    return (
+      <div className="text-center">
+        <span
+          className={
+            isPrivate
+              ? 'px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+              : 'px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+          }
+        >
+          {isPrivate ? '私有' : '共享'}
+        </span>
+      </div>
+    )
+  },
 }
 
 export const columns: ColumnDef<Question>[] = [
@@ -52,6 +99,7 @@ export const columns: ColumnDef<Question>[] = [
     },
     cell: ({ row }) => <TitleCell row={row} />,
   },
+  visibilityColumn,
   {
     accessorKey: 'difficulty',
     header: ({ table }) => {

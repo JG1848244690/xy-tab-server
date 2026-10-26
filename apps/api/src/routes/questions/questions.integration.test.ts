@@ -77,7 +77,15 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
             }),
         })
         expect(res.status).toBe(200)
-        return (await res.json()) as { id: string; visibility: string; createdBy: string }
+        const created = (await res.json()) as {
+            id: string
+            visibility: string
+            createdBy: string
+        }
+        // 2026-10-26 起题库列表只显示已过审的题;这些用例检验的是"过审后的题库",
+        // 直接落 approved(创建接口本身的 draft 语义由下面的用例单独覆盖)
+        await db.update(questions).set({ status: 'approved' }).where(eq(questions.id, created.id))
+        return created
     }
 
     it('private 题对非 owner 隔离:列表不含、详情 404、提交 404、且不泄露存在性', async () => {
@@ -105,6 +113,42 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
             body: JSON.stringify({ userAnswer: '2', timeSpent: 10 }),
         })
         expect(submitB.status).toBe(404)
+    })
+
+    it('列表:未过审的题只在审核中心(draft/rejected 不进题库);visibility 可筛选', async () => {
+        // 未过审(draft):建完不该出现在题库列表
+        const draftRes = await req(app, OWNER, '/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: '还没过审的题',
+                type: 'text',
+                content: 'x',
+                answer: 'y',
+                difficulty: 'easy',
+                visibility: 'shared',
+            }),
+        })
+        const draft = (await draftRes.json()) as { id: string; status: string }
+        expect(draft.status).toBe('draft')
+
+        const shared = await createQuestion(OWNER, { title: '共享已过审' })
+        const priv = await createQuestion(OWNER, { title: '私有已过审', visibility: 'private' })
+
+        const all = await (await req(app, OWNER, '/questions?size=100')).json()
+        const ids = all.data.map((q: { id: string }) => q.id)
+        expect(ids).toContain(shared.id)
+        expect(ids).toContain(priv.id)
+        expect(ids).not.toContain(draft.id)
+
+        const onlyPrivate = await (
+            await req(app, OWNER, '/questions?size=100&visibility=private')
+        ).json()
+        expect(onlyPrivate.data.map((q: { id: string }) => q.id)).toEqual([priv.id])
+
+        const onlyShared = await (
+            await req(app, OWNER, '/questions?size=100&visibility=shared')
+        ).json()
+        expect(onlyShared.data.map((q: { id: string }) => q.id)).toEqual([shared.id])
     })
 
     it('详情:无统计记录时返回全字段兜底行,与表 schema 同形(B14)', async () => {

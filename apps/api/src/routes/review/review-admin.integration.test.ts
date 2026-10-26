@@ -7,7 +7,7 @@ import {
     MIGRATIONS_SCHEMA,
     MIGRATIONS_TABLE,
 } from '../../db/migrations-table.js'
-import { questions, users } from '../../db/schema.js'
+import { questions, reviewLogs, users } from '../../db/schema.js'
 import { hashPassword } from '../../lib/auth.js'
 import { truncateBusinessTables, req } from '../../test/helpers.js'
 
@@ -224,6 +224,89 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         // 打回的题公开站不可见
         const pub = await app.request(`/public/questions/${q.slug}`)
         expect(pub.status).toBe(404)
+    })
+
+    it('审核中 tab:可见 pending_review 的题(非 admin 403)', async () => {
+        const q = await seedQuestion({ status: 'pending_review' })
+
+        const queue = await req(app, ADMIN, '/review/queue?tab=reviewing')
+        expect(queue.status).toBe(200)
+        const body = await queue.json()
+        expect(body.total).toBe(1)
+        expect(body.data[0].id).toBe(q.id)
+
+        const forbidden = await req(app, CREATOR, '/review/queue?tab=reviewing')
+        expect(forbidden.status).toBe(403)
+    })
+
+    it('一键应用 AI 改进版:写回原题(标题/题干/答案/标签)并自动重审', async () => {
+        // 本用例的重审报告不带 tags:否则 agent 会按既有语义用新报告覆盖标签,
+        // 就验证不到「应用修订时写入了标签」
+        const report = llmReport(90)
+        const payload = JSON.parse(report.choices[0].message.content as string)
+        delete payload.tags
+        report.choices[0].message.content = JSON.stringify(payload)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response(JSON.stringify(report), { status: 200 })),
+        )
+
+        const q = await seedQuestion({ status: 'rejected', reviewScore: 40 })
+        // 模拟 AI 打回报告:带可直接落库的 revised
+        await db.insert(reviewLogs).values({
+            questionId: q.id,
+            contentHash: null,
+            verdict: 'rejected',
+            score: 40,
+            source: 'ai',
+            report: {
+                dimensions: {
+                    correctness: 8,
+                    completeness: 8,
+                    clarity: 8,
+                    originality: 8,
+                    relevance: 8,
+                },
+                total: 40,
+                summary: '答案太薄,补充分层与代码示例。',
+                suggestions: ['补充边界条件'],
+                revised: {
+                    title: '改进后的标题',
+                    content: '改进后的题干(带代码块)',
+                    answer: '改进后的答案(结论→原理→边界)',
+                    tags: ['改进标签'],
+                },
+            },
+        })
+
+        const res = await req(app, ADMIN, `/review/${q.id}/apply-revision`, { method: 'POST' })
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.applied).toBe(true)
+        expect(body.queued).toBe(true)
+
+        // 内容已写回原题(不新建),重审也跑完了
+        expect(await waitForStatus(q.id, 'human_pending')).toBe(true)
+        const [row] = await db.select().from(questions).where(eq(questions.id, q.id))
+        expect(row!.title).toBe('改进后的标题')
+        expect(row!.content).toBe('改进后的题干(带代码块)')
+        expect(row!.answer).toBe('改进后的答案(结论→原理→边界)')
+        expect(row!.tags).toEqual(['改进标签'])
+        expect(row!.reviewScore).toBe(90)
+    })
+
+    it('最近一次 AI 报告没有改进版 → apply-revision 404', async () => {
+        const q = await seedQuestion({ status: 'rejected' })
+        await db.insert(reviewLogs).values({
+            questionId: q.id,
+            contentHash: null,
+            verdict: 'rejected',
+            score: 30,
+            source: 'ai',
+            report: { total: 30, summary: '没有 revised 的老报告' },
+        })
+        const res = await req(app, ADMIN, `/review/${q.id}/apply-revision`, { method: 'POST' })
+        expect(res.status).toBe(404)
     })
 
     it('admin 可代触发任意题;普通用户看别人的题仍 404', async () => {

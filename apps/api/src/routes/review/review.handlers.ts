@@ -5,6 +5,7 @@ import type {
     ResultRoute,
     StaleRoute,
     QueueRoute,
+    ApplyRevisionRoute,
     HumanDecisionRoute,
     QuotaRoute,
 } from './review.routes.js'
@@ -231,9 +232,11 @@ export const result: AppRouteHandler<ResultRoute> = async (c) => {
 // ============================================================
 
 /**
- * GET /review/queue?tab=pending|rejected
+ * GET /review/queue?tab=pending|reviewing|rejected|approved
  *  - pending:AI 已完成且分数 ≥60,等人工裁决(human_pending)
- *  - rejected:被 AI 打回(带完整报告,创建者改内容后可重提)
+ *  - reviewing:AI 审核中(pending_review),前端自动轮询
+ *  - rejected:被 AI 打回(带完整报告 + 改进版,可一键应用/重提)
+ *  - approved:已通过并发布
  * AI 高置信(≥85)排前面 —— 但**不自动发布**,人工点通过才算。
  */
 export const queue: AppRouteHandler<QueueRoute> = async (c) => {
@@ -241,7 +244,13 @@ export const queue: AppRouteHandler<QueueRoute> = async (c) => {
         return c.json(errorBody('Forbidden', 'FORBIDDEN'), HttpStatusCodes.FORBIDDEN)
     }
     const { tab, page, size } = c.req.valid('query')
-    const status = tab === 'pending' ? 'human_pending' : 'rejected'
+    const statusByTab = {
+        pending: 'human_pending',
+        reviewing: 'pending_review',
+        rejected: 'rejected',
+        approved: 'approved',
+    } as const
+    const status = statusByTab[tab]
 
     const rows = await db
         .select({
@@ -362,6 +371,125 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
     }
     return c.json(
         { success: true, status: result.status, publishedAt: result.publishedAt },
+        HttpStatusCodes.OK,
+    )
+}
+
+/**
+ * POST /review/:id/apply-revision —— 一键应用 AI 改进版(admin 或创建者)
+ *
+ * AI 打回时(见 prompts/output.ts)会给出可直接落库的完整版本
+ * (题干/答案/标签)。这里把 revised 写回**原题**(不新建),然后立即
+ * 在原题上重触发审核 —— 用户交互 = 「让 AI 改好 → 再走一遍流程」。
+ */
+export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
+    const { id } = c.req.valid('param')
+    const userId = c.get('userId')!
+
+    if (!llmConfigured()) {
+        return c.json({ message: 'LLM 未配置,审核 agent 不可用' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+    }
+
+    const [q] = await db
+        .select({
+            createdBy: questions.createdBy,
+            title: questions.title,
+            status: questions.status,
+            contentHash: questions.contentHash,
+        })
+        .from(questions)
+        .where(eq(questions.id, id))
+        .limit(1)
+    if (!q || (q.createdBy !== userId && !isAdmin(c))) {
+        return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+    }
+
+    // 取最近一次 AI 报告的 revised;老报告没有该字段 → 404(前端也不该展示按钮)
+    const [log] = await db
+        .select({ report: reviewLogs.report })
+        .from(reviewLogs)
+        .where(and(eq(reviewLogs.questionId, id), eq(reviewLogs.source, 'ai')))
+        .orderBy(desc(reviewLogs.createdAt))
+        .limit(1)
+
+    const revised = (log?.report as Record<string, unknown> | null | undefined)?.revised as
+        | { title?: unknown; content?: unknown; answer?: unknown; tags?: unknown }
+        | undefined
+    if (
+        !revised ||
+        typeof revised.content !== 'string' ||
+        !revised.content.trim() ||
+        typeof revised.answer !== 'string' ||
+        !revised.answer.trim()
+    ) {
+        return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+    }
+
+    const updates: {
+        title?: string
+        content: string
+        answer: string
+        tags?: string[]
+    } = {
+        content: revised.content,
+        answer: revised.answer,
+    }
+    if (typeof revised.title === 'string' && revised.title.trim()) {
+        updates.title = revised.title.trim().slice(0, 255)
+    }
+    if (Array.isArray(revised.tags)) {
+        const tags = revised.tags
+            .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+            .map((t) => t.trim().slice(0, 30))
+            .slice(0, 6)
+        if (tags.length) updates.tags = tags
+    }
+
+    // 原题就地更新(不新建):内容变了 → contentHash 不匹配 → 重审必然执行。
+    // 配额先扣:额度用尽时不应留下"改了内容却没送审"的中间态
+    let quotaState: Awaited<ReturnType<typeof consumeQuota>> | null = null
+    if (!isAdmin(c)) {
+        quotaState = await consumeQuota(userId)
+        if (quotaState.limited) {
+            const retry = Math.ceil(
+                (new Date(quotaState.resetAt).getTime() - Date.now()) / 1000,
+            )
+            c.header('Retry-After', String(retry))
+            return c.json(
+                errorBody(
+                    `今日 AI 审核次数已用完(${quotaState.limit} 次),明天重置`,
+                    'QUOTA_EXCEEDED',
+                ),
+                HttpStatusCodes.TOO_MANY_REQUESTS,
+            )
+        }
+    }
+
+    await db.update(questions).set(updates).where(eq(questions.id, id))
+
+    // agent 正忙则只写回不重复排队
+    const busy = isReviewing(id)
+    if (!busy) {
+        void runReview(id).catch((err) => {
+            c.get('logger')?.error({ err, questionId: id }, 'review agent crashed')
+        })
+    }
+
+    return c.json(
+        {
+            applied: true,
+            status: 'pending_review',
+            queued: !busy,
+            ...(quotaState
+                ? {
+                      quota: {
+                          used: quotaState.used,
+                          limit: quotaState.limit,
+                          remaining: quotaState.remaining,
+                      },
+                  }
+                : {}),
+        },
         HttpStatusCodes.OK,
     )
 }

@@ -170,9 +170,15 @@ describe.skipIf(!hasDb)('abuse defense: AI quota', () => {
             expect(res.status).toBe(200)
         }
 
-        // 21 题都建成了(total 是全量数,不因翻页重复相加)
+        // 21 题都建成了;但 2026-10-26 起题库列表只显示已过审的题,
+        // 这批还停在审核中心,所以直接按库里的行数断言
+        const rows = await db
+            .select({ id: questions.id })
+            .from(questions)
+            .where(eq(questions.createdBy, USER.id))
+        expect(rows).toHaveLength(21)
         const l1 = await (await req(app, USER, '/questions?size=50')).json()
-        expect(l1.total).toBe(21)
+        expect(l1.total).toBe(0)
     })
 })
 

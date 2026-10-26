@@ -11,9 +11,10 @@ const List = () => {
   const queryParams = {
     type: 'text' as const,
     page: filter.page || 1,
-    size: filter.size || 10,
+    size: filter.size || 20,
     ...(filter.ordering && { ordering: filter.ordering }),
     ...(filter.difficulty && { difficulty: filter.difficulty as 'easy' | 'medium' | 'hard' }),
+    ...(filter.visibility && { visibility: filter.visibility as 'shared' | 'private' }),
     ...(filter.status && { status: filter.status as 'not_started' | 'in_progress' | 'completed' }),
     ...(filter.tag && { tag: filter.tag }),
     ...(filter.search && { search: filter.search }),
