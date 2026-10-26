@@ -128,6 +128,12 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
 
         const verdict = verdictOf(report.total)
 
+        // 存量清洗语义:已是 approved 的题(公开在站上)不因 AI 重审而降级 ——
+        // AI 只补元数据(slug/summary/分数);低分也保持 approved,仅落一条
+        // 打回建议的日志供人工参考(删它的决定必须由人做)
+        const wasApproved = q.status === 'approved'
+        const finalStatus = wasApproved ? 'approved' : verdict
+
         // slug 策略:agent 给了就用;查重,撞了拼 hash 尾巴;没给保留原值
         let slug: string | undefined
         if (report.slug && report.slug !== q.slug) {
@@ -144,7 +150,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
             await tx
                 .update(questions)
                 .set({
-                    status: verdict,
+                    status: finalStatus,
                     reviewScore: report.total,
                     reviewResult: report as unknown as Record<string, unknown>,
                     contentHash: hash,
