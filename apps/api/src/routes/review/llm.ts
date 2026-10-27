@@ -94,21 +94,6 @@ export const revisionSchema = z.object({
 
 export type RevisionReport = z.infer<typeof revisionSchema>
 
-/**
- * AI 自动出题的输出契约(prompts/generate.ts):
- * 用户粘贴知识点 → 生成可直接建题的完整题目
- */
-export const generatedQuestionSchema = z.object({
-    title: z.string().min(4).max(120),
-    content: z.string().min(10).max(20_000),
-    answer: z.string().min(10).max(20_000),
-    tags: z.array(z.string().min(1).max(30)).max(8).optional(),
-    difficulty: z.enum(['easy', 'medium', 'hard']),
-    type: z.enum(['markdown', 'text']),
-})
-
-export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>
-
 /** agent 是否已配置(三项 env 齐全才算) */
 export function llmConfigured(): boolean {
     const cfg = llmConfig()

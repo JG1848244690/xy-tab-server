@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Video } from 'lucide-react'
 
 interface Auth3DCardProps {
   title?: string
@@ -7,7 +6,7 @@ interface Auth3DCardProps {
 }
 
 export function Auth3DCard({
-  title = 'Athena 学习平台',
+  title = '序言',
   description = '探索知识的海洋，开启学习新旅程',
 }: Auth3DCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -84,12 +83,12 @@ export function Auth3DCard({
         {/* 内容区域 */}
         <div className="relative h-full flex flex-col items-center justify-center p-12 text-white z-10">
           <div
-            className="mb-8 p-6 bg-white/10 backdrop-blur-sm rounded-3xl shadow-2xl"
+            className="mb-8 overflow-hidden rounded-3xl bg-white/10 shadow-2xl backdrop-blur-sm"
             style={{
               transform: 'translateZ(50px)',
             }}
           >
-            <Video className="w-20 h-20" strokeWidth={1.5} />
+            <img src="/icon-192.png" alt="序言" className="h-28 w-28 object-cover" />
           </div>
 
           <h1

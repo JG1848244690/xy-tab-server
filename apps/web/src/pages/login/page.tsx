@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Video } from 'lucide-react'
 import { Auth3DCard } from '@/components/auth-3d-card'
 import { LoginForm } from '@/components/auth/login-form'
 import { RegisterForm } from '@/components/auth/register-form'
@@ -16,10 +15,14 @@ export default function LoginPage() {
         <div className="w-full max-w-[480px]">
           {/* Logo 区域 */}
           <div className="flex items-center gap-3 mb-12">
-            <div className="p-2.5 bg-primary/10 rounded-xl">
-              <Video className="w-7 h-7 text-primary" strokeWidth={2} />
+            <div className="rounded-xl bg-primary/10 p-1.5">
+              <img
+                src="/icon-96.png"
+                alt="序言"
+                className="h-8 w-8 rounded-lg object-cover"
+              />
             </div>
-            <span className="text-xl font-bold text-foreground">Athena</span>
+            <span className="text-xl font-bold text-foreground">序言</span>
           </div>
 
           {/* 动态切换表单 */}
@@ -50,8 +53,8 @@ export default function LoginPage() {
         title={mode === 'login' ? '欢迎回来' : '加入我们'}
         description={
           mode === 'login'
-            ? '登录 Athena 学习平台，继续您的学习之旅'
-            : '注册 Athena 学习平台，开启您的知识探索之旅'
+            ? '登录 序言，继续您的学习之旅'
+            : '注册 序言，开启您的知识探索之旅'
         }
       />
     </div>

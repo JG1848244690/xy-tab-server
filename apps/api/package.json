@@ -14,10 +14,12 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.79",
     "@asteasolutions/zod-to-openapi": "^7.3.4",
     "@hono/node-server": "^2.1.0",
     "@hono/zod-openapi": "^0.19.10",
     "@scalar/hono-api-reference": "^0.11.12",
+    "ai": "^7.0.154",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.4.2",
     "dotenv-expand": "^1000.0.0",

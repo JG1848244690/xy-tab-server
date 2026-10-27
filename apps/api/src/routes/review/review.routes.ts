@@ -263,11 +263,24 @@ export const generate = createRoute({
                     difficulty: z.enum(['easy', 'medium', 'hard']),
                     type: z.enum(['markdown', 'text']),
                 }),
+                /** 不确定/需人工核实的点(来自 agent 的事实核查) */
+                caveats: z.array(z.string()).optional(),
+                /** agent 运行信息:3 步 = 草稿+核查+终稿 */
+                meta: z
+                    .object({
+                        steps: z.number(),
+                        needsResearch: z.boolean(),
+                        researchQueries: z.array(z.string()),
+                        sourceCoverage: z.string(),
+                        issueCount: z.number(),
+                        latencyMs: z.number(),
+                    })
+                    .optional(),
                 quota: z
                     .object({ used: z.number(), limit: z.number(), remaining: z.number() })
                     .optional(),
             }),
-            '生成好的完整题目(未落库,前端可编辑后再创建)',
+            '生成好的完整题目(草稿→核查→终稿三步,未落库;caveats 为需核实的点)',
         ),
         [HttpStatusCodes.SERVICE_UNAVAILABLE]: jsonContent(
             z.object({ message: z.string() }),

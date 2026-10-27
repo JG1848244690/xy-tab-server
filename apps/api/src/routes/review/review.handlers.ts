@@ -16,10 +16,10 @@ import { questions, reviewLogs } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { LLM_JSON_RETRY, REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
 import { contentHashOf, runReview, isReviewing } from './agent.js'
-import { llmConfigured, chatJsonWithRetry, generatedQuestionSchema } from './llm.js'
+import { llmConfigured } from './llm.js'
 import { getQuota, consumeQuota } from './quota.js'
 import { normalizeTags, existingTags } from './tags.js'
-import { generateSystemPrompt } from './prompts/generate.js'
+import { runGenerateAgent } from './generate-agent.js'
 import { errorBody } from '../../lib/errors.js'
 import { adminOnly } from '../../middlewares/admin.js'
 
@@ -441,32 +441,29 @@ export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
     // 候选词表 = tag_registry + 已过审题目的全部标签(去重/别名归一),
     // 不能只给热门 24 个 —— 冷门但合法的标签模型看不到就只能自造
     const vocabulary = await existingTags()
-    const hints = [
-        type ? `【指定题型】${type}(必须遵守)` : '',
-        difficulty ? `【指定难度】${difficulty}(必须遵守)` : '',
-        `【平台已有标签(优先从这里选,用原词)】${vocabulary.join('、') || '无'}`,
-    ]
-        .filter(Boolean)
-        .join('\n')
 
     try {
-        const { report } = await chatJsonWithRetry(
-            [
-                { role: 'system' as const, content: generateSystemPrompt },
-                { role: 'user' as const, content: `${hints}\n\n【用户粘贴的内容】\n${source}` },
-            ],
-            generatedQuestionSchema,
-            LLM_JSON_RETRY,
-        )
+        // 三步 agent:草稿 → 事实核查 → 终稿(见 generate-agent.ts)
+        const result = await runGenerateAgent({ source, vocabulary, type, difficulty })
 
         return c.json(
             {
                 question: {
-                    ...report,
+                    ...result.question,
                     // 标签:优先归到已有标签写法,整题最多新建 1 个
-                    tags: normalizeTags(report.tags, { vocabulary, maxNew: 1 }),
-                    type: type ?? report.type,
-                    difficulty: difficulty ?? report.difficulty,
+                    tags: normalizeTags(result.question.tags, { vocabulary, maxNew: 1 }),
+                    type: type ?? result.question.type,
+                    difficulty: difficulty ?? result.question.difficulty,
+                },
+                // 不确定/需人工核实的点,前端展示;空数组 = 模型认为完全有据
+                caveats: result.caveats,
+                meta: {
+                    steps: result.meta.steps,
+                    needsResearch: result.meta.needsResearch,
+                    researchQueries: result.meta.researchQueries,
+                    sourceCoverage: result.meta.sourceCoverage,
+                    issueCount: result.meta.issueCount,
+                    latencyMs: result.meta.latencyMs,
                 },
                 ...(quotaState
                     ? {

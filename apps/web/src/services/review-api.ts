@@ -108,7 +108,7 @@ export const reviewApi = {
             }>(`/review/${id}/apply-revision`)
             .then((r) => r.data),
 
-    /** AI 自动出题:粘贴知识点/文档/AI 回答 → 生成完整题目(不落库) */
+    /** AI 自动出题(草稿→事实核查→终稿三步):不落库 */
     generate: (body: {
         source: string
         type?: 'markdown' | 'text'
@@ -117,6 +117,16 @@ export const reviewApi = {
         request
             .post<{
                 question: GeneratedQuestion
+                /** 需要人工核实的点(空数组 = 模型认为完全有据) */
+                caveats?: string[]
+                meta?: {
+                    steps: number
+                    needsResearch: boolean
+                    researchQueries: string[]
+                    sourceCoverage: string
+                    issueCount: number
+                    latencyMs: number
+                }
                 quota?: { used: number; limit: number; remaining: number }
             }>('/review/generate', body)
             .then((r) => r.data),

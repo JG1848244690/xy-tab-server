@@ -247,3 +247,29 @@ done 绿色、进行中蓝色(带 spinner)、失败红色;人工驳回时失败�
 registry,题目页上的标签链接会 404。现状存量标签(Fiber/B+树等)也有这个问题。
 后续可选:审核通过时把新标签自动登记进 registry。存量 38 个标签(js/JavaScript、
 react/React、场景、HD 等)仍待一次性清洗。
+
+### 10.9 AI 出题 agent(Vercel AI SDK 7)+ 品牌「序言」(2026-10-27)
+
+**AI SDK**:`ai@7.0.154` + `@ai-sdk/openai-compatible@3.0.79`(DeepSeek 走
+OpenAI 兼容协议)。审核链仍用手写 fetch(够用、稳定),只有出题换成 SDK。
+
+**三步 agent**(`review/generate-agent.ts`):
+1. 草稿:只依据原文出题;
+2. 事实核查:逐条挑「原文没依据 / 矛盾 / 偏题 / 含糊」,只列问题不重写,
+   并判断 `needsResearch`(需要外部资料时给出检索词);
+3. 终稿:按核查意见删改、收窄范围,输出 `grounded` + `caveats`(≤3 条)。
+每步 zod 校验 + 解析失败重试一次;`thinking` 默认关闭(仍受 `LLM_THINKING` 控制);
+单步超时 60s,nginx `/api-hls/` 读超时调到 300s。
+
+**不糊弄的约束**:
+- 唯一事实来源是粘贴的原文;不得补充原文没有的版本号/API/结论;
+- 原文不够就收窄题目,不扩写;
+- 不确定项写进 `caveats`,前端用警示框展示;
+- 「生成并提交审核」遇到 caveats **不会自动提交**:先填表、不提交,要求人工核对;
+- 联网搜索暂未接入:`research.ts` 留了 `setResearchTool()` 接口,未注册时
+  明确提示"未联网,需人工核实",不伪造检索结果。
+
+**品牌**:
+- 后台名称 Athena → **序言**(页面标题、侧栏、登录页、3D 卡片);
+- 图标换成 `C:\Users\xy\Pictures\icon.png`(350×321 中心裁方),生成
+  `favicon.ico`(16/32/48)、`icon-32/96/192.png`、`apple-touch-icon.png`。

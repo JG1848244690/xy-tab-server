@@ -34,6 +34,8 @@ const TAG_ALIASES: Record<string, string> = {
     vue: 'Vue',
     vue2: 'Vue',
     vue3: 'Vue',
+    'vue 2': 'Vue',
+    'vue 3': 'Vue',
     vuejs: 'Vue',
     react: 'React',
     reactjs: 'React',

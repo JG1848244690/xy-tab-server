@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import { Video, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { UserNav } from '@/components/user-nav'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -47,8 +47,12 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2 font-semibold text-primary hover:text-primary/80 transition-colors"
                 to="/home"
               >
-                <Video className="h-6 w-6 text-primary" />
-                <span className="">Athena</span>
+                <img
+                  src="/icon-96.png"
+                  alt="序言"
+                  className="h-7 w-7 rounded-md object-cover"
+                />
+                <span>序言</span>
               </Link>
             )}
             <button
@@ -85,8 +89,12 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2 font-semibold text-primary hover:text-primary/80 transition-colors"
                 to="/home"
               >
-                <Video className="h-6 w-6 text-primary" />
-                <span className="">Athena</span>
+                <img
+                  src="/icon-96.png"
+                  alt="序言"
+                  className="h-7 w-7 rounded-md object-cover"
+                />
+                <span>序言</span>
               </Link>
               <button
                 onClick={handleClose}

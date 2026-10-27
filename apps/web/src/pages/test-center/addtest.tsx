@@ -17,7 +17,7 @@ import { MdEditor } from 'md-editor-rt'
 import 'md-editor-rt/lib/style.css'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
-import { reviewApi } from '@/services/review-api'
+import { reviewApi, type GeneratedQuestion } from '@/services/review-api'
 import { uploadEditorImages } from '@/services/media-api'
 import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -57,6 +57,34 @@ const Modal = () => {
   /** AI 自动出题:粘贴的原始知识点 */
   const [aiSource, setAiSource] = useState('')
   const [aiError, setAiError] = useState<string | null>(null)
+  /** 三轮 agent 自查出的"需人工核实"点 */
+  const [aiCaveats, setAiCaveats] = useState<string[]>([])
+  const [aiMeta, setAiMeta] = useState<{
+    steps: number
+    needsResearch: boolean
+  } | null>(null)
+  const [aiNotice, setAiNotice] = useState<string | null>(null)
+
+  /** 把 AI 生成的题目写进表单(强制重挂载编辑器,避免 modelValue 同步问题) */
+  const applyGenerated = (question: GeneratedQuestion) => {
+    setFormData((prev) => ({
+      ...prev,
+      type: question.type,
+      title: question.title,
+      content: question.content,
+      answer: question.answer,
+      difficulty: question.difficulty,
+      tags: question.tags,
+    }))
+    setEditorRevision((n) => n + 1)
+    setTagsInput(question.tags.join(','))
+  }
+
+  const resetAiState = () => {
+    setAiCaveats([])
+    setAiMeta(null)
+    setAiNotice(null)
+  }
 
   // 如果是编辑模式，加载题目数据
   const {
@@ -100,6 +128,7 @@ const Modal = () => {
           visibility: 'shared',
         })
         setTagsInput('')
+        resetAiState()
       }
     }
   }, [questionData, isEditMode, open.modal, isLoadingQuestion, isFetchingQuestion])
@@ -137,9 +166,9 @@ const Modal = () => {
         visibility: 'shared',
       })
       setTagsInput('')
+      resetAiState()
       // 关闭对话框,并提示"新题去了审核中心"(2026-10-26:题库只显示已过审的题)
-      updates({
-        open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
+      updates({        open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
         notice: `「${data.title}」已提交 AI 审核,通过后才会出现在题库`,
       })
       queryClient.invalidateQueries({ queryKey: ['review-queue'] })
@@ -158,23 +187,13 @@ const Modal = () => {
         type: formData.type,
         difficulty: formData.difficulty,
       }),
-    onSuccess: ({ question }) => {
+    onSuccess: ({ question, caveats, meta }) => {
       setAiError(null)
-      // 注意:必须用函数式更新。MdEditor 在 modelValue 变化时可能回调 onChange,
-      // 若这里用 {...formData}(渲染时快照),后续 onChange 会把刚填的字段覆盖回旧值
-      // —— 这就是"只回填了标签"的根因。
-      setFormData((prev) => ({
-        ...prev,
-        type: question.type,
-        title: question.title,
-        content: question.content,
-        answer: question.answer,
-        difficulty: question.difficulty,
-        tags: question.tags,
-      }))
-      // 强制重挂载编辑器,让 modelValue 一定被 md-editor 接收(它对外部改值同步不稳)
-      setEditorRevision((n) => n + 1)
-      setTagsInput(question.tags.join(','))
+      // 函数式更新 + 重挂载编辑器(见 applyGenerated 注释),避免 onChange 覆盖
+      applyGenerated(question)
+      setAiCaveats(caveats ?? [])
+      setAiMeta(meta ? { steps: meta.steps, needsResearch: meta.needsResearch } : null)
+      setAiNotice(null)
       queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
     },
     onError: (error) => setAiError(error instanceof Error ? error.message : 'AI 生成失败'),
@@ -183,19 +202,37 @@ const Modal = () => {
   // AI 自动出题 + 直接创建并送审(一键)
   const aiCreate = useMutation({
     mutationFn: async () => {
-      const { question } = await reviewApi.generate({
+      const result = await reviewApi.generate({
         source: aiSource.trim(),
         type: formData.type,
         difficulty: formData.difficulty,
       })
+      // 有不确定项就不自动提交:填进表单,让用户核对后再手动提交
+      if (result.caveats?.length) {
+        applyGenerated(result.question)
+        setAiCaveats(result.caveats)
+        setAiMeta(
+          result.meta
+            ? { steps: result.meta.steps, needsResearch: result.meta.needsResearch }
+            : null,
+        )
+        setAiNotice(
+          `AI 自查有 ${result.caveats.length} 处需要核实,已先填入表单、未自动提交。请核对后再提交审核。`,
+        )
+        return null
+      }
       return questionsApi.create({
-        ...question,
+        ...result.question,
         visibility: formData.visibility ?? 'shared',
       })
     },
     onSuccess: (data) => {
+      if (!data) return
       setAiError(null)
       setAiSource('')
+      setAiCaveats([])
+      setAiMeta(null)
+      setAiNotice(null)
       queryClient.invalidateQueries({ queryKey: ['questions'] })
       queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
       queryClient.invalidateQueries({ queryKey: ['review-queue'] })
@@ -225,6 +262,7 @@ const Modal = () => {
         visibility: 'shared',
       })
       setTagsInput('')
+      resetAiState()
       // 关闭对话框
       updates({
         open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
@@ -263,6 +301,7 @@ const Modal = () => {
       setIsDataLoaded(false)
       setAiSource('')
       setAiError(null)
+      resetAiState()
       setFormData({
         type: 'markdown',
         title: '',
@@ -371,14 +410,43 @@ const Modal = () => {
                     生成并提交审核
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    「AI 生成」只填表单可再改;「生成并提交」直接创建并送审(各扣 1 次配额,admin 豁免)
+                    「AI 生成」只填表单可再改;「生成并提交」直接送审 —— 若自查有不确定项,会先填表不提交
                   </span>
                 </div>
+                {aiGenerate.isPending || aiCreate.isPending ? (
+                  <p className="text-xs text-muted-foreground">
+                    正在做 3 步事实核查(草稿 → 质疑 → 终稿),约 20-40 秒…
+                  </p>
+                ) : null}
                 {aiError ? (
                   <p className="flex items-center gap-1 text-xs text-destructive">
                     <CircleAlert className="h-3.5 w-3.5" />
                     {aiError}
                   </p>
+                ) : null}
+                {aiCaveats.length > 0 ? (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                    <p className="flex flex-wrap items-center gap-1.5 font-medium text-amber-700 dark:text-amber-300">
+                      <CircleAlert className="h-3.5 w-3.5" />
+                      AI 自查提示(提交前请核对)
+                      {aiMeta ? (
+                        <span className="font-normal text-muted-foreground">
+                          · {aiMeta.steps} 步核查
+                          {aiMeta.needsResearch ? ' · 含需联网核实项' : ''}
+                        </span>
+                      ) : null}
+                    </p>
+                    {aiNotice ? (
+                      <p className="mt-1 text-amber-700/90 dark:text-amber-200/90">
+                        {aiNotice}
+                      </p>
+                    ) : null}
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-amber-800/90 dark:text-amber-200/90">
+                      {aiCaveats.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
               </div>
             )}

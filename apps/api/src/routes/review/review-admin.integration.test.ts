@@ -376,39 +376,66 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(revised).toBeUndefined()
     })
 
-    it('AI 自动出题:按粘贴内容生成完整题目,标签别名归一/去重/最多 4 个', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(
-                async () =>
-                    new Response(
-                        JSON.stringify({
-                            choices: [
-                                {
-                                    message: {
-                                        content: JSON.stringify({
-                                            title: '事件循环中微任务与宏任务的执行顺序',
-                                            content: '给出代码,判断输出顺序并解释原因。',
-                                            answer: '结论:同步代码 → 微任务 → 宏任务。',
-                                            tags: [
-                                                'js',
-                                                'JavaScript',
-                                                '事件循环',
-                                                '微任务',
-                                                '宏任务',
-                                                '事件循环机制',
-                                            ],
-                                            difficulty: 'medium',
-                                            type: 'text',
-                                        }),
-                                    },
-                                },
-                            ],
-                        }),
-                        { status: 200 },
-                    ),
-            ),
-        )
+    it('AI 自动出题:草稿→核查→终稿三步,按原文生成并归一标签', async () => {
+        const question = {
+            title: '事件循环中微任务与宏任务的执行顺序',
+            content: '给出代码,判断输出顺序并解释原因。',
+            answer: '结论:同步代码 → 微任务 → 宏任务。',
+            tags: ['js', 'JavaScript', '事件循环', '微任务', '宏任务', '事件循环机制'],
+            difficulty: 'medium',
+            type: 'text',
+        }
+        const llmReply = (content: unknown) => ({
+            id: 'chatcmpl-test',
+            object: 'chat.completion',
+            created: 0,
+            model: 'deepseek-flash',
+            choices: [
+                {
+                    index: 0,
+                    message: { role: 'assistant', content: JSON.stringify(content) },
+                    finish_reason: 'stop',
+                },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        })
+
+        const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as {
+                messages?: Array<{ role?: string; content?: unknown }>
+            }
+            const promptText = JSON.stringify(body.messages ?? [])
+            let content: unknown
+            if (promptText.includes('事实核查员')) {
+                content = {
+                    verdict: 'revise',
+                    issues: [
+                        {
+                            severity: 'warning',
+                            kind: 'unsupported',
+                            detail: '草稿补充了原文没有的宏任务细节',
+                            fix: '按原文收窄,或在 caveats 提示核实',
+                        },
+                    ],
+                    needsResearch: false,
+                    researchQueries: [],
+                    sourceCoverage: 'partial',
+                }
+            } else if (promptText.includes('终稿编辑')) {
+                content = {
+                    ...question,
+                    grounded: true,
+                    caveats: ['原文只覆盖了微任务,宏任务细节建议人工核对。'],
+                }
+            } else {
+                content = question
+            }
+            return new Response(JSON.stringify(llmReply(content)), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
 
         const res = await req(app, CREATOR, '/review/generate', {
             method: 'POST',
@@ -419,8 +446,19 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(res.status).toBe(200)
         const body = await res.json()
         expect(body.question.title).toContain('事件循环')
-        // js → JavaScript 与 JavaScript 去重;事件循环机制 → 事件循环;截断到 4 个
-        expect(body.question.tags).toEqual(['JavaScript', '事件循环', '微任务', '宏任务'])
+        // js → JavaScript 与 JavaScript 去重;事件循环机制 → 事件循环;
+        // 词表里已有标签时最多只保留 1 个新建标签(具体数量取决于词表,单测另测)
+        expect(body.question.tags).toEqual(
+            expect.arrayContaining(['JavaScript', '事件循环']),
+        )
+        expect(body.question.tags.length).toBeLessThanOrEqual(4)
+        expect(new Set(body.question.tags.map((t: string) => t.toLowerCase())).size).toBe(
+            body.question.tags.length,
+        )
+        // 三步都真的调用了模型;核查意见里的不确定点透传给前端
+        expect(fetchMock).toHaveBeenCalledTimes(3)
+        expect(body.meta.steps).toBe(3)
+        expect(body.caveats).toEqual(['原文只覆盖了微任务,宏任务细节建议人工核对。'])
 
         // 生成也是 LLM 成本:消耗 1 次配额
         const quota = await (await req(app, CREATOR, '/review/quota')).json()
