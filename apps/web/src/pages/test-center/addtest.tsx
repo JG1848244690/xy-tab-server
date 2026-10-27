@@ -51,6 +51,8 @@ const Modal = () => {
   })
 
   const [tagsInput, setTagsInput] = useState('') // 用于输入标签，以逗号分隔
+  /** AI 回填/外部改值后递增,作为 MdEditor 的 key 强制同步内容 */
+  const [editorRevision, setEditorRevision] = useState(0)
   const [isDataLoaded, setIsDataLoaded] = useState(false) // 标记数据是否已加载并填充
   /** AI 自动出题:粘贴的原始知识点 */
   const [aiSource, setAiSource] = useState('')
@@ -158,15 +160,20 @@ const Modal = () => {
       }),
     onSuccess: ({ question }) => {
       setAiError(null)
-      setFormData({
-        ...formData,
+      // 注意:必须用函数式更新。MdEditor 在 modelValue 变化时可能回调 onChange,
+      // 若这里用 {...formData}(渲染时快照),后续 onChange 会把刚填的字段覆盖回旧值
+      // —— 这就是"只回填了标签"的根因。
+      setFormData((prev) => ({
+        ...prev,
         type: question.type,
         title: question.title,
         content: question.content,
         answer: question.answer,
         difficulty: question.difficulty,
         tags: question.tags,
-      })
+      }))
+      // 强制重挂载编辑器,让 modelValue 一定被 md-editor 接收(它对外部改值同步不稳)
+      setEditorRevision((n) => n + 1)
       setTagsInput(question.tags.join(','))
       queryClient.invalidateQueries({ queryKey: ['ai-quota'] })
     },
@@ -381,7 +388,10 @@ const Modal = () => {
                 <Select
                   value={formData.type}
                   onChange={(value) =>
-                    setFormData({ ...formData, type: value as 'markdown' | 'text' })
+                    setFormData((prev) => ({
+                      ...prev,
+                      type: value as 'markdown' | 'text',
+                    }))
                   }
                   options={[
                     { label: '代码题', value: 'markdown' },
@@ -395,7 +405,10 @@ const Modal = () => {
                 <Select
                   value={formData.difficulty || 'medium'}
                   onChange={(value) =>
-                    setFormData({ ...formData, difficulty: value as 'easy' | 'medium' | 'hard' })
+                    setFormData((prev) => ({
+                      ...prev,
+                      difficulty: value as 'easy' | 'medium' | 'hard',
+                    }))
                   }
                   options={[
                     { label: '简单', value: 'easy' },
@@ -410,7 +423,10 @@ const Modal = () => {
                 <Select
                   value={formData.visibility || 'shared'}
                   onChange={(value) =>
-                    setFormData({ ...formData, visibility: value as 'shared' | 'private' })
+                    setFormData((prev) => ({
+                      ...prev,
+                      visibility: value as 'shared' | 'private',
+                    }))
                   }
                   options={[
                     { label: '共享(所有人可见)', value: 'shared' },
@@ -425,7 +441,9 @@ const Modal = () => {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, title: e.target.value }))
+                }
                 placeholder="请输入题目标题"
                 required
               />
@@ -449,9 +467,11 @@ const Modal = () => {
                   <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                     {(!isEditMode || isDataLoaded) && (
                       <MdEditor
-                        key={`content-${editQuestionId || 'new'}-${isDataLoaded}`}
+                        key={`content-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
                         modelValue={formData.content || ''}
-                        onChange={(value) => setFormData({ ...formData, content: value || '' })}
+                        onChange={(value) =>
+                          setFormData((prev) => ({ ...prev, content: value || '' }))
+                        }
                         language="zh-CN"
                         theme={editorTheme}
                         previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}
@@ -470,9 +490,11 @@ const Modal = () => {
                   <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                     {(!isEditMode || isDataLoaded) && (
                       <MdEditor
-                        key={`answer-${editQuestionId || 'new'}-${isDataLoaded}`}
+                        key={`answer-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
                         modelValue={formData.answer || ''}
-                        onChange={(value) => setFormData({ ...formData, answer: value || '' })}
+                        onChange={(value) =>
+                          setFormData((prev) => ({ ...prev, answer: value || '' }))
+                        }
                         language="zh-CN"
                         theme={editorTheme}
                         previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}

@@ -20,7 +20,7 @@ import { reviewSystemPrompt } from './prompts/system.js'
 import { reviewRubricPrompt } from './prompts/rubric.js'
 import { reviewOutputPrompt } from './prompts/output.js'
 import { revisionSystemPrompt } from './prompts/revision.js'
-import { normalizeTags, popularTags } from './tags.js'
+import { normalizeTags, existingTags } from './tags.js'
 
 /** 题目内容指纹:任一字符改动都会换 hash → 触发重审 */
 export const contentHashOf = (q: { title: string; content: string; answer: string }) =>
@@ -96,6 +96,8 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
             })
             .where(eq(questions.id, questionId))
 
+        // 标签候选词表(registry + 已过审题目);尽量复用,别每题造新词
+        const vocabulary = await existingTags()
         const userContent = [
             `【题目】${q.title}`,
             `【难度】${q.difficulty}`,
@@ -109,7 +111,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
             q.answer,
             '',
             '【平台已有标签(优先复用,避免自造小众标签)】',
-            (await popularTags()).join('、') || '无',
+            vocabulary.join('、') || '无',
         ].join('\n')
 
         let report: AgentReport
@@ -147,9 +149,9 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
             report = rest
         }
 
-        // 标签收敛:别名归一 + 忽略大小写去重 + 最多 4 个;
+        // 标签收敛:别名归一 + 忽略大小写去重 + 最多 4 个,且最多新增 1 个;
         // 归一后的结果同时写回报告,保证「已通过」列表与题目标签一致
-        const tags = normalizeTags(report.tags)
+        const tags = normalizeTags(report.tags, { vocabulary, maxNew: 1 })
         if (tags.length) report = { ...report, tags }
 
         // 兜底:AI 打回但主报告漏了改进版(模型偶发不守契约)→ 单独再生成一次。
