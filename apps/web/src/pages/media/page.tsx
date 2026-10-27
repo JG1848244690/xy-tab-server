@@ -194,14 +194,14 @@ export default function MediaPage() {
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className="border-b px-6 pb-4 pt-6">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-xl font-bold">图库</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             题目/文章里的图片统一存这里。被引用的图片不能删;未使用的可以一键清理。
                         </p>
                     </div>
-                    <div className="flex flex-none items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:flex-none">
                         <Button
                             variant="outline"
                             size="sm"

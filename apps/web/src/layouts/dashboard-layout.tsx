@@ -9,7 +9,7 @@ import { RouteLoadingIndicator } from '@/components/route-loading-indicator'
 import { useState, useEffect } from 'react'
 import BreadCrumb from '@/components/breadcrumb'
 export default function DashboardLayout() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isOpening, setIsOpening] = useState(false)
   const [mounted, setMounted] = useState(false)

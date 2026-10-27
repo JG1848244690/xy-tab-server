@@ -172,8 +172,8 @@ export default function MyTable<TData, TValue>({
       </div>
 
       {/* 分页组件 */}
-      <div className="flex items-center justify-between py-4">
-        <div className="text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 py-4">
+        <div className="whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
           第 {filter.page} 页，共 {totalPages} 页 | 总计 {totalCount} 条
         </div>
         <div className="flex items-center space-x-2">

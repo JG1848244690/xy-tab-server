@@ -450,7 +450,7 @@ const Modal = () => {
                 ) : null}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="type">题目类型 *</Label>
                 <Select
@@ -528,7 +528,7 @@ const Modal = () => {
               <p className="text-sm text-muted-foreground">多个标签请用逗号分隔</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 w-full">
+            <div className="grid grid-cols-1 gap-4 w-full lg:grid-cols-2">
               <div className="space-y-2 w-full min-w-0">
                 <Label htmlFor="content">题目内容 *</Label>
                 <div className="w-full min-w-0" style={{ overflow: 'hidden' }}>
