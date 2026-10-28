@@ -32,9 +32,20 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
  */
 
 /** 公开列表的公共过滤:approved + 可选 bank/tag */
-function publicQuestionConditions(bank?: string, tag?: string) {
+function publicQuestionConditions(
+    bank?: string,
+    tag?: string,
+    direction?: string,
+    stack?: string,
+    point?: string,
+) {
     const conditions = [eq(questions.status, 'approved')]
     if (bank) conditions.push(eq(banks.slug, bank))
+    if (direction) conditions.push(eq(questions.direction, direction))
+    if (stack) conditions.push(eq(questions.techStack, stack))
+    if (point) {
+        conditions.push(sql`${questions.knowledgePoints} @> ${JSON.stringify([point])}::jsonb`)
+    }
     // 与该库共用的标签过滤:大小写无关(jsonb 元素逐个 lower 比对;
     // 题目 tags 是 'JavaScript' 这类原始大小写,tag_registry 存的是小写 slug 名)
     if (tag) {
@@ -50,8 +61,8 @@ function publicQuestionConditions(bank?: string, tag?: string) {
 }
 
 export const listQuestions: AppRouteHandler<ListPublicQuestionsRoute> = async (c) => {
-    const { bank, tag, page, size } = c.req.valid('query')
-    const conditions = publicQuestionConditions(bank, tag)
+    const { bank, tag, direction, stack, point, page, size } = c.req.valid('query')
+    const conditions = publicQuestionConditions(bank, tag, direction, stack, point)
 
     const rows = await db
         .select({
@@ -61,6 +72,9 @@ export const listQuestions: AppRouteHandler<ListPublicQuestionsRoute> = async (c
             type: questions.type,
             difficulty: questions.difficulty,
             tags: questions.tags,
+            direction: questions.direction,
+            techStack: questions.techStack,
+            knowledgePoints: questions.knowledgePoints,
             viewCount: questions.viewCount,
             publishedAt: questions.publishedAt,
             updatedAt: questions.updatedAt,
@@ -97,6 +111,9 @@ export const getQuestion: AppRouteHandler<GetPublicQuestionRoute> = async (c) =>
             type: questions.type,
             difficulty: questions.difficulty,
             tags: questions.tags,
+            direction: questions.direction,
+            techStack: questions.techStack,
+            knowledgePoints: questions.knowledgePoints,
             content: questions.content,
             answer: questions.answer,
             viewCount: questions.viewCount,
@@ -195,6 +212,9 @@ export const getBank: AppRouteHandler<GetBankRoute> = async (c) => {
             type: questions.type,
             difficulty: questions.difficulty,
             tags: questions.tags,
+            direction: questions.direction,
+            techStack: questions.techStack,
+            knowledgePoints: questions.knowledgePoints,
             viewCount: questions.viewCount,
             publishedAt: questions.publishedAt,
             updatedAt: questions.updatedAt,
@@ -232,6 +252,7 @@ export const listTags: AppRouteHandler<ListTagsRoute> = async (c) => {
         .select({
             slug: tagRegistry.slug,
             name: tagRegistry.name,
+            kind: tagRegistry.kind,
             description: tagRegistry.description,
             questionCount: sql<number>`(
                 select count(*) from "questions" q

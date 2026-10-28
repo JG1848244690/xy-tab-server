@@ -22,6 +22,7 @@ import { normalizeTags, existingTags } from './tags.js'
 import { runGenerateAgent } from './generate-agent.js'
 import { errorBody } from '../../lib/errors.js'
 import { adminOnly } from '../../middlewares/admin.js'
+import { classifyQuestion } from '../questions/taxonomy.js'
 
 /** 当前用户是不是 admin(后台工作台权限) */
 const isAdmin = (c: { get: (k: 'userRole') => 'user' | 'admin' | undefined }) =>
@@ -445,13 +446,23 @@ export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
     try {
         // 三步 agent:草稿 → 事实核查 → 终稿(见 generate-agent.ts)
         const result = await runGenerateAgent({ source, vocabulary, type, difficulty })
+        const tags = normalizeTags(result.question.tags, { vocabulary, maxNew: 1 })
+        const classified = classifyQuestion({
+            title: result.question.title,
+            content: result.question.content,
+            answer: result.question.answer,
+            tags,
+        })
 
         return c.json(
             {
                 question: {
                     ...result.question,
                     // 标签:优先归到已有标签写法,整题最多新建 1 个
-                    tags: normalizeTags(result.question.tags, { vocabulary, maxNew: 1 }),
+                    tags: classified.tags,
+                    direction: classified.direction,
+                    techStack: classified.techStack,
+                    knowledgePoints: classified.knowledgePoints,
                     type: type ?? result.question.type,
                     difficulty: difficulty ?? result.question.difficulty,
                 },
@@ -541,17 +552,31 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
         content: string
         answer: string
         tags?: string[]
+        direction?: string
+        techStack?: string
+        knowledgePoints?: string[]
     } = {
         content: revised.content,
         answer: revised.answer,
     }
-    if (typeof revised.title === 'string' && revised.title.trim()) {
-        updates.title = revised.title.trim().slice(0, 255)
+    const revisedTitle = typeof revised.title === 'string' ? revised.title : ''
+    if (revisedTitle.trim()) {
+        updates.title = revisedTitle.trim().slice(0, 255)
     }
     // 与审核/出题共用同一套标签收敛规则:优先归到已有标签,最多新增 1 个
     const vocabulary = await existingTags()
     const tags = normalizeTags(revised.tags, { vocabulary, maxNew: 1 })
     if (tags.length) updates.tags = tags
+    const classified = classifyQuestion({
+        title: revisedTitle,
+        content: revised.content,
+        answer: revised.answer,
+        tags,
+    })
+    updates.direction = classified.direction
+    updates.techStack = classified.techStack
+    updates.knowledgePoints = classified.knowledgePoints
+    updates.tags = classified.tags
 
     // 原题就地更新(不新建):内容变了 → contentHash 不匹配 → 重审必然执行。
     // 配额先扣:额度用尽时不应留下"改了内容却没送审"的中间态

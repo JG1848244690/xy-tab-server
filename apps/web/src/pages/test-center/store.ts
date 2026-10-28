@@ -20,6 +20,9 @@ export type FilterType = {
   difficulty?: string
   visibility?: string
   tag?: string
+  direction?: string
+  stack?: string
+  point?: string
   search?: string
 }
 

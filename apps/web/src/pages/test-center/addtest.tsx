@@ -17,6 +17,7 @@ import { MdEditor } from 'md-editor-rt'
 import 'md-editor-rt/lib/style.css'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
+import { DIRECTIONS, TECH_STACKS } from '@/lib/taxonomy'
 import { reviewApi, type GeneratedQuestion } from '@/services/review-api'
 import { uploadEditorImages } from '@/services/media-api'
 import { QuotaBadge } from '@/components/ai-quota-badge'
@@ -47,6 +48,9 @@ const Modal = () => {
     answer: '',
     difficulty: 'medium',
     tags: [],
+    direction: '前端',
+    techStack: 'JavaScript',
+    knowledgePoints: [],
     visibility: 'shared',
   })
 
@@ -75,9 +79,12 @@ const Modal = () => {
       answer: question.answer,
       difficulty: question.difficulty,
       tags: question.tags,
+      direction: question.direction ?? '前端',
+      techStack: question.techStack ?? 'JavaScript',
+      knowledgePoints: question.knowledgePoints ?? [],
     }))
     setEditorRevision((n) => n + 1)
-    setTagsInput(question.tags.join(','))
+    setTagsInput((question.knowledgePoints ?? question.tags).join(','))
   }
 
   const resetAiState = () => {
@@ -109,9 +116,14 @@ const Modal = () => {
         answer: questionData.answer || '',
         difficulty: questionData.difficulty || 'medium',
         tags: questionData.tags || [],
+        direction: questionData.direction ?? '前端',
+        techStack: questionData.techStack ?? 'JavaScript',
+        knowledgePoints: questionData.knowledgePoints ?? [],
         visibility: questionData.visibility || 'shared',
       })
-      setTagsInput(questionData.tags?.join(',') || '')
+      setTagsInput(
+        (questionData.knowledgePoints ?? questionData.tags ?? []).join(','),
+      )
       setIsDataLoaded(true)
     } else if (!open.modal) {
       // 模态框关闭时重置所有状态
@@ -277,15 +289,22 @@ const Modal = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    // 处理标签
-    const tags = tagsInput
+    // 知识点输入统一走这一栏;提交时带上三级字段
+    const knowledgePoints = tagsInput
       .split(',')
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0)
 
-    const submitData = {
+    const submitData: CreateQuestionDto = {
       ...formData,
-      tags: tags.length > 0 ? tags : undefined,
+      knowledgePoints,
+      tags: [
+        ...new Set([
+          formData.direction ?? '前端',
+          formData.techStack ?? 'JavaScript',
+          ...knowledgePoints,
+        ]),
+      ],
     }
 
     if (isEditMode) {
@@ -450,7 +469,7 @@ const Modal = () => {
                 ) : null}
               </div>
             )}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label htmlFor="type">题目类型 *</Label>
                 <Select
@@ -487,6 +506,28 @@ const Modal = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="direction">方向 *</Label>
+                <Select
+                  value={formData.direction ?? '前端'}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, direction: value }))
+                  }
+                  options={DIRECTIONS.map((d) => ({ label: d, value: d }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="techStack">技术栈 *</Label>
+                <Select
+                  value={formData.techStack ?? 'JavaScript'}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, techStack: value }))
+                  }
+                  options={TECH_STACKS.map((s) => ({ label: s, value: s }))}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="visibility">可见性</Label>
                 <Select
                   value={formData.visibility || 'shared'}
@@ -518,14 +559,16 @@ const Modal = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tags">标签</Label>
+              <Label htmlFor="tags">知识点</Label>
               <Input
                 id="tags"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="请输入标签，多个标签用逗号分隔，如：数组,ES6,闭包"
+                placeholder="多个知识点用逗号分隔，如：闭包,事件循环,原型链"
               />
-              <p className="text-sm text-muted-foreground">多个标签请用逗号分隔</p>
+              <p className="text-sm text-muted-foreground">
+                比如「闭包」「事件循环」「B+树」;没有合适知识点可留空,系统会按方向/技术栈兜底。
+              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 w-full lg:grid-cols-2">

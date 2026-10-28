@@ -34,6 +34,9 @@ const questionFieldsSchema = selectQuestionsSchema
         type: true,
         difficulty: true,
         tags: true,
+        direction: true,
+        techStack: true,
+        knowledgePoints: true,
         visibility: true,
         createdAt: true,
         updatedAt: true,
@@ -41,6 +44,7 @@ const questionFieldsSchema = selectQuestionsSchema
     .extend({
         // jsonb 列被 drizzle-zod 推成 any,openapi 文档会退化成 {},这里收窄
         tags: z.array(z.string()).nullable(),
+        knowledgePoints: z.array(z.string()).nullable(),
     })
 
 /**
@@ -93,6 +97,9 @@ const listQuerySchema = z.object({
     /** 可见性筛选:shared 共享 / private 私有(2026-10-26 列表独立列) */
     visibility: z.enum(['shared', 'private']).optional(),
     tag: z.string().optional(),
+    direction: z.string().optional(),
+    stack: z.string().optional(),
+    point: z.string().optional(),
     status: statusSchema.optional(),
     page: z.coerce.number().int().positive().default(1),
     size: z.coerce.number().int().positive().max(100).default(20),

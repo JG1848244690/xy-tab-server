@@ -30,6 +30,9 @@ export interface GeneratedQuestion {
     content: string
     answer: string
     tags: string[]
+    direction?: string | null
+    techStack?: string | null
+    knowledgePoints?: string[] | null
     difficulty: 'easy' | 'medium' | 'hard'
     type: 'markdown' | 'text'
 }

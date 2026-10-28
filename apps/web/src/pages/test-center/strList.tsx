@@ -17,6 +17,9 @@ const List = () => {
     ...(filter.visibility && { visibility: filter.visibility as 'shared' | 'private' }),
     ...(filter.status && { status: filter.status as 'not_started' | 'in_progress' | 'completed' }),
     ...(filter.tag && { tag: filter.tag }),
+    ...(filter.direction && { direction: filter.direction }),
+    ...(filter.stack && { stack: filter.stack }),
+    ...(filter.point && { point: filter.point }),
     ...(filter.search && { search: filter.search }),
   }
 

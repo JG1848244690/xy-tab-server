@@ -22,6 +22,7 @@ import {
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { runReview, isReviewing } from '../review/agent.js'
 import { consumeQuota } from '../review/quota.js'
+import { classifyQuestion } from './taxonomy.js'
 
 // ============================================================
 // 列表
@@ -55,8 +56,20 @@ const approvedBank = (userId: string) =>
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
     const userId = c.get('userId')!
-    const { type, difficulty, visibility, tag, status, page, size, ordering, search } =
-        c.req.valid('query')
+    const {
+        type,
+        difficulty,
+        visibility,
+        tag,
+        direction,
+        stack,
+        point,
+        status,
+        page,
+        size,
+        ordering,
+        search,
+    } = c.req.valid('query')
 
     // 可见性 + 过审永远第一位;后面再叠加业务过滤
     const conditions = [approvedBank(userId)]
@@ -66,6 +79,9 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
     if (search) conditions.push(ilike(questions.title, `%${search}%`))
     // MySQL 的 JSON_CONTAINS(q.tags, '"x"') → PG jsonb 包含操作符 @>
     if (tag) conditions.push(sql`${questions.tags} @> ${JSON.stringify([tag])}::jsonb`)
+    if (direction) conditions.push(eq(questions.direction, direction))
+    if (stack) conditions.push(eq(questions.techStack, stack))
+    if (point) conditions.push(sql`${questions.knowledgePoints} @> ${JSON.stringify([point])}::jsonb`)
 
     const needsStatsJoin = Boolean(status) || Boolean(ordering?.includes('stats.'))
 
@@ -142,6 +158,9 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
                   type: questions.type,
                   difficulty: questions.difficulty,
                   tags: questions.tags,
+                  direction: questions.direction,
+                  techStack: questions.techStack,
+                  knowledgePoints: questions.knowledgePoints,
                   visibility: questions.visibility,
                   createdAt: questions.createdAt,
                   updatedAt: questions.updatedAt,
@@ -163,6 +182,9 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
                   type: questions.type,
                   difficulty: questions.difficulty,
                   tags: questions.tags,
+                  direction: questions.direction,
+                  techStack: questions.techStack,
+                  knowledgePoints: questions.knowledgePoints,
                   visibility: questions.visibility,
                   createdAt: questions.createdAt,
                   updatedAt: questions.updatedAt,
@@ -196,6 +218,9 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
             type: r.type,
             difficulty: r.difficulty,
             tags: r.tags,
+            direction: r.direction,
+            techStack: r.techStack,
+            knowledgePoints: r.knowledgePoints,
             visibility: r.visibility,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
@@ -253,6 +278,9 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         answer: row.answer,
         difficulty: row.difficulty,
         tags: row.tags,
+        direction: row.direction,
+        techStack: row.techStack,
+        knowledgePoints: row.knowledgePoints,
         visibility: row.visibility,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -288,7 +316,39 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
 
-    const [created] = await db.insert(questions).values({ ...body, createdBy: userId }).returning()
+    // 三级标签:老客户端只传 tags 也能自动归类;新表单可显式传三级字段
+    const classified = classifyQuestion({
+        title: body.title,
+        content: body.content,
+        answer: body.answer,
+        tags: body.tags,
+    })
+    const direction = body.direction ?? classified.direction
+    const techStack = body.techStack ?? classified.techStack
+    const knowledgePoints =
+        body.knowledgePoints && body.knowledgePoints.length
+            ? body.knowledgePoints
+            : classified.knowledgePoints
+    const tags = [
+        ...new Set([
+            direction,
+            techStack,
+            ...knowledgePoints,
+            ...(body.tags ?? []),
+        ]),
+    ].slice(0, 16)
+
+    const [created] = await db
+        .insert(questions)
+        .values({
+            ...body,
+            direction,
+            techStack,
+            knowledgePoints,
+            tags,
+            createdBy: userId,
+        })
+        .returning()
 
     // 新题自动送 AI 前置审核(docs/review-workflow-plan.md:创建即触发,
     // 验收标准"新加题自动触发 agent 审核")。
@@ -326,7 +386,31 @@ export const update: AppRouteHandler<UpdateRoute> = async (c) => {
         .returning()
     if (!updated) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
 
-    return c.json(selectQuestionsSchema.parse(updated), HttpStatusCodes.OK)
+    // 编辑后重算三级标签;显式传了 direction/techStack/points 时以表单为准
+    const classified = classifyQuestion({
+        title: updated.title,
+        content: updated.content,
+        answer: updated.answer,
+        tags: updated.tags,
+    })
+    const direction = body.direction ?? updated.direction ?? classified.direction
+    const techStack = body.techStack ?? updated.techStack ?? classified.techStack
+    const knowledgePoints =
+        body.knowledgePoints && body.knowledgePoints.length
+            ? body.knowledgePoints
+            : updated.knowledgePoints?.length
+              ? updated.knowledgePoints
+              : classified.knowledgePoints
+    const tags = [
+        ...new Set([direction, techStack, ...knowledgePoints, ...(updated.tags ?? [])]),
+    ].slice(0, 16)
+    const [final] = await db
+        .update(questions)
+        .set({ direction, techStack, knowledgePoints, tags })
+        .where(eq(questions.id, id))
+        .returning()
+
+    return c.json(selectQuestionsSchema.parse(final), HttpStatusCodes.OK)
 }
 
 export const remove: AppRouteHandler<RemoveRoute> = async (c) => {

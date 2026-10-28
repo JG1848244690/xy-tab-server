@@ -152,6 +152,16 @@ export const questions = pgTable(
          * 正好替换掉旧代码里的 JSON_CONTAINS(q.tags, '"x"')
          */
         tags: jsonb('tags').$type<string[]>(),
+        /**
+         * 三级标签(2026-10-28):
+         *  direction   方向(前端/后端/算法/Agent/计算机基础,单选)
+         *  techStack   技术栈(Vue/React/JavaScript/MySQL...,单选主栈)
+         *  knowledgePoints 知识点(闭包/事件循环/B+树...,1-4 个)
+         * tags 仍保留为"三者并集 + 旧标签",兼容旧搜索/旧标签页
+         */
+        direction: varchar('direction', { length: 32 }),
+        techStack: varchar('tech_stack', { length: 64 }),
+        knowledgePoints: jsonb('knowledge_points').$type<string[]>(),
         // 题库可见性:shared = 所有登录用户可见可练;private = 仅创建者。
         // 默认 shared —— 存量数据语义即共享,ALTER TABLE 加列时一并带上默认值
         visibility: questionVisibilityEnum('visibility').default('shared').notNull(),
@@ -194,6 +204,10 @@ export const questions = pgTable(
         index('questions_created_at_idx').on(t.createdAt),
         // 支持 tags 的 @> 包含查询走 GIN 索引
         index('questions_tags_idx').using('gin', t.tags),
+        // 三级标签筛选
+        index('questions_direction_idx').on(t.direction),
+        index('questions_tech_stack_idx').on(t.techStack),
+        index('questions_points_idx').using('gin', t.knowledgePoints),
         // 可见性过滤(shared OR created_by = me)与 owner 权限校验都会扫这个
         index('questions_created_by_idx').on(t.createdBy),
         // 公开站按 slug 读详情
@@ -466,6 +480,8 @@ export const tagRegistry = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         slug: varchar('slug', { length: 255 }).notNull(),
         name: varchar('name', { length: 100 }).notNull(),
+        /** 三级标签维度:direction / stack / point;旧标签为 legacy */
+        kind: varchar('kind', { length: 16 }).default('legacy').notNull(),
         description: text('description'),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })

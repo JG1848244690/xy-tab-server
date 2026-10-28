@@ -22,6 +22,9 @@ const publicQuestionCoreSchema = z.object({
     type: z.enum(['markdown', 'text']),
     difficulty: z.enum(['easy', 'medium', 'hard']),
     tags: z.array(z.string()).nullable(),
+    direction: z.string().nullable(),
+    techStack: z.string().nullable(),
+    knowledgePoints: z.array(z.string()).nullable(),
     viewCount: z.number(),
     publishedAt: z.date().nullable(),
     updatedAt: z.date(),
@@ -49,6 +52,9 @@ const publicQuestionDetailSchema = publicQuestionItemSchema.extend({
 const publicListQuerySchema = z.object({
     bank: z.string().optional(),
     tag: z.string().optional(),
+    direction: z.string().optional(),
+    stack: z.string().optional(),
+    point: z.string().optional(),
     page: z.coerce.number().int().positive().default(1),
     size: z.coerce.number().int().positive().max(50).default(20),
 })
@@ -81,6 +87,7 @@ const publicArticleItemSchema = selectArticlesSchema.pick({
 const publicTagsSchema = z.object({
     slug: z.string(),
     name: z.string(),
+    kind: z.string(),
     description: z.string().nullable(),
     /** 介绍 ≥240 字才允许聚合页被收录;false 时站点侧 noindex */
     hasIntro: z.boolean(),

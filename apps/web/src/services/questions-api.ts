@@ -7,6 +7,10 @@ export interface CreateQuestionDto {
   answer: string
   difficulty?: 'easy' | 'medium' | 'hard'
   tags?: string[]
+  /** 三级标签:方向 / 技术栈 / 知识点(2026-10-28) */
+  direction?: string | null
+  techStack?: string | null
+  knowledgePoints?: string[] | null
   /** 可见性:shared(默认) = 共享题库人人可见可练;private = 仅自己 */
   visibility?: 'shared' | 'private'
 }
@@ -26,6 +30,9 @@ export interface Question {
   answer?: string
   difficulty: 'easy' | 'medium' | 'hard'
   tags?: string[]
+  direction?: string | null
+  techStack?: string | null
+  knowledgePoints?: string[] | null
   visibility?: 'shared' | 'private'
   createdAt: string
   updatedAt: string
@@ -38,6 +45,9 @@ export interface QuestionsListParams {
   /** 可见性筛选:shared 共享 / private 私有 */
   visibility?: 'shared' | 'private'
   tag?: string
+  direction?: string
+  stack?: string
+  point?: string
   status?: 'not_started' | 'in_progress' | 'completed'
   page?: number
   size?: number

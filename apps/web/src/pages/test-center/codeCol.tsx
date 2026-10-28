@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Question } from '@/services/questions-api'
+import { DIRECTIONS, TECH_STACKS } from '@/lib/taxonomy'
 import { ActionsCell } from './ActionsCell'
 
 import { useNavigate } from 'react-router-dom'
@@ -100,6 +101,84 @@ export const columns: ColumnDef<Question>[] = [
     cell: ({ row }) => <TitleCell row={row} />,
   },
   visibilityColumn,
+  {
+    accessorKey: 'direction',
+    meta: { className: 'hidden lg:table-cell' },
+    header: ({ table }) => {
+      const current = (table.options.meta as any)?.currentFilter?.direction
+      return (
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost">
+                方向
+                <Filter className={`ml-2 h-4 w-4 ${current ? 'text-blue-500' : ''}`} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center">
+              <DropdownMenuLabel>筛选方向</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => table.options.meta?.onFilterChange?.('direction', '')}>
+                全部
+              </DropdownMenuItem>
+              {DIRECTIONS.map((d) => (
+                <DropdownMenuItem
+                  key={d}
+                  onClick={() => table.options.meta?.onFilterChange?.('direction', d)}
+                >
+                  {d}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    },
+    cell: ({ row }) => (
+      <div className="text-center text-xs text-muted-foreground">
+        {row.original.direction ?? '--'}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'techStack',
+    meta: { className: 'hidden lg:table-cell' },
+    header: ({ table }) => {
+      const current = (table.options.meta as any)?.currentFilter?.stack
+      return (
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost">
+                技术栈
+                <Filter className={`ml-2 h-4 w-4 ${current ? 'text-blue-500' : ''}`} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="max-h-80 overflow-y-auto">
+              <DropdownMenuLabel>筛选技术栈</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => table.options.meta?.onFilterChange?.('stack', '')}>
+                全部
+              </DropdownMenuItem>
+              {TECH_STACKS.map((s) => (
+                <DropdownMenuItem
+                  key={s}
+                  onClick={() => table.options.meta?.onFilterChange?.('stack', s)}
+                >
+                  {s}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    },
+    cell: ({ row }) => (
+      <div className="text-center text-xs text-muted-foreground">
+        {row.original.techStack ?? '--'}
+      </div>
+    ),
+  },
   {
     accessorKey: 'difficulty',
     header: ({ table }) => {
@@ -240,14 +319,14 @@ export const columns: ColumnDef<Question>[] = [
     },
   },
   {
-    accessorKey: 'tags',
+    accessorKey: 'knowledgePoints',
     // 移动端隐藏:列数太多会把操作列推出屏幕,标题/难度/状态/操作足够
     meta: { className: 'hidden md:table-cell' },
     header: () => {
-      return <div className="text-center">标签</div>
+      return <div className="text-center">知识点</div>
     },
     cell: ({ row }) => {
-      const tags = (row.getValue('tags') as string[]) || []
+      const tags = (row.original.knowledgePoints ?? row.original.tags ?? []) as string[]
       return (
         <div className="text-center px-2">
           {tags.length > 0 ? (

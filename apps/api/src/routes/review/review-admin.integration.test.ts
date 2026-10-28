@@ -315,7 +315,11 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(row!.title).toBe('改进后的标题')
         expect(row!.content).toBe('改进后的题干(带代码块)')
         expect(row!.answer).toBe('改进后的答案(结论→原理→边界)')
-        expect(row!.tags).toEqual(['改进标签'])
+        // 三级标签会并进 tags;旧标签「改进标签」必须保留
+        expect(row!.tags).toContain('改进标签')
+        expect(row!.direction).toBe('前端')
+        expect(row!.techStack).toBe('JavaScript')
+        expect(row!.knowledgePoints?.length).toBeGreaterThan(0)
         expect(row!.reviewScore).toBe(90)
     })
 
@@ -451,10 +455,14 @@ describe.skipIf(!hasDb)('review admin workflow (real PG + mock LLM)', () => {
         expect(body.question.tags).toEqual(
             expect.arrayContaining(['JavaScript', '事件循环']),
         )
-        expect(body.question.tags.length).toBeLessThanOrEqual(4)
+        expect(body.question.tags.length).toBeLessThanOrEqual(16)
         expect(new Set(body.question.tags.map((t: string) => t.toLowerCase())).size).toBe(
             body.question.tags.length,
         )
+        // 三级标签:方向/技术栈/知识点必须一起返回
+        expect(body.question.direction).toBeTruthy()
+        expect(body.question.techStack).toBeTruthy()
+        expect(Array.isArray(body.question.knowledgePoints)).toBe(true)
         // 三步都真的调用了模型;核查意见里的不确定点透传给前端
         expect(fetchMock).toHaveBeenCalledTimes(3)
         expect(body.meta.steps).toBe(3)
