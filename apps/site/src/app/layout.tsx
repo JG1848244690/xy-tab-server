@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+// 2026-10-28: 语雀题库批量导入(322 题)后触发静态重建
 import Script from 'next/script'
 import { SiteFooter } from '@/components/site-chrome'
 import { SiteChrome } from '@/components/site-header'
