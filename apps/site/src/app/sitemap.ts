@@ -11,7 +11,7 @@ export const dynamic = 'force-static'
  * 当前量级单文件足够。
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-    const data = await siteApi.sitemapData()
+    const [data, tags] = await Promise.all([siteApi.sitemapData(), siteApi.tags()])
     const entry = (path: string, updatedAt: string, priority: number) => ({
         url: absoluteUrl(path),
         lastModified: new Date(updatedAt),
@@ -25,6 +25,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // 无 slug 的题(未清洗)没有公开 URL,不进 sitemap
         ...data.questions.filter((q) => q.slug).map((q) => entry(`/question/${q.slug!}`, q.updatedAt, 0.8)),
         ...data.articles.map((a) => entry(`/article/${a.slug}`, a.updatedAt, 0.6)),
-        ...data.tags.map((t) => entry(`/tag/${t.slug}`, data.questions[0]?.updatedAt ?? new Date().toISOString(), 0.5)),
+        ...data.tags
+            .filter((t) => tags.data.some((x) => x.slug === t.slug && x.questionCount > 0))
+            .map((t) => entry(`/tag/${t.slug}`, data.questions[0]?.updatedAt ?? new Date().toISOString(), 0.5)),
     ]
 }

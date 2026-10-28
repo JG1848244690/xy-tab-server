@@ -12,9 +12,9 @@ export const dynamicParams = false
 
 export async function generateStaticParams() {
     const tags = await siteApi.tags().catch(() => ({ data: [] }))
-    return tags.data.length
-        ? tags.data.map((t) => ({ slug: t.slug }))
-        : [{ slug: EMPTY_PLACEHOLDER }]
+    // 0 题的标签页不生成:空聚合页没有收录价值,还会在 GSC 里变成软 404
+    const active = tags.data.filter((t) => t.questionCount > 0)
+    return active.length ? active.map((t) => ({ slug: t.slug })) : [{ slug: EMPTY_PLACEHOLDER }]
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

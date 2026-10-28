@@ -50,6 +50,9 @@ export type QuestionListItem = {
     type: 'markdown' | 'text'
     difficulty: 'easy' | 'medium' | 'hard'
     tags: string[] | null
+    direction: string | null
+    techStack: string | null
+    knowledgePoints: string[] | null
     viewCount: number
     publishedAt: string | null
     updatedAt: string
@@ -79,6 +82,7 @@ export type BankDetail = BankListItem & {
 export type TagItem = {
     slug: string
     name: string
+    kind: string
     description: string | null
     hasIntro: boolean
     questionCount: number
@@ -106,7 +110,15 @@ export type ArticleDetail = ArticleListItem & {
 
 export const siteApi = {
     sitemapData: () => get<SitemapData>('/public/sitemap-data'),
-    questions: (query: { bank?: string; tag?: string; page?: number; size?: number } = {}) => {
+    questions: (query: {
+        bank?: string
+        tag?: string
+        direction?: string
+        stack?: string
+        point?: string
+        page?: number
+        size?: number
+    } = {}) => {
         const p = new URLSearchParams(
             Object.entries(query)
                 .filter(([, v]) => v !== undefined)

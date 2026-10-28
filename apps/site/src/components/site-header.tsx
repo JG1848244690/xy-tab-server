@@ -58,11 +58,11 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                     ))}
                     <a
                         href={WEB_APP_URL}
-                        className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 font-semibold text-accent transition-colors hover:bg-muted sm:min-h-0"
+                        className="flex min-h-11 items-center gap-1.5 rounded-lg bg-accent px-3 font-semibold text-accent-foreground transition-opacity hover:opacity-90 sm:min-h-0"
                         rel="nofollow"
                         onClick={() => setOpen(false)}
                     >
-                        我要出题
+                        贡献题目
                         <ArrowRight className="size-3.5" />
                     </a>
                 </nav>

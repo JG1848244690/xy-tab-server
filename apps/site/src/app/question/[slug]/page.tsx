@@ -10,6 +10,7 @@ type Props = { params: Promise<{ slug: string }> }
 
 /** 集合为空时的占位参数:output:export 不允许 gSP 返回空数组 */
 const EMPTY_PLACEHOLDER = '_empty'
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
 export const dynamicParams = false
 
@@ -41,16 +42,64 @@ async function relatedByTag(slug: string, tags: string[] | null) {
     return list.data.filter((q) => q.slug !== slug).slice(0, 10)
 }
 
+const tagSlug = (t: string) => t.toLowerCase().replace(/[\/\s]+/g, '-')
+
+/** 三级标签中的一组;没有独立标签页的标签渲染成纯文本,避免 404 */
+function TagLinks({
+    label,
+    items,
+    tagPages,
+}: {
+    label: string
+    items: string[]
+    tagPages: Set<string>
+}) {
+    if (!items.length) return null
+    return (
+        <div className="flex items-start gap-2 py-0.5 text-[13px]">
+            <span className="w-12 shrink-0 text-muted-foreground">{label}</span>
+            <div className="flex flex-wrap gap-1.5">
+                {items.map((t) => {
+                    const cls =
+                        'rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground'
+                    return tagPages.has(tagSlug(t)) ? (
+                        <Link
+                            key={t}
+                            href={`/tag/${encodeURIComponent(tagSlug(t))}`}
+                            className={`${cls} transition-colors hover:border-accent hover:text-accent`}
+                        >
+                            {t}
+                        </Link>
+                    ) : (
+                        <span key={t} className={cls} title="暂无标签页">
+                            {t}
+                        </span>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
 export default async function QuestionPage({ params }: Props) {
     const { slug } = await params
     if (slug === EMPTY_PLACEHOLDER) {
         return <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">内容马上就来</div>
     }
     const q = await siteApi.question(slug).catch(() => notFound())
-    const related = await relatedByTag(slug, q.tags)
+    const related = await relatedByTag(
+        slug,
+        q.knowledgePoints?.length
+            ? q.knowledgePoints
+            : q.techStack
+              ? [q.techStack]
+              : q.tags,
+    )
     // 只有注册在 tag_registry 的标签才有独立页面;临时标签渲染成纯文本,避免内链 404
     const tagPages = new Set(
-        (await siteApi.tags().catch(() => ({ data: [] }))).data.map((t) => t.slug),
+        (await siteApi.tags().catch(() => ({ data: [] }))).data
+            .filter((t) => t.questionCount > 0)
+            .map((t) => t.slug),
     )
 
     // QAPage 结构化数据:题目富摘要 / AEO 引用的核心信号
@@ -137,7 +186,7 @@ export default async function QuestionPage({ params }: Props) {
                         <div className="rounded-xl border border-dashed border-border bg-muted p-7 text-center text-sm text-muted-foreground">
                             这道题的答案还在整理中。可以先看题干自己作答,
                             <a
-                                href={`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'}/test-center/practice/${q.id}`}
+                                href={`${WEB_URL}/test-center/practice/${q.id}`}
                                 className="text-accent underline underline-offset-[3px]"
                             >
                                 去练习页作答
@@ -161,31 +210,42 @@ export default async function QuestionPage({ params }: Props) {
                                 <b className="font-semibold">{q.publishedAt.slice(0, 10)}</b>
                             </div>
                         ) : null}
-                        {q.tags?.length ? (
+                        {q.direction || q.techStack || q.knowledgePoints?.length ? (
+                            <div className="space-y-1.5 pt-1">
+                                <TagLinks
+                                    label="方向"
+                                    items={q.direction ? [q.direction] : []}
+                                    tagPages={tagPages}
+                                />
+                                <TagLinks
+                                    label="技术栈"
+                                    items={q.techStack ? [q.techStack] : []}
+                                    tagPages={tagPages}
+                                />
+                                <TagLinks
+                                    label="知识点"
+                                    items={q.knowledgePoints ?? []}
+                                    tagPages={tagPages}
+                                />
+                            </div>
+                        ) : q.tags?.length ? (
                             <div className="pt-1">
-                                <span className="mb-1.5 block text-muted-foreground">标签</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {q.tags.map((t) => {
-                                        const tagSlug = t.toLowerCase().replace(/\s+/g, '-')
-                                        const cls =
-                                            'rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground'
-                                        return tagPages.has(tagSlug) ? (
-                                            <Link
-                                                key={t}
-                                                href={`/tag/${encodeURIComponent(tagSlug)}`}
-                                                className={`${cls} transition-colors hover:border-accent hover:text-accent`}
-                                            >
-                                                {t}
-                                            </Link>
-                                        ) : (
-                                            <span key={t} className={cls} title="暂无标签页">
-                                                {t}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
+                                <TagLinks label="标签" items={q.tags} tagPages={tagPages} />
                             </div>
                         ) : null}
+                    </div>
+
+                    <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4">
+                        <p className="text-[13px] font-semibold">发现答案有误,或你有更好的解法?</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            众人拾柴火焰高,欢迎补充或纠错这道题。
+                        </p>
+                        <a
+                            href={`${WEB_URL}/test-center`}
+                            className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                        >
+                            去贡献 →
+                        </a>
                     </div>
 
                     {related.length ? (

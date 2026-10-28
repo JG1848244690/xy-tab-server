@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { QuestionRow, DiffBadge } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
+
 export const metadata: Metadata = {
     alternates: { canonical: '/' },
 }
@@ -23,7 +25,7 @@ export default async function HomePage() {
     const maxDiff = Math.max(byDiff.easy, byDiff.medium, byDiff.hard, 1)
 
     const featured = [...p1.data].sort((a, b) => b.viewCount - a.viewCount)[0]
-    const activeTags = tags.data.filter((t) => t.questionCount > 0)
+    const activeTags = tags.data.filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
 
     return (
         <>
@@ -64,14 +66,34 @@ export default async function HomePage() {
                         </p>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <DiffBadge difficulty={featured.difficulty} />
-                            {featured.tags?.slice(0, 3).map((t) => (
-                                <span key={t} className="rounded-full border border-border px-2 py-px">
-                                    {t}
-                                </span>
-                            ))}
+                            {[featured.direction, featured.techStack, ...(featured.knowledgePoints ?? [])]
+                                .filter(Boolean)
+                                .slice(0, 3)
+                                .map((t) => (
+                                    <span key={t} className="rounded-full border border-border px-2 py-px">
+                                        {t}
+                                    </span>
+                                ))}
                         </div>
                     </a>
                 ) : null}
+            </section>
+
+            {/* 社区贡献入口:平台是共享题库,鼓励大家补充/纠错 */}
+            <section className="mt-8 rounded-2xl border border-accent/30 bg-accent/5 p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
+                <div>
+                    <h2 className="text-[16px] font-semibold tracking-[-0.01em]">众人拾柴火焰高</h2>
+                    <p className="mt-1 max-w-[64ch] text-[13.5px] leading-relaxed text-muted-foreground">
+                        分享一道你真实遇到的面试题,或补充/纠正现有答案。被审核采纳后,题目会出现在这里,
+                        帮助下一个准备面试的人。
+                    </p>
+                </div>
+                <a
+                    href={`${WEB_URL}/test-center`}
+                    className="mt-3 inline-block shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 sm:mt-0"
+                >
+                    贡献一道题 →
+                </a>
             </section>
 
             {banks.data.length ? (
