@@ -144,7 +144,7 @@ const POINT_RULES: Array<{ point: string; test: (text: string, tags: string[]) =
     { point: 'Promise', test: (t, tags) => includesTag(tags, 'promise', 'promise.all') || /promise|then\s*\(|catch\s*\(/i.test(t) },
     { point: '异步编程', test: (t, tags) => includesTag(tags, '异步编程', '并发控制') || /异步|async|await|防抖|节流/i.test(t) },
     { point: 'this', test: (t) => /\bthis\b|call\s*\(|apply\s*\(|bind\s*\(/i.test(t) },
-    { point: '手写实现', test: (t, tags) => includesTag(tags, '手写实现', '手写', 'call') || /手写|实现一个|实现\s*\w+/i.test(t) },
+    { point: '手写实现', test: (t, tags) => includesTag(tags, '手写实现', '手写', 'call') || /手写|手写实现/i.test(t) },
     { point: '数组方法', test: (t, tags) => includesTag(tags, '数组方法') || /数组方法|\.map\(|\.filter\(|\.reduce\(|\.flat\(|foreach/i.test(t) },
     { point: '类型转换', test: (t, tags) => includesTag(tags, '类型转换') || /类型转换|隐式转换|显式转换|truthy/i.test(t) },
     { point: '元编程', test: (t, tags) => includesTag(tags, '元编程') || /proxy|reflect|元编程/i.test(t) },
@@ -164,8 +164,8 @@ const POINT_RULES: Array<{ point: string; test: (text: string, tags: string[]) =
     { point: '浏览器缓存', test: (t) => /缓存|强缓存|协商缓存|cache-control|etag/i.test(t) },
     { point: '跨域', test: (t) => /跨域|cors|同源/i.test(t) },
     { point: '存储', test: (t) => /cookie|localstorage|sessionstorage|indexeddb|存储/i.test(t) },
-    { point: '安全', test: (t) => /安全|xss|csrf|注入|https/i.test(t) },
-    { point: 'HTTP', test: (t) => /http\/|http\s|请求方法|状态码|报文/i.test(t) },
+    { point: '安全', test: (t) => /安全|xss|csrf|注入/i.test(t) },
+    { point: 'HTTP', test: (t) => /https?|请求方法|状态码|报文/i.test(t) },
     { point: 'HTTPS', test: (t) => /https|tls|ssl|证书/i.test(t) },
     { point: 'TCP', test: (t) => /tcp|三次握手|四次挥手/i.test(t) },
     { point: 'DNS', test: (t) => /\bdns\b|域名解析/i.test(t) },
@@ -236,72 +236,85 @@ function defaultPoint(stack: TechStack): string {
  */
 export function classifyQuestion(input: ClassifyInput): Classification {
     const rawTags = (input.tags ?? []).filter((t) => typeof t === 'string' && t.trim())
-    const text = [input.title, input.content, input.answer, rawTags.join(' '), input.bankSlug]
+    /**
+     * 参与判定用的标签。排除:
+     *  1. 方向名(前端/后端/算法/Agent/计算机基础)—— 它们是分类结果,回填后
+     *     又会被当成输入,形成自我强化(2026-10-28 实测:存储题被旧 tags 里的
+     *     Agent/LLM 反复判成 Agent)
+     *  2. LLM / RAG —— 同上,只让标题里的真实关键词决定
+     */
+    const signalTags = rawTags.filter(
+        (t) =>
+            !(DIRECTIONS as readonly string[]).includes(t) &&
+            !['agent', 'llm', 'rag'].includes(t.toLowerCase()),
+    )
+    // 只拿标题 + 旧标签 + 题库做判断:正文/答案里代码、图片 URL 太多,
+    // 会把 this / https / 实现 等词误当成知识点(2026-10-28 实测)。
+    const text = [input.title, signalTags.join(' '), input.bankSlug]
         .filter(Boolean)
         .join('\n')
         .toLowerCase()
 
-    // 方向
+    const titleText = [input.title, input.bankSlug].filter(Boolean).join('\n').toLowerCase()
+
+    // 方向:只看标题 + 题库。旧 tags 里混着上一轮回填写入的方向名,
+    // 再拿来当输入会把「前端实现截图」之类判成后端(2026-10-28 实测)。
     let direction: Direction = '前端'
-    if (
-        input.bankSlug === 'algorithm' ||
-        includesTag(rawTags, '算法', '数据结构', '双指针', '滑动窗口', 'floyd判环', '快乐数', '快慢指针')
-    ) {
+    if (input.bankSlug === 'algorithm' || /双指针|滑动窗口|floyd|快乐数|快慢指针|二叉树|链表/.test(titleText)) {
         direction = '算法'
     }
-    if (
-        includesTag(rawTags, 'mysql', 'innodb', 'b+树', 'java', 'spring', 'redis', 'jvm') ||
-        /mysql|innodb|b\+树|\bjava\b|\bspring\b|\bjvm\b|数据库|后端/.test(text)
-    ) {
+    if (/mysql|innodb|b\+树|\bjava\b|\bspring\b|\bjvm\b|数据库|后端|\bredis\b/.test(titleText)) {
         direction = '后端'
     }
-    if (
-        includesTag(rawTags, 'agent', 'llm', 'rag') ||
-        /\bagent\b|llm|rag|大模型|智能体|prompt|function\s*calling|工具调用/.test(text)
-    ) {
+    if (/\bagent\b|\bllm\b|\brag\b|大模型|智能体|function\s*calling|工具调用/.test(titleText)) {
         direction = 'Agent'
     }
-    if (
-        includesTag(rawTags, '操作系统', '计算机组成', '进程', '线程', '内存管理') ||
-        /操作系统|计算机组成|进程调度|虚拟内存/.test(text)
-    ) {
+    if (/操作系统|计算机组成|进程调度|虚拟内存/.test(titleText)) {
         direction = '计算机基础'
     }
 
-    // 技术栈(单主栈)
+    // 技术栈(单主栈):标题优先,标签兜底。
+    // 旧标签质量参差(几乎每题都挂 HTML/前端),让标签先命中会把
+    // 「HTTP 与 HTTPS」判成 HTML。标题才是题目真实主题。
+    const titleStack: TechStack | null =
+        (
+            [
+                { stack: 'Vue', re: /\bvue\b|vuex|vue\s*router|nexttick|keep-?alive|mixins?|v-if|v-for|v-show|computed|watch\b|slot|provide|inject|ref和reactive|defineproperty/i },
+                { stack: 'React', re: /\breact\b|redux|fiber|hooks?|usestate|useeffect|usenavigate|jsx|mobx/i },
+                { stack: 'TypeScript', re: /typescript|\bts\b|类型体操|泛型|枚举|装饰器|类型断言|类型推论|类型别名|联合类型|交叉类型|映射类型|索引签名|抽象类/i },
+                { stack: '浏览器', re: /http|https|\bpost\b|\bget\b|content-type|跨域|cors|缓存|cookie|localstorage|sessionstorage|websocket|\bsse\b|同源|状态码|报文|请求头|响应头|请求体|\bdns\b|\bcdn\b|tcp|udp|dom|bom|浏览器|事件冒泡|事件捕获|事件委托|存储/i },
+                { stack: 'CSS', re: /\bcss\b|flex|grid|bfc|布局|居中|定位|盒模型|选择器|伪类|伪元素|px|em\b|rem\b|transform|float|浮动|媒体查询|响应式设计/i },
+                { stack: 'HTML', re: /\bhtml\b|语义化|块级|行内/i },
+                { stack: '工程化', re: /webpack|vite|工程化|构建工具|模块化|commonjs|\bci\/cd\b|脚手架/i },
+                { stack: 'Node.js', re: /\bnode\.?js\b|express|koa/i },
+            ] as const
+        ).find((r) => r.re.test(titleText))?.stack ?? null
+
+    const tagStack: TechStack | null = includesTag(signalTags, 'vue', 'vuex')
+        ? 'Vue'
+        : includesTag(signalTags, 'react', 'redux', 'fiber', 'hooks')
+          ? 'React'
+          : null
+
     let techStack: TechStack = 'JavaScript'
     if (direction === '算法') {
         techStack = '数据结构'
     } else if (direction === 'Agent') {
-        techStack = includesTag(rawTags, 'rag') ? 'RAG' : 'LLM'
+        techStack = includesTag(signalTags, 'rag') ? 'RAG' : 'LLM'
     } else if (direction === '后端') {
-        if (includesTag(rawTags, 'java', 'spring', 'jvm') || /\bjava\b|\bspring\b|\bjvm\b/.test(text)) techStack = 'Java'
-        else if (includesTag(rawTags, 'redis') || /\bredis\b/.test(text)) techStack = 'Redis'
-        else if (includesTag(rawTags, 'mysql', 'innodb', 'b+树') || /mysql|innodb|b\+树/.test(text)) techStack = 'MySQL'
+        if (includesTag(signalTags, 'java', 'spring', 'jvm') || /\bjava\b|\bspring\b|\bjvm\b/.test(text)) techStack = 'Java'
+        else if (includesTag(signalTags, 'redis') || /\bredis\b/.test(text)) techStack = 'Redis'
+        else if (includesTag(signalTags, 'mysql', 'innodb', 'b+树') || /mysql|innodb|b\+树/.test(text)) techStack = 'MySQL'
         else techStack = 'MySQL'
-    } else if (includesTag(rawTags, 'vue', 'vuex') || /\bvue\b|vuex/i.test(text)) {
-        techStack = 'Vue'
-    } else if (includesTag(rawTags, 'react', 'redux', 'fiber', 'hooks') || /\breact\b|redux|fiber|hooks/i.test(text)) {
-        techStack = 'React'
-    } else if (includesTag(rawTags, 'typescript', 'ts') || /typescript|\bts\b|类型体操/i.test(text)) {
-        techStack = 'TypeScript'
-    } else if (includesTag(rawTags, 'css') || /\bcss\b|flex|grid|bfc|居中/i.test(text)) {
-        techStack = 'CSS'
-    } else if (includesTag(rawTags, 'html') || /\bhtml\b|语义化|dom/i.test(text)) {
-        techStack = 'HTML'
-    } else if (includesTag(rawTags, 'webpack', 'vite', '工程') || /webpack|vite|工程化|构建工具/i.test(text)) {
-        techStack = '工程化'
-    } else if (includesTag(rawTags, '网络') || /http|https|tcp|dns|cdn|跨域|浏览器缓存/.test(text)) {
-        techStack = '浏览器'
-    } else if (includesTag(rawTags, 'node', 'nodejs') || /\bnode\.?js\b|express|koa/i.test(text)) {
-        techStack = 'Node.js'
+    } else {
+        techStack = titleStack ?? tagStack ?? 'JavaScript'
     }
 
     // 知识点
     const points: string[] = []
     for (const rule of POINT_RULES) {
         if (points.includes(rule.point)) continue
-        if (rule.test(text, rawTags)) points.push(rule.point)
+        if (rule.test(text, signalTags)) points.push(rule.point)
         if (points.length >= 4) break
     }
     if (points.length === 0) points.push(defaultPoint(techStack))
