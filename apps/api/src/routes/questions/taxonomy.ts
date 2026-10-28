@@ -319,12 +319,14 @@ export function classifyQuestion(input: ClassifyInput): Classification {
     }
     if (points.length === 0) points.push(defaultPoint(techStack))
 
-    // 方向/技术栈本身也是标签;旧标签保留用于旧标签页兼容
-    const canonical = uniq([direction, techStack, ...points].filter((t) => !STOP_TAGS.has(t.toLowerCase())))
+    // 方向/技术栈/知识点 + 非规范旧标签(Redux/Vuex/InnoDB 等)。
+    // 规范标签里不匹配当前分类的残留必须扔掉 —— 否则「前端」题会一直挂着
+    // 上一轮写进去的「Agent/后端」,标签页计数也跟着虚高(2026-10-28 实测)。
+    const canonicalSet = new Set<string>([...DIRECTIONS, ...TECH_STACKS, ...KNOWLEDGE_POINTS])
     const legacy = rawTags
         .map((t) => t.trim())
-        .filter((t) => t && !STOP_TAGS.has(t.toLowerCase()))
-    const tags = uniq([...canonical, ...legacy]).slice(0, 16)
+        .filter((t) => t && !STOP_TAGS.has(t.toLowerCase()) && !canonicalSet.has(t))
+    const tags = uniq([direction, techStack, ...points, ...legacy]).slice(0, 16)
 
     return {
         direction,
