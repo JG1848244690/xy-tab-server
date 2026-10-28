@@ -203,4 +203,42 @@ describe.skipIf(!hasDb)('public read integration (real PG)', () => {
         expect(res.banks.map((b: { slug: string }) => b.slug)).toEqual(['sm-bank'])
         expect(res.tags).toEqual([])
     })
+
+    it('三级标签:列表返回 direction/techStack/knowledgePoints,并支持三维过滤', async () => {
+        await seedQuestion({
+            status: 'approved',
+            slug: 'tax-vue',
+            publishedAt: new Date(),
+            direction: '前端',
+            techStack: 'Vue',
+            knowledgePoints: ['响应式原理', '组件通信'],
+        })
+        await seedQuestion({
+            status: 'approved',
+            slug: 'tax-mysql',
+            publishedAt: new Date(),
+            direction: '后端',
+            techStack: 'MySQL',
+            knowledgePoints: ['索引', 'B+树'],
+        })
+
+        const all = await (await app.request('/public/questions?size=50')).json()
+        const vue = all.data.find((q: { slug: string }) => q.slug === 'tax-vue')
+        expect(vue.direction).toBe('前端')
+        expect(vue.techStack).toBe('Vue')
+        expect(vue.knowledgePoints).toEqual(['响应式原理', '组件通信'])
+
+        const byDirection = await (
+            await app.request('/public/questions?direction=%E5%90%8E%E7%AB%AF')
+        ).json()
+        expect(byDirection.data.map((q: { slug: string }) => q.slug)).toEqual(['tax-mysql'])
+
+        const byStack = await (await app.request('/public/questions?stack=Vue')).json()
+        expect(byStack.data.map((q: { slug: string }) => q.slug)).toEqual(['tax-vue'])
+
+        const byPoint = await (
+            await app.request('/public/questions?point=%E7%B4%A2%E5%BC%95')
+        ).json()
+        expect(byPoint.data.map((q: { slug: string }) => q.slug)).toEqual(['tax-mysql'])
+    })
 })
