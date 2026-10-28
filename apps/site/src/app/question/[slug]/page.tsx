@@ -48,6 +48,10 @@ export default async function QuestionPage({ params }: Props) {
     }
     const q = await siteApi.question(slug).catch(() => notFound())
     const related = await relatedByTag(slug, q.tags)
+    // 只有注册在 tag_registry 的标签才有独立页面;临时标签渲染成纯文本,避免内链 404
+    const tagPages = new Set(
+        (await siteApi.tags().catch(() => ({ data: [] }))).data.map((t) => t.slug),
+    )
 
     // QAPage 结构化数据:题目富摘要 / AEO 引用的核心信号
     // 2026-10-27:补 author / datePublished / upvoteCount(GSC 的 6 个改进项)
@@ -161,15 +165,24 @@ export default async function QuestionPage({ params }: Props) {
                             <div className="pt-1">
                                 <span className="mb-1.5 block text-muted-foreground">标签</span>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {q.tags.map((t) => (
-                                        <Link
-                                            key={t}
-                                            href={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, '-'))}`}
-                                            className="rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground transition-colors hover:border-accent hover:text-accent"
-                                        >
-                                            {t}
-                                        </Link>
-                                    ))}
+                                    {q.tags.map((t) => {
+                                        const tagSlug = t.toLowerCase().replace(/\s+/g, '-')
+                                        const cls =
+                                            'rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground'
+                                        return tagPages.has(tagSlug) ? (
+                                            <Link
+                                                key={t}
+                                                href={`/tag/${encodeURIComponent(tagSlug)}`}
+                                                className={`${cls} transition-colors hover:border-accent hover:text-accent`}
+                                            >
+                                                {t}
+                                            </Link>
+                                        ) : (
+                                            <span key={t} className={cls} title="暂无标签页">
+                                                {t}
+                                            </span>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         ) : null}
