@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Code2 } from 'lucide-react'
 import Script from 'next/script'
 import { SiteFooter } from '@/components/site-chrome'
 import { SiteChrome } from '@/components/site-header'
@@ -9,10 +8,10 @@ import './globals.css'
 export const metadata: Metadata = {
     metadataBase: new URL(SITE_URL),
     title: {
-        default: `${SITE_NAME} — 前端/算法面试题与解析`,
-        template: `%s | ${SITE_NAME}`,
+        default: '序言-免费的web开发面试题站点',
+        template: '%s | 序言',
     },
-    description: '免费的前端与算法面试题库:AI + 人工双审,每题带分层答案与记忆口诀。',
+    description: '序言 · 免费的 Web 开发面试题库:AI + 人工双审,每题带分层答案与记忆口诀。',
     openGraph: {
         siteName: SITE_NAME,
         type: 'website',
@@ -31,10 +30,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SiteChrome
                     brand={
                         <>
-                            <span className="grid size-6 place-items-center rounded-lg bg-accent text-accent-foreground shadow-sm">
-                                <Code2 className="size-4" />
-                            </span>
-                            面试题库
+                            <img
+                                src="/icon.png"
+                                alt="序言"
+                                className="size-6 rounded-lg object-cover shadow-sm"
+                            />
+                            序言
                         </>
                     }
                 />

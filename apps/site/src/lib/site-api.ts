@@ -134,7 +134,7 @@ export const SITE_URL = (
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://code.kskbl.com.cn'
 ).replace(/\/$/, '')
 
-export const SITE_NAME = 'HLS 面试题库'
+export const SITE_NAME = '序言'
 
 export function absoluteUrl(path: string): string {
     return `${SITE_URL}${path}`
