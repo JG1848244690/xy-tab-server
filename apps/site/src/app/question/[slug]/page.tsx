@@ -98,7 +98,7 @@ export default async function QuestionPage({ params }: Props) {
     // 只有注册在 tag_registry 的标签才有独立页面;临时标签渲染成纯文本,避免内链 404
     const tagPages = new Set(
         (await siteApi.tags().catch(() => ({ data: [] }))).data
-            .filter((t) => t.questionCount > 0)
+            .filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
             .map((t) => t.slug),
     )
 

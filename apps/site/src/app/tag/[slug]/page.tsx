@@ -12,8 +12,8 @@ export const dynamicParams = false
 
 export async function generateStaticParams() {
     const tags = await siteApi.tags().catch(() => ({ data: [] }))
-    // 0 题的标签页不生成:空聚合页没有收录价值,还会在 GSC 里变成软 404
-    const active = tags.data.filter((t) => t.questionCount > 0)
+    // 0 题的标签页不生成;legacy 是历史遗留别名(doc/hash/js),不对外提供聚合页
+    const active = tags.data.filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
     return active.length ? active.map((t) => ({ slug: t.slug })) : [{ slug: EMPTY_PLACEHOLDER }]
 }
 

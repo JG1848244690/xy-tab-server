@@ -27,7 +27,9 @@ export default async function TagsPage() {
             </p>
 
             {GROUPS.map((g) => {
-                const items = canonical.filter((t) => t.kind === g.kind && t.questionCount > 0)
+                const items = canonical.filter(
+                    (t) => t.kind === g.kind && t.questionCount > 0,
+                )
                 if (!items.length) return null
                 return (
                     <section key={g.kind} className="mb-8">
