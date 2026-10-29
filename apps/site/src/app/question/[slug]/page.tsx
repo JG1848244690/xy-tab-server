@@ -42,17 +42,18 @@ async function relatedByTag(slug: string, tags: string[] | null) {
     return list.data.filter((q) => q.slug !== slug).slice(0, 10)
 }
 
-const tagSlug = (t: string) => t.toLowerCase().replace(/[\/\s]+/g, '-')
-
-/** 三级标签中的一组;没有独立标签页的标签渲染成纯文本,避免 404 */
+/**
+ * 三级标签中的一组。slug 直接取 tag_registry(全 ASCII):
+ * 非 ASCII 的 slug 在 `output: export` 下会导出成 404,不能再由名称拼。
+ */
 function TagLinks({
     label,
     items,
-    tagPages,
+    slugByName,
 }: {
     label: string
     items: string[]
-    tagPages: Set<string>
+    slugByName: Map<string, string>
 }) {
     if (!items.length) return null
     return (
@@ -62,10 +63,11 @@ function TagLinks({
                 {items.map((t) => {
                     const cls =
                         'rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground'
-                    return tagPages.has(tagSlug(t)) ? (
+                    const s = slugByName.get(t)
+                    return s ? (
                         <Link
                             key={t}
-                            href={`/tag/${encodeURIComponent(tagSlug(t))}`}
+                            href={`/tag/${s}`}
                             className={`${cls} transition-colors hover:border-accent hover:text-accent`}
                         >
                             {t}
@@ -95,12 +97,21 @@ export default async function QuestionPage({ params }: Props) {
               ? [q.techStack]
               : q.tags,
     )
-    // 只有注册在 tag_registry 的标签才有独立页面;临时标签渲染成纯文本,避免内链 404
-    const tagPages = new Set(
+    // 只有注册在 tag_registry 的标签才有独立页面;名字 → ASCII slug
+    const slugByName = new Map(
         (await siteApi.tags().catch(() => ({ data: [] }))).data
             .filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
-            .map((t) => t.slug),
+            .map((t) => [t.name, t.slug] as const),
     )
+
+    // JSON-LD 里可能包含 UGC 的 `</script>`(代码示例),必须转义 `<`,
+    // 否则会提前闭合 script 标签,引发页面内联脚本 SyntaxError(2026-10-29 实测)
+    const jsonLd = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c')
+
+    // 有些导入题的 content 只是标题的复读(题干=标题),页面上等于空白。
+    // 这种题直接不渲染「题干」块,只留参考答案(2026-10-29 走查)
+    const normalize = (s: string) => s.replace(/\s+/g, '')
+    const showStem = q.content.trim().length > 0 && normalize(q.content) !== normalize(q.title)
 
     // QAPage 结构化数据:题目富摘要 / AEO 引用的核心信号
     // 2026-10-27:补 author / datePublished / upvoteCount(GSC 的 6 个改进项)
@@ -150,10 +161,10 @@ export default async function QuestionPage({ params }: Props) {
 
     return (
         <>
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(qaJsonLd) }} />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(qaJsonLd) }} />
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+                dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbJsonLd) }}
             />
 
             <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -169,10 +180,14 @@ export default async function QuestionPage({ params }: Props) {
                         </div>
                     </div>
 
-                    <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">题干</h2>
-                    <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
-                        <Markdown>{q.content}</Markdown>
-                    </div>
+                    {showStem ? (
+                        <>
+                            <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">题干</h2>
+                            <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
+                                <Markdown>{q.content}</Markdown>
+                            </div>
+                        </>
+                    ) : null}
 
                     <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">参考答案</h2>
                     {q.answer.trim() ? (
@@ -215,22 +230,22 @@ export default async function QuestionPage({ params }: Props) {
                                 <TagLinks
                                     label="方向"
                                     items={q.direction ? [q.direction] : []}
-                                    tagPages={tagPages}
+                                    slugByName={slugByName}
                                 />
                                 <TagLinks
                                     label="技术栈"
                                     items={q.techStack ? [q.techStack] : []}
-                                    tagPages={tagPages}
+                                    slugByName={slugByName}
                                 />
                                 <TagLinks
                                     label="知识点"
                                     items={q.knowledgePoints ?? []}
-                                    tagPages={tagPages}
+                                    slugByName={slugByName}
                                 />
                             </div>
                         ) : q.tags?.length ? (
                             <div className="pt-1">
-                                <TagLinks label="标签" items={q.tags} tagPages={tagPages} />
+                                <TagLinks label="标签" items={q.tags} slugByName={slugByName} />
                             </div>
                         ) : null}
                     </div>

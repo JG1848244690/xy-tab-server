@@ -111,6 +111,129 @@ export type KnowledgePoint = (typeof KNOWLEDGE_POINTS)[number]
 const POINT_SET = new Set<string>(KNOWLEDGE_POINTS)
 const STOP_TAGS = new Set(['hd', 'doc', '场景', '面试题', '前端面试'])
 
+/**
+ * 标签 slug 映射(全 ASCII)。
+ *
+ * Next `output: export` 对非 ASCII 动态段会把页面导出成 404(实测 /tag/前端
+ * 生成的是 404.html 的内容),所以聚合页 slug 一律用英文。名称仍保留中文,
+ * 大小写/搜索不受影响。
+ */
+export const TAG_SLUGS: Record<string, string> = {
+    // 方向
+    Agent: 'agent',
+    前端: 'frontend',
+    后端: 'backend',
+    算法: 'algorithm',
+    计算机基础: 'computer-fundamentals',
+    // 技术栈
+    CSS: 'css',
+    HTML: 'html',
+    Java: 'java',
+    JavaScript: 'javascript',
+    LLM: 'llm',
+    MySQL: 'mysql',
+    'Node.js': 'nodejs',
+    RAG: 'rag',
+    React: 'react',
+    Redis: 'redis',
+    Spring: 'spring',
+    TypeScript: 'typescript',
+    Vue: 'vue',
+    工程化: 'engineering',
+    数据结构: 'data-structure',
+    浏览器: 'browser',
+    // 知识点
+    BFC: 'bfc',
+    'B+树': 'b-plus-tree',
+    CDN: 'cdn',
+    'CI/CD': 'ci-cd',
+    DNS: 'dns',
+    Fiber: 'fiber',
+    'Function Calling': 'function-calling',
+    Hooks: 'hooks',
+    HTML基础: 'html-basics',
+    HTTP: 'http',
+    HTTPS: 'https',
+    JVM: 'jvm',
+    Promise: 'promise',
+    Prompt: 'prompt',
+    TCP: 'tcp',
+    this: 'this',
+    Vite: 'vite',
+    Webpack: 'webpack',
+    事件循环: 'event-loop',
+    事务: 'transaction',
+    二分查找: 'binary-search',
+    元编程: 'metaprogramming',
+    动态规划: 'dynamic-programming',
+    原型链: 'prototype-chain',
+    双指针: 'two-pointers',
+    哈希表: 'hash-table',
+    响应式原理: 'reactivity',
+    响应式布局: 'responsive-layout',
+    图: 'graph',
+    图片优化: 'image-optimization',
+    存储: 'storage',
+    安全: 'security',
+    布局: 'layout',
+    异步编程: 'async-programming',
+    性能优化: 'performance',
+    手写实现: 'hand-written',
+    排序: 'sorting',
+    数据库基础: 'database-basics',
+    数组方法: 'array-methods',
+    框架基础: 'framework-basics',
+    浏览器缓存: 'browser-cache',
+    渲染原理: 'rendering',
+    滑动窗口: 'sliding-window',
+    状态管理: 'state-management',
+    生命周期: 'lifecycle',
+    类型系统: 'type-system',
+    类型转换: 'type-coercion',
+    索引: 'index',
+    组件通信: 'component-communication',
+    虚拟DOM: 'virtual-dom',
+    设计模式: 'design-patterns',
+    语言基础: 'language-basics',
+    跨域: 'cors',
+    路由: 'routing',
+    递归: 'recursion',
+    锁: 'lock',
+    闭包: 'closure',
+    // 历史别名(不对外建页,但保持 slug 稳定)
+    call: 'call',
+    doc: 'doc',
+    hash: 'hash',
+    HD: 'hd',
+    js: 'js',
+    map: 'map',
+    哈希: 'hash-legacy',
+    场景: 'scenario',
+    工程: 'engineering-legacy',
+    并发控制: 'concurrency-control',
+    手写: 'hand-written-legacy',
+    手写instanceof: 'hand-written-instanceof',
+    网络: 'network',
+}
+
+/** 稳定短哈希:未登记的标签也能拿到 ASCII slug,不会让页面变 404 */
+function shortHash(input: string): string {
+    let h = 5381
+    for (let i = 0; i < input.length; i++) h = ((h << 5) + h + input.charCodeAt(i)) >>> 0
+    return h.toString(36)
+}
+
+export function tagSlug(name: string): string {
+    const mapped = TAG_SLUGS[name]
+    if (mapped) return mapped
+    const ascii = name
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+    return ascii || `tag-${shortHash(name)}`
+}
+
 export interface ClassifyInput {
     title: string
     content?: string | null

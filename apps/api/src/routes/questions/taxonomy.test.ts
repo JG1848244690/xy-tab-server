@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { classifyQuestion } from './taxonomy.js'
+import {
+    classifyQuestion,
+    tagSlug,
+    DIRECTIONS,
+    TECH_STACKS,
+    KNOWLEDGE_POINTS,
+} from './taxonomy.js'
 
 /**
  * 三级标签分类的回归用例。
@@ -66,5 +72,34 @@ describe('classifyQuestion', () => {
         })
         expect(r.knowledgePoints.length).toBeLessThanOrEqual(4)
         expect(r.tags).toEqual(expect.arrayContaining([r.direction, r.techStack, ...r.knowledgePoints]))
+    })
+})
+
+describe('tagSlug', () => {
+    it('中文标签也必须是 ASCII slug(output: export 对非 ASCII 动态段会导出 404)', () => {
+        expect(tagSlug('前端')).toBe('frontend')
+        expect(tagSlug('数据结构')).toBe('data-structure')
+        expect(tagSlug('B+树')).toBe('b-plus-tree')
+        expect(tagSlug('虚拟DOM')).toBe('virtual-dom')
+    })
+
+    it('所有规范标签的 slug 合法且不冲突', () => {
+        const names = [...DIRECTIONS, ...TECH_STACKS, ...KNOWLEDGE_POINTS]
+        const slugs = names.map((n) => tagSlug(n))
+        for (const s of slugs) expect(s).toMatch(/^[a-z0-9-]+$/)
+        // 同名标签(如 工程化/数据结构/LLM 同时是技术栈和知识点)允许共用 slug,
+        // 但不能出现「不同名字 → 同一个 slug」
+        const bySlug = new Map<string, string>()
+        for (let i = 0; i < names.length; i++) {
+            const prev = bySlug.get(slugs[i])
+            if (prev) expect(prev).toBe(names[i])
+            else bySlug.set(slugs[i], names[i])
+        }
+    })
+
+    it('未登记的中文标签回退到稳定哈希,且不抛错', () => {
+        const a = tagSlug('未登记标签')
+        expect(a).toMatch(/^[a-z0-9-]+$/)
+        expect(tagSlug('未登记标签')).toBe(a)
     })
 })
