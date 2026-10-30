@@ -62,7 +62,7 @@ export function ArticleDialog({ open, onOpenChange, article }: Props) {
         mutationFn: async () => {
             const payload: ArticleInput = {
                 kind: form.kind,
-                title: form.title.trim(),
+                title: form.title.trim() || undefined,
                 slug: form.slug.trim() || undefined,
                 excerpt: form.excerpt.trim() || undefined,
                 contentMd: form.kind === 'own' ? form.contentMd : undefined,
@@ -74,7 +74,7 @@ export function ArticleDialog({ open, onOpenChange, article }: Props) {
                     .filter(Boolean),
                 status: form.status,
             }
-            if (!payload.title) throw new Error('标题不能为空')
+            if (form.kind === 'own' && !payload.title) throw new Error('原创文章需要标题')
             if (payload.status === 'approved') {
                 if (payload.kind === 'own' && !payload.contentMd?.trim())
                     throw new Error('发布原创文章前请填写正文')
@@ -139,12 +139,18 @@ export function ArticleDialog({ open, onOpenChange, article }: Props) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="article-title">标题 *</Label>
+                        <Label htmlFor="article-title">
+                            标题{form.kind === 'own' ? ' *' : '(可留空自动抓取)'}
+                        </Label>
                         <Input
                             id="article-title"
                             value={form.title}
                             onChange={(e) => set('title', e.target.value)}
-                            placeholder="一句话说清这篇文章讲什么"
+                            placeholder={
+                                form.kind === 'own'
+                                    ? '一句话说清这篇文章讲什么'
+                                    : '留空则自动抓取网页标题'
+                            }
                         />
                     </div>
 

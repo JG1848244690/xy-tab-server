@@ -25,7 +25,7 @@ export interface Article {
 
 export interface ArticleInput {
     kind: ArticleKind
-    title: string
+    title?: string
     slug?: string
     excerpt?: string
     contentMd?: string

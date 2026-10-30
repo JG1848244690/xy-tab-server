@@ -104,6 +104,19 @@ describe.skipIf(!hasDb)('articles admin integration (real PG)', () => {
         expect(row.sourceDomain).toBe('example.com')
     })
 
+    it('只给一个 URL 也能收藏:自动兜底标题', async () => {
+        const res = await create(ADMIN, {
+            kind: 'curated',
+            externalUrl: 'https://example.invalid/posts/hello-world',
+            status: 'approved',
+        })
+        expect(res.status).toBe(200)
+        const row = await res.json()
+        expect(row.title).toContain('example.invalid')
+        expect(row.sourceDomain).toBe('example.invalid')
+        expect(row.slug).toMatch(/^a-/)
+    })
+
     it('slug 冲突返回 409,列表可按类型/状态过滤', async () => {
         await create(ADMIN, { kind: 'own', title: 'A', slug: 'fixed-slug' })
         const dup = await create(ADMIN, { kind: 'own', title: 'B', slug: 'fixed-slug' })

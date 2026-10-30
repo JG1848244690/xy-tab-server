@@ -32,7 +32,8 @@ const slugSchema = z
 const articleBodySchema = z
     .object({
         kind: z.enum(['own', 'curated']).default('own'),
-        title: z.string().min(1).max(255),
+        // 荐文可以只给 URL,标题由服务端抓取 / 从域名兜底
+        title: z.string().max(255).optional(),
         slug: slugSchema.optional(),
         excerpt: z.string().max(600).optional(),
         contentMd: z.string().optional(),
@@ -44,6 +45,13 @@ const articleBodySchema = z
         status: z.enum(['draft', 'approved']).default('draft'),
     })
     .superRefine((value, ctx) => {
+        if (value.kind === 'own' && !value.title?.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['title'],
+                message: '原创文章必须有标题',
+            })
+        }
         if (value.status !== 'approved') return
         if (value.kind === 'own' && !value.contentMd?.trim()) {
             ctx.addIssue({
@@ -107,6 +115,10 @@ export const createArticle = createRoute({
     request: { body: jsonContentRequired(articleBodySchema, '文章内容') },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(articleItemSchema, '创建成功'),
+        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+            createMessageObjectSchema('Invalid article'),
+            '缺少标题或链接',
+        ),
         [HttpStatusCodes.CONFLICT]: jsonContent(createMessageObjectSchema('Slug exists'), 'slug 已存在'),
         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
             createErrorSchema(articleBodySchema),

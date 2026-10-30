@@ -48,6 +48,63 @@ function isUniqueViolation(err: unknown): boolean {
     return code === '23505'
 }
 
+function decodeEntities(input: string): string {
+    return input
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+/**
+ * 只给一个 URL 时,尽量抓网页标题/描述。
+ * 4 秒超时 + 只读前 200KB;失败就用域名兜底,绝不让收藏链接失败。
+ */
+async function fetchLinkMeta(url: string): Promise<{ title?: string; description?: string }> {
+    try {
+        const res = await fetch(url, {
+            redirect: 'follow',
+            signal: AbortSignal.timeout(4000),
+            headers: {
+                'user-agent':
+                    'Mozilla/5.0 (compatible; XuyanLinkBot/1.0; +https://code.kskbl.com.cn)',
+            },
+        })
+        if (!res.ok) return {}
+        const type = res.headers.get('content-type') ?? ''
+        if (!type.includes('text/html')) return {}
+        const html = (await res.text()).slice(0, 200_000)
+
+        const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i)
+        const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+        const desc =
+            html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)/i) ??
+            html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i)
+
+        return {
+            title: decodeEntities(ogTitle?.[1] ?? titleTag?.[1] ?? '').slice(0, 255) || undefined,
+            description: desc ? decodeEntities(desc[1]).slice(0, 300) : undefined,
+        }
+    } catch {
+        return {}
+    }
+}
+
+function fallbackTitle(url: string): string {
+    try {
+        const u = new URL(url)
+        const last = u.pathname.split('/').filter(Boolean).pop()
+        return last ? `${u.hostname} · ${decodeURIComponent(last)}`.slice(0, 255) : u.hostname
+    } catch {
+        return '未命名链接'
+    }
+}
+
 export const list: AppRouteHandler<ListArticlesRoute> = async (c) => {
     const { kind, status, q, page, size } = c.req.valid('query')
     const conditions = []
@@ -78,9 +135,25 @@ export const create: AppRouteHandler<CreateArticleRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
 
+    // 荐文允许「只给 URL」:先抓标题/描述,抓不到就用域名+路径兜底
+    let meta: { title?: string; description?: string } = {}
+    const givenTitle = body.title?.trim() ?? ''
+    if (!givenTitle && body.kind === 'curated' && body.externalUrl) {
+        meta = await fetchLinkMeta(body.externalUrl)
+    }
+    const title =
+        givenTitle ||
+        meta.title ||
+        (body.externalUrl ? fallbackTitle(body.externalUrl) : '')
+
+    if (!title) {
+        return c.json(errorBody('缺少标题或链接', 'INVALID_ARTICLE'), HttpStatusCodes.BAD_REQUEST)
+    }
+
     const slug = body.slug ?? `a-${randomUUID().replace(/-/g, '').slice(0, 8)}`
     const excerpt =
         body.excerpt?.trim() ||
+        meta.description ||
         (body.kind === 'own' ? autoExcerpt(body.contentMd ?? '') : null)
     const sourceDomain =
         body.sourceDomain?.trim() ||
@@ -91,7 +164,7 @@ export const create: AppRouteHandler<CreateArticleRoute> = async (c) => {
             .insert(articles)
             .values({
                 slug,
-                title: body.title.trim(),
+                title,
                 kind: body.kind,
                 excerpt: excerpt || null,
                 contentMd: body.kind === 'own' ? (body.contentMd ?? null) : null,

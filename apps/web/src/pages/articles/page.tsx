@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Link2, Trash2 } from 'lucide-react'
 import { articlesApi, type Article, type ArticleKind, type ArticleStatus } from '@/services/articles-api'
 import { ArticleDialog } from './article-dialog'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,8 @@ export default function ArticlesPage() {
     const [page, setPage] = useState(1)
     const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState<Article | null>(null)
+    const [quickUrl, setQuickUrl] = useState('')
+    const [quickError, setQuickError] = useState<string | null>(null)
 
     const filters = useMemo(
         () => ({
@@ -78,6 +80,33 @@ export default function ArticlesPage() {
         onSuccess: invalidate,
     })
 
+    /** 只贴一个 URL:自动抓标题/描述并直接发布成荐文 */
+    const quickAdd = useMutation({
+        mutationFn: (url: string) =>
+            articlesApi.create({ kind: 'curated', externalUrl: url, status: 'approved' }),
+        onSuccess: () => {
+            setQuickUrl('')
+            setQuickError(null)
+            invalidate()
+        },
+        onError: (err: unknown) => {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (err as Error)?.message ??
+                '添加失败'
+            setQuickError(msg)
+        },
+    })
+
+    const submitQuick = () => {
+        const url = quickUrl.trim()
+        if (!/^https?:\/\/\S+$/i.test(url)) {
+            setQuickError('请粘贴完整链接(以 http:// 或 https:// 开头)')
+            return
+        }
+        quickAdd.mutate(url)
+    }
+
     const rows = data?.data ?? []
     const total = data?.total ?? 0
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -100,6 +129,35 @@ export default function ArticlesPage() {
                     <Plus className="mr-1 h-4 w-4" />
                     新建文章
                 </Button>
+            </div>
+
+            <div className="rounded-lg border bg-card p-3">
+                <div className="flex items-center gap-2">
+                    <Link2 className="ml-1 h-4 w-4 flex-none text-muted-foreground" />
+                    <Input
+                        value={quickUrl}
+                        onChange={(e) => {
+                            setQuickUrl(e.target.value)
+                            setQuickError(null)
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitQuick()
+                        }}
+                        placeholder="刷到好链接?粘贴 URL,回车直接发布成荐文"
+                        className="border-0 shadow-none focus-visible:ring-0"
+                    />
+                    <Button
+                        onClick={submitQuick}
+                        disabled={quickAdd.isPending || !quickUrl.trim()}
+                        className="flex-none"
+                    >
+                        {quickAdd.isPending ? '抓取中…' : '存链接'}
+                    </Button>
+                </div>
+                <p className="mt-1 pl-7 text-[11px] text-muted-foreground">
+                    只填 URL 即可,标题和摘要会自动抓取;抓不到就用域名兜底。
+                </p>
+                {quickError ? <p className="mt-1 pl-7 text-xs text-destructive">{quickError}</p> : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
