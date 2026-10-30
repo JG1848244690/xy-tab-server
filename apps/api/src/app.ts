@@ -10,8 +10,10 @@ import todos from './routes/todos/todos.index.js'
 import stats from './routes/stats/stats.index.js'
 import review from './routes/review/review.index.js'
 import media from './routes/media/media.index.js'
+import articles from './routes/articles/articles.index.js'
 import publicRoutes from './routes/public/public.index.js'
 import { cookieAuth } from './middlewares/auth.js'
+import { requireAdmin } from './middlewares/admin.js'
 import { rateLimit } from './middlewares/rate-limit.js'
 
 const app = createApp()
@@ -80,6 +82,10 @@ app.use('/media', cookieAuth())
 app.use('/media/*', cookieAuth())
 // /public/** 免登录:公开站数据源,审核链(approved)就是它的安全边界
 
+// 文章管理:仅 admin(原创 markdown / 荐文外链)
+app.use('/articles', cookieAuth(), requireAdmin())
+app.use('/articles/*', cookieAuth(), requireAdmin())
+
 const routes = [
     index,
     auth,
@@ -88,6 +94,7 @@ const routes = [
     stats,
     review,
     media,
+    articles,
     publicRoutes,
 ] as const
 

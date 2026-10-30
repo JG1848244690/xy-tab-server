@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -54,6 +54,13 @@ export const navItems: NavItem[] = [
     title: '图库',
     href: '/media',
     icon: Images,
+    adminOnly: true,
+  },
+  {
+    // 文章:原创 markdown + 外部荐文,仅 admin
+    title: '文章',
+    href: '/articles',
+    icon: FileText,
     adminOnly: true,
   },
   {
