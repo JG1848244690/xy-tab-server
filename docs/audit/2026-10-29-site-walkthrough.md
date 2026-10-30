@@ -21,6 +21,9 @@
 逐题台账(Playwright MCP 一道一道跑):**322 题 → PASS 257 / WARN 65 / FAIL 0**,明细见
 [2026-10-29-playwright-question-ledger.md](./2026-10-29-playwright-question-ledger.md)。
 
+> 2026-10-30:按 <60 分 / 重复 / 无意义下架 25 题,现存 297 题,
+> 见 [2026-10-30-quality-pruning.md](./2026-10-30-quality-pruning.md)。
+
 ### 本轮已修复
 
 1. **43 个中文标签页其实是 404**

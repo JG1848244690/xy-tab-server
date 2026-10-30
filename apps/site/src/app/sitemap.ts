@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { siteApi, absoluteUrl } from '@/lib/site-api'
+import { siteApi, absoluteUrl, CONTENT_UPDATED_AT } from '@/lib/site-api'
 
 // 静态导出要求:构建期生成一次
 export const dynamic = 'force-static'
@@ -29,6 +29,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             .filter((t) =>
                 tags.data.some((x) => x.slug === t.slug && x.questionCount > 0 && x.kind !== 'legacy'),
             )
-            .map((t) => entry(`/tag/${t.slug}`, data.questions[0]?.updatedAt ?? new Date().toISOString(), 0.5)),
+            .map((t) => entry(`/tag/${t.slug}`, `${CONTENT_UPDATED_AT}T00:00:00.000Z`, 0.5)),
     ]
 }

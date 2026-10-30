@@ -9,6 +9,12 @@
  */
 export const API_BASE = process.env.SITE_API_BASE ?? 'https://hls.kskbl.com.cn/api-hls'
 
+/**
+ * 内容库最后整理时间。题库/标签数据变了但代码没变时,靠它触发静态重建,
+ * 同时给 sitemap 里没有独立更新时间的条目兜底。
+ */
+export const CONTENT_UPDATED_AT = '2026-10-30'
+
 async function get<T>(path: string): Promise<T> {
     // 重试 + 30s 超时:构建期要打几十上百个请求,链路(尤其过 CF)偶发抖动
     // 一次就失败会让整个 build 挂掉;3 次退避重试,还不行才 fail build
