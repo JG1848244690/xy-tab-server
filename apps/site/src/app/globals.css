@@ -173,7 +173,7 @@ a {
 
 /* 首屏元素错峰进场 */
 .rise {
-    animation: rise-in 0.72s var(--ease-out) both;
+    animation: rise-in 0.6s var(--ease-out) both;
 }
 .fade {
     animation: fade-in 0.6s var(--ease-out) both;
