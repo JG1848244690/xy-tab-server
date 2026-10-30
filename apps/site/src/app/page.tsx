@@ -30,16 +30,23 @@ export default async function HomePage() {
     return (
         <>
             {/* hero:左文案 + 右今日一题(产品自证);移动端纵排 */}
-            <section className="grid items-center gap-10 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
+            <section className="relative isolate grid items-center gap-10 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
+                <div className="hero-glow" aria-hidden />
                 <div>
                     <h1 className="text-balance text-[32px] font-bold leading-[1.2] tracking-[-0.028em] sm:text-4xl">
                         面试题,按原理分层讲透
                     </h1>
-                    <p className="mt-4 max-w-[52ch] text-base text-muted-foreground">
+                    <p
+                        className="rise mt-4 max-w-[52ch] text-base text-muted-foreground"
+                        style={{ animationDelay: '90ms' }}
+                    >
                         每道题都有 AI + 人工双审的分层参考答案、一句话结论与记忆口诀。
                         免费开放,不藏要点。
                     </p>
-                    <div className="mt-5 flex flex-wrap items-center gap-2.5 text-[13.5px] text-muted-foreground">
+                    <div
+                        className="rise mt-5 flex flex-wrap items-center gap-2.5 text-[13.5px] text-muted-foreground"
+                        style={{ animationDelay: '170ms' }}
+                    >
                         <span className="rounded-full border border-border bg-card px-3 py-1">
                             <b className="font-semibold text-foreground">{p1.total}</b> 道题
                         </span>
@@ -55,9 +62,13 @@ export default async function HomePage() {
                 {featured ? (
                     <a
                         href={`/question/${featured.slug}`}
-                        className="block rounded-2xl border border-border bg-card p-6 shadow-[0_2px_4px_rgb(16_24_40/0.04),0_12px_32px_rgb(16_24_40/0.08)] transition-colors hover:border-accent lg:mt-0"
+                        className="rise lift group block rounded-2xl border border-border bg-card p-6 shadow-[0_2px_4px_rgb(16_24_40/0.04),0_12px_32px_rgb(16_24_40/0.08)] hover:border-accent lg:mt-0"
+                        style={{ animationDelay: '240ms' }}
                     >
-                        <div className="mb-2 text-xs text-muted-foreground">今日一题</div>
+                        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>今日一题</span>
+                            <span className="arrow-nudge">→</span>
+                        </div>
                         <h2 className="mb-1.5 text-lg font-semibold leading-snug tracking-[-0.01em]">
                             {featured.title}
                         </h2>
@@ -110,7 +121,7 @@ export default async function HomePage() {
                                 className="group -mx-2 block rounded-lg border-b border-border px-2 py-4 transition-colors hover:bg-card"
                             >
                                 <h3 className="flex items-baseline gap-3 text-[15.5px] font-semibold leading-snug">
-                                    <span className="min-w-0 transition-colors group-hover:text-accent">{b.title}</span>
+                                    <span className="title-underline min-w-0 group-hover:text-accent">{b.title}</span>
                                     <span className="flex-none rounded-full bg-easy-weak px-2.5 py-0.5 text-xs font-medium text-easy">
                                         {b.questionCount} 题
                                     </span>
@@ -150,10 +161,11 @@ export default async function HomePage() {
                         </span>
                         <span className="h-2 overflow-hidden rounded-full bg-muted">
                             <span
-                                className="block h-full rounded-full"
+                                className="bar-fill block h-full rounded-full"
                                 style={{
                                     width: `${(byDiff[key] / maxDiff) * 100}%`,
                                     background: `var(--${key})`,
+                                    animationDelay: `${key === 'easy' ? 80 : key === 'medium' ? 180 : 280}ms`,
                                 }}
                             />
                         </span>
@@ -194,7 +206,7 @@ export default async function HomePage() {
                         ['3', '串成网', '考前用题目页底部的「相关题目」顺藤摸瓜,把同主题的题连成网络。'],
                     ] as const
                 ).map(([no, title, desc]) => (
-                    <div key={no} className="rounded-xl border border-border bg-card p-4">
+                    <div key={no} className="lift rounded-xl border border-border bg-card p-4">
                         <b className="mb-1 flex items-baseline gap-2 text-[14.5px]">
                             <span className="font-mono font-semibold text-accent">{no}</span>
                             {title}

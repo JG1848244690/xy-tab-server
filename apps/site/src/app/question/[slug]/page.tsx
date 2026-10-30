@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DiffBadge } from '@/components/rows'
 import { CopyButton } from '@/components/copy-button'
+import { ReadingProgress } from '@/components/reading-progress'
 import { Markdown } from '@/lib/markdown'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
 
@@ -161,6 +162,7 @@ export default async function QuestionPage({ params }: Props) {
 
     return (
         <>
+            <ReadingProgress />
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(qaJsonLd) }} />
             <script
                 type="application/ld+json"
@@ -273,7 +275,7 @@ export default async function QuestionPage({ params }: Props) {
                                         href={`/question/${item.slug}`}
                                         className="group -mx-1.5 flex items-baseline justify-between gap-2.5 rounded-lg px-1.5 py-2.5 text-[13.5px] transition-colors hover:bg-muted"
                                     >
-                                        <span className="min-w-0 transition-colors group-hover:text-accent">
+                                        <span className="title-underline min-w-0 transition-colors group-hover:text-accent">
                                             {item.title}
                                         </span>
                                         <DiffBadge difficulty={item.difficulty} />

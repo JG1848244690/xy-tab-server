@@ -26,7 +26,7 @@ export function QuestionRow({ q, index }: { q: QuestionListItem; index?: number 
                         {String(index).padStart(2, '0')}
                     </span>
                 ) : null}
-                <span className="min-w-0 transition-colors group-hover:text-accent">{q.title}</span>
+                <span className="title-underline min-w-0 group-hover:text-accent">{q.title}</span>
                 <DiffBadge difficulty={q.difficulty} />
             </h3>
             {q.summary ? (
@@ -60,7 +60,7 @@ export function ListRow({
     return (
         <a href={href} className="group -mx-2 block rounded-lg border-b border-border px-2 py-4 transition-colors last:border-b-0 hover:bg-card">
             <h3 className="m-0 flex items-baseline gap-3 text-[15.5px] font-semibold leading-snug">
-                <span className="min-w-0 transition-colors group-hover:text-accent">{title}</span>
+                <span className="title-underline min-w-0 group-hover:text-accent">{title}</span>
                 {badge}
             </h3>
             {desc ? <p className="mt-1 text-[13.5px] text-muted-foreground">{desc}</p> : null}
