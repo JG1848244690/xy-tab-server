@@ -39,7 +39,7 @@ export default async function DigestIssuePage({ params }: Props) {
 
     return (
         <>
-            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">{issue} 期</h1>
+            <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">{issue} 期</h1>
             <p className="mt-2 mb-7 text-[15px] text-muted-foreground">
                 本周 {current.articles.length} 篇值得读的。
             </p>

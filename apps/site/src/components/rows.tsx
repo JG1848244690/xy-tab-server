@@ -1,44 +1,55 @@
-import Link from 'next/link'
 import type { QuestionListItem } from '@/lib/site-api'
 
-/** 难度徽标:颜色只编码状态 */
+/** 难度徽标:小、克制,只编码状态 */
 export function DiffBadge({ difficulty }: { difficulty: QuestionListItem['difficulty'] }) {
     const label = difficulty === 'easy' ? '简单' : difficulty === 'medium' ? '中等' : '困难'
     const cls =
         difficulty === 'easy'
-            ? 'bg-easy-weak text-easy'
+            ? 'text-easy'
             : difficulty === 'medium'
-                ? 'bg-medium-weak text-medium'
-                : 'bg-hard-weak text-hard'
-    return <span className={`flex-none rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>
+                ? 'text-medium'
+                : 'text-hard'
+    return (
+        <span className={`flex-none font-mono text-[10.5px] ${cls}`}>
+            {label}
+        </span>
+    )
 }
 
-/** 行式目录条目:题号(mono,可引用的索引数据)+ 标题 + 摘要 + 状态行 */
+/** 行式目录条目:题号 + 标题 + 摘要 + 标签 */
 export function QuestionRow({ q, index }: { q: QuestionListItem; index?: number }) {
+    const withIndex = index !== undefined
     return (
         <a
             href={`/question/${q.slug}`}
-            className="group -mx-2 block rounded-lg border-b border-border px-2 py-4 transition-colors last:border-b-0 hover:bg-card"
+            className={[
+                'group -mx-3 grid items-baseline gap-3 border-b border-border px-3 py-3.5 last:border-b-0 hover:bg-card/70',
+                withIndex ? 'grid-cols-[2rem_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]',
+            ].join(' ')}
         >
-            <h3 className="m-0 flex items-baseline gap-3 text-[15.5px] font-semibold leading-snug">
-                {index !== undefined ? (
-                    <span className="min-w-7 flex-none text-right font-mono text-xs font-normal text-muted-foreground">
-                        {String(index).padStart(2, '0')}
+            {withIndex ? (
+                <span className="font-mono text-[10.5px] text-muted-foreground">
+                    {String(index).padStart(2, '0')}
+                </span>
+            ) : null}
+            <span className="min-w-0">
+                <span className="title-underline font-serif text-[16.5px] leading-snug transition-colors group-hover:text-accent">
+                    {q.title}
+                </span>
+                {q.summary ? (
+                    <span className="mt-1 line-clamp-1 text-[12.5px] leading-5 text-muted-foreground">
+                        {q.summary}
                     </span>
                 ) : null}
-                <span className="title-underline min-w-0 group-hover:text-accent">{q.title}</span>
-                <DiffBadge difficulty={q.difficulty} />
-            </h3>
-            {q.summary ? (
-                <p className="mx-0 mt-1 line-clamp-2 text-[13.5px] text-muted-foreground">{q.summary}</p>
-            ) : null}
-            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                {q.tags?.slice(0, 3).map((t) => (
-                    <span key={t} className="rounded-full border border-border px-2 py-px text-muted-foreground">
-                        {t}
+                {q.tags?.length ? (
+                    <span className="mt-1 flex flex-wrap gap-x-2 text-[10.5px] text-muted-foreground">
+                        {q.tags.slice(0, 3).map((t) => (
+                            <span key={t}>{t}</span>
+                        ))}
                     </span>
-                ))}
-            </div>
+                ) : null}
+            </span>
+            <DiffBadge difficulty={q.difficulty} />
         </a>
     )
 }
@@ -58,13 +69,33 @@ export function ListRow({
     meta?: React.ReactNode
 }) {
     return (
-        <a href={href} className="group -mx-2 block rounded-lg border-b border-border px-2 py-4 transition-colors last:border-b-0 hover:bg-card">
-            <h3 className="m-0 flex items-baseline gap-3 text-[15.5px] font-semibold leading-snug">
-                <span className="title-underline min-w-0 group-hover:text-accent">{title}</span>
+        <a
+            href={href}
+            className="group -mx-3 flex items-baseline justify-between gap-4 border-b border-border px-3 py-4 last:border-b-0 hover:bg-card/70"
+        >
+            <span className="min-w-0 flex-1">
+                <span className="flex items-baseline gap-3">
+                    <span className="title-underline font-serif text-[18px] leading-snug transition-colors group-hover:text-accent">
+                        {title}
+                    </span>
+                </span>
+                {desc ? (
+                    <span className="mt-1 block text-[12.5px] leading-5 text-muted-foreground">
+                        {desc}
+                    </span>
+                ) : null}
+                {meta ? (
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[10.5px] text-muted-foreground">
+                        {meta}
+                    </span>
+                ) : null}
+            </span>
+            <span className="flex flex-none items-baseline gap-3">
                 {badge}
-            </h3>
-            {desc ? <p className="mt-1 text-[13.5px] text-muted-foreground">{desc}</p> : null}
-            {meta ? <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{meta}</div> : null}
+                <span className="font-mono text-[11px] text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5">
+                    →
+                </span>
+            </span>
         </a>
     )
 }

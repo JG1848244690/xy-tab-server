@@ -16,14 +16,16 @@ export default async function ArticlesPage() {
 
     return (
         <>
-            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">文章</h1>
-            <p className="mt-2 mb-7 text-[15px] text-muted-foreground">原创图文与每周荐文导读。</p>
+            <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
+                文章
+            </h1>
+            <p className="mt-2 mb-10 text-[14px] text-muted-foreground">原创图文与每周荐文导读。</p>
 
-            <div className="mt-8 mb-2 flex items-baseline justify-between">
-                <h2 className="text-base font-semibold tracking-[-0.01em]">原创图文</h2>
+            <div className="mb-2 flex items-baseline justify-between border-b border-foreground/80 pb-2">
+                <h2 className="font-serif text-[15px] tracking-[0.04em]">原创图文</h2>
             </div>
             {own.data.length ? (
-                <div className="border-t border-border">
+                <div className="border-t border-transparent">
                     {own.data.map((a) => (
                         <ListRow
                             key={a.slug}
@@ -39,30 +41,36 @@ export default async function ArticlesPage() {
                     ))}
                 </div>
             ) : (
-                <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                <div className="border-y border-dashed border-border py-14 text-center text-sm text-muted-foreground">
                     原创文章马上就来
                 </div>
             )}
 
-            <div className="mt-8 mb-2 flex items-baseline justify-between">
-                <h2 className="text-base font-semibold tracking-[-0.01em]">本周荐文</h2>
-                <a href="/digest" className="text-[13px] text-accent">往期荟萃 →</a>
+            <div className="mb-2 mt-12 flex items-baseline justify-between border-b border-foreground/80 pb-2">
+                <h2 className="font-serif text-[15px] tracking-[0.04em]">本周荐文</h2>
+                <a href="/digest" className="text-[12px] text-muted-foreground transition-colors hover:text-accent">
+                    往期荟萃 →
+                </a>
             </div>
             {curated.data.slice(0, 5).map((a) => (
                 <a
                     key={a.slug}
                     href={`/article/${a.slug}`}
-                    className="-mx-2 block rounded-lg border-b border-border border-l-2 border-l-accent px-2 py-4 transition-colors hover:bg-card"
+                    className="group -mx-3 block border-b border-l-2 border-border border-l-seal/70 px-3 py-4 transition-colors hover:bg-card/70"
                 >
-                    <h3 className="m-0 text-[15.5px] font-semibold leading-snug">{a.title}</h3>
-                    <p className="mt-1 text-[13.5px] text-muted-foreground">{a.comment ?? a.excerpt}</p>
-                    <div className="mt-1.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <h3 className="m-0 font-serif text-[17px] leading-snug transition-colors group-hover:text-accent">
+                        {a.title}
+                    </h3>
+                    <p className="mt-1 text-[12.5px] leading-5 text-muted-foreground">
+                        {a.comment ?? a.excerpt}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
                         {a.sourceDomain ? <span>{a.sourceDomain}</span> : null}
                     </div>
                 </a>
             ))}
             {curated.data.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                <div className="border-y border-dashed border-border py-14 text-center text-sm text-muted-foreground">
                     荐文征集ing
                 </div>
             ) : null}

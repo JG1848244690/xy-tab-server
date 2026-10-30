@@ -53,7 +53,7 @@ export default async function ArticlePage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
             />
             <div className="border-b border-border pb-5">
-                <h1 className="text-balance text-[26px] font-bold leading-[1.3] tracking-[-0.022em]">
+                <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
                     {a.title}
                 </h1>
                 <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[12.5px] text-muted-foreground">

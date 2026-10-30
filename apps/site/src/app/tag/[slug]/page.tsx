@@ -46,16 +46,16 @@ export default async function TagPage({ params }: Props) {
 
     return (
         <>
-            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">
+            <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
                 {tag.name} 面试题
             </h1>
             {tag.description ? (
-                <p className="mt-2 mb-7 max-w-[65ch] text-[15px] leading-relaxed text-muted-foreground">
+                <p className="mt-2 mb-7 max-w-[65ch] text-[14px] leading-6 text-muted-foreground">
                     {tag.description}
                 </p>
             ) : (
-                <p className="mt-2 mb-7 text-sm text-muted-foreground">
-                    介绍文案整理中,本页暂不参与收录。
+                <p className="mt-2 mb-7 text-[13px] text-muted-foreground">
+                    共 {tag.questionCount} 道题,按更新顺序排列。
                 </p>
             )}
 

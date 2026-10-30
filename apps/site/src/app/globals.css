@@ -15,6 +15,7 @@
     --color-muted-foreground: var(--muted-foreground);
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
+    --color-seal: var(--seal);
     --color-border: var(--border);
     --color-ring: var(--ring);
     --color-easy: var(--easy);
@@ -23,50 +24,67 @@
     --color-easy-weak: var(--easy-weak);
     --color-medium-weak: var(--medium-weak);
     --color-hard-weak: var(--hard-weak);
+    --color-cat-1: var(--cat-1);
+    --color-cat-2: var(--cat-2);
+    --color-cat-3: var(--cat-3);
+    --color-cat-4: var(--cat-4);
     --font-sans:
-        system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB',
-        'Microsoft YaHei', 'Segoe UI', sans-serif;
+        'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei',
+        system-ui, -apple-system, sans-serif;
+    --font-serif:
+        'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', STSong, SimSun,
+        Georgia, serif;
     --font-mono:
         ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'JetBrains Mono',
         monospace;
 }
 
 :root {
-    --background: #f6f7f9;
-    --foreground: #0f1a24;
-    --card: #ffffff;
-    --card-foreground: #0f1a24;
-    --muted: #f2f4f7;
-    --muted-foreground: #5f6b7e;
-    --accent: #1f5eff;
-    --accent-foreground: #ffffff;
-    --border: #e3e7ec;
-    --ring: #1f5eff;
-    --easy: #0f7a3d;
-    --easy-weak: #e9f7ee;
-    --medium: #9a5b00;
-    --medium-weak: #fdf1df;
-    --hard: #bb2d2d;
-    --hard-weak: #fcefef;
+    --background: #f3f2ec;
+    --foreground: #141310;
+    --card: #fbfaf6;
+    --card-foreground: #141310;
+    --muted: #eae7dd;
+    --muted-foreground: #6e6a60;
+    --accent: #24406b;
+    --accent-foreground: #f7f4ea;
+    --seal: #b5342a;
+    --border: #dcd7c9;
+    --ring: #24406b;
+    --easy: #2f6b57;
+    --easy-weak: #e4ede6;
+    --medium: #9a5b1e;
+    --medium-weak: #f3e8d8;
+    --hard: #a93a31;
+    --hard-weak: #f2e2de;
+    --cat-1: #315c9b;
+    --cat-2: #2f6b57;
+    --cat-3: #a15c2f;
+    --cat-4: #6b4e8e;
 }
 
 .dark {
-    --background: #0b111b;
-    --foreground: #e8edf5;
-    --card: #111a29;
-    --card-foreground: #e8edf5;
-    --muted: #172032;
-    --muted-foreground: #8d99ad;
-    --accent: #74a4ff;
-    --accent-foreground: #0a1220;
-    --border: #1f2a40;
-    --ring: #74a4ff;
-    --easy: #46d17f;
-    --easy-weak: #102419;
-    --medium: #f5b83d;
-    --medium-weak: #271d0b;
-    --hard: #f47171;
-    --hard-weak: #2b1313;
+    --background: #14130f;
+    --foreground: #ece7da;
+    --card: #1b1a15;
+    --card-foreground: #ece7da;
+    --muted: #24221c;
+    --muted-foreground: #a39c8b;
+    --accent: #8fb3e0;
+    --accent-foreground: #0f1a28;
+    --seal: #e0645a;
+    --border: #2f2c25;
+    --ring: #8fb3e0;
+    --easy: #7fc9a6;
+    --easy-weak: #16251d;
+    --medium: #e2b071;
+    --medium-weak: #2a2013;
+    --hard: #e88a82;
+    --hard-weak: #2c1715;
+    --cat-1: #8fb3e0;
+    --cat-2: #7fc9a6;
+    --cat-3: #e2b071;
+    --cat-4: #c3a5df;
 }
 
 * {
@@ -85,6 +103,67 @@ body {
     /* 全幅装饰不产生横向滚动;clip 不破坏 position: sticky */
     overflow-x: clip;
     font-feature-settings: 'tnum' 1;
+    /* 纸面:极淡的暖灰噪点,只在支持 color-mix 的浏览器生效 */
+    background-image: radial-gradient(
+        color-mix(in srgb, var(--foreground) 2.2%, transparent) 0.5px,
+        transparent 0.5px
+    );
+    background-size: 4px 4px;
+}
+
+/* 标题默认用宋体:这是整套视觉的骨架 */
+h1,
+h2 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+/* 书页目录:点线引导 */
+.leader {
+    flex: 1;
+    min-width: 1.5rem;
+    margin: 0 0.75rem;
+    border-bottom: 1px dotted var(--border);
+    transform: translateY(-0.32em);
+}
+
+/* 朱砂小印 */
+.seal {
+    display: inline-grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 2px;
+    background: var(--seal);
+    color: #fff;
+    font-family: var(--font-serif);
+    font-size: 0.72rem;
+    line-height: 1;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+    transition:
+        transform 0.28s var(--ease-out),
+        box-shadow 0.28s var(--ease-out);
+}
+.seal-link:hover .seal {
+    transform: translateY(1px) scale(0.94) rotate(-2deg);
+    box-shadow:
+        inset 0 0 0 1px rgb(255 255 255 / 0.28),
+        0 2px 6px rgb(181 52 42 / 0.28);
+}
+
+/* 竖排页边注 */
+.rail {
+    writing-mode: vertical-rl;
+    letter-spacing: 0.22em;
+    font-size: 11px;
+}
+
+/* 页边注小标题 */
+.margin-title {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--muted-foreground);
 }
 
 a {
@@ -323,6 +402,35 @@ a {
 
 
 /* ============ markdown 正文 ============ */
+/* 文章内标题降一档:题解里的一级标题不该比页面 h1 还大 */
+.prose > :first-child {
+    margin-top: 0 !important;
+}
+.prose > hr:first-child {
+    display: none;
+}
+.prose > hr:first-child + * {
+    margin-top: 0 !important;
+}
+.prose hr {
+    margin: 1.8em 0;
+    border-color: var(--border);
+}
+.prose h1 {
+    font-size: 1.35em;
+    line-height: 1.4;
+    margin-top: 1.5em;
+    margin-bottom: 0.6em;
+}
+.prose h2 {
+    font-size: 1.12em;
+    margin-top: 1.4em;
+    margin-bottom: 0.5em;
+}
+.prose h3 {
+    font-size: 1em;
+    margin-top: 1.2em;
+}
 /* 代码块:固定暗色编辑器风(两主题一致,类 MDN);token 色 = highlight.js 官方 github-dark 主题 */
 .prose pre {
     background: #0d1117 !important;

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 
 const NAV = [
@@ -36,17 +36,17 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
             className={[
                 'sticky top-0 z-20 border-b backdrop-blur-md transition-[background-color,box-shadow] duration-300',
                 scrolled
-                    ? 'border-border bg-background/95 shadow-[0_1px_12px_rgb(16_24_40/0.06)]'
-                    : 'border-border bg-background/85',
+                    ? 'border-border bg-background/95 shadow-[0_1px_10px_rgb(20_19_16/0.06)]'
+                    : 'border-border bg-background/88',
             ].join(' ')}
         >
-            <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-5 px-5 sm:px-6">
-                <a href="/" className="flex items-center gap-2.5 text-[15.5px] font-bold tracking-tight" onClick={() => setOpen(false)}>
+            <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-6 px-5 sm:px-6">
+                <a href="/" className="flex items-center gap-2.5 text-[17px] tracking-tight" onClick={() => setOpen(false)}>
                     {brand}
                 </a>
 
                 <button
-                    className="ml-auto grid size-9 place-items-center rounded-lg border border-border bg-card text-foreground/80 sm:hidden"
+                    className="ml-auto grid size-9 place-items-center rounded-[3px] border border-border bg-card text-foreground/80 sm:hidden"
                     aria-expanded={open}
                     aria-label={open ? '收起菜单' : '打开菜单'}
                     onClick={() => setOpen((v) => !v)}
@@ -56,9 +56,9 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
 
                 <nav
                     className={[
-                        'gap-1 text-sm sm:ml-auto sm:flex',
+                        'gap-1 text-[13.5px] sm:ml-auto sm:flex',
                         open
-                            ? 'absolute top-14 left-0 right-0 flex-col items-stretch border-b border-border bg-card p-3 shadow-xl sm:static sm:flex-row sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none'
+                            ? 'absolute top-16 left-0 right-0 flex-col items-stretch border-b border-border bg-card p-3 sm:static sm:flex-row sm:border-0 sm:bg-transparent sm:p-0'
                             : 'hidden',
                     ].join(' ')}
                 >
@@ -66,7 +66,7 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                         <a
                             key={n.href}
                             href={n.href}
-                            className="nav-link flex min-h-11 items-center rounded-lg px-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:min-h-0"
+                            className="nav-link flex min-h-11 items-center px-3 text-muted-foreground transition-colors hover:text-foreground sm:min-h-0"
                             onClick={() => setOpen(false)}
                         >
                             {n.label}
@@ -74,12 +74,11 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                     ))}
                     <a
                         href={WEB_APP_URL}
-                        className="group flex min-h-11 items-center gap-1.5 rounded-lg bg-accent px-3 font-semibold text-accent-foreground transition-opacity hover:opacity-90 sm:min-h-0"
+                        className="nav-link ml-1 flex min-h-11 items-center px-3 text-foreground transition-colors hover:text-seal sm:min-h-0"
                         rel="nofollow"
                         onClick={() => setOpen(false)}
                     >
                         贡献题目
-                        <ArrowRight className="arrow-nudge size-3.5" />
                     </a>
                 </nav>
 

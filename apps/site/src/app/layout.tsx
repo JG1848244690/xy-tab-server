@@ -33,12 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SiteChrome
                     brand={
                         <>
-                            <img
-                                src="/icon.png"
-                                alt="序言"
-                                className="size-6 rounded-lg object-cover shadow-sm"
-                            />
-                            序言
+                            <span className="seal" aria-hidden>
+                                序
+                            </span>
+                            <span className="font-serif font-semibold">序言</span>
                         </>
                     }
                 />

@@ -41,7 +41,7 @@ export default async function BankPage({ params }: Props) {
 
     return (
         <>
-            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">{bank.title}</h1>
+            <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">{bank.title}</h1>
             <p className="mt-2 mb-7 max-w-[62ch] text-[15px] text-muted-foreground">
                 {bank.description ?? `共 ${bank.questionCount} 道已发布题目。`}
             </p>

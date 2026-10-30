@@ -58,23 +58,21 @@ function TagLinks({
 }) {
     if (!items.length) return null
     return (
-        <div className="flex items-start gap-2 py-0.5 text-[13px]">
-            <span className="w-12 shrink-0 text-muted-foreground">{label}</span>
-            <div className="flex flex-wrap gap-1.5">
+        <div className="flex items-start gap-3 py-0.5 text-[12.5px]">
+            <span className="w-10 shrink-0 text-muted-foreground">{label}</span>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {items.map((t) => {
-                    const cls =
-                        'rounded-full border border-border px-2.5 py-px text-xs text-muted-foreground'
                     const s = slugByName.get(t)
                     return s ? (
                         <Link
                             key={t}
                             href={`/tag/${s}`}
-                            className={`${cls} transition-colors hover:border-accent hover:text-accent`}
+                            className="border-b border-transparent text-foreground/85 transition-colors hover:border-seal hover:text-seal"
                         >
                             {t}
                         </Link>
                     ) : (
-                        <span key={t} className={cls} title="暂无标签页">
+                        <span key={t} className="text-foreground/70" title="暂无标签页">
                             {t}
                         </span>
                     )
@@ -169,38 +167,48 @@ export default async function QuestionPage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbJsonLd) }}
             />
 
-            <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-14">
                 {/* 阅读列 */}
                 <div className="min-w-0">
-                    <div className="border-b border-border pb-5">
-                        <h1 className="text-balance text-[26px] font-bold leading-[1.3] tracking-[-0.022em] sm:text-[28px]">
+                    <div className="border-b border-foreground/20 pb-5">
+                        <p className="mb-3 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground">
+                            {q.bankSlug ? `${q.bankSlug} / ` : ''}INTERVIEW NOTES
+                        </p>
+                        <h1 className="text-balance font-serif text-[30px] leading-[1.28] tracking-[-0.025em] sm:text-[38px]">
                             {q.title}
                         </h1>
-                        <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[12.5px] text-muted-foreground">
+                        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-muted-foreground">
                             <DiffBadge difficulty={q.difficulty} />
                             {q.publishedAt ? <span>{q.publishedAt.slice(0, 10)}</span> : null}
+                            {q.techStack ? <span>{q.techStack}</span> : null}
                         </div>
                     </div>
 
                     {showStem ? (
                         <>
-                            <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">题干</h2>
-                            <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
+                            <h2 className="mb-3 mt-8 flex items-center gap-2.5 font-serif text-[17px]">
+                                <span className="size-1.5 bg-seal" aria-hidden />
+                                题干
+                            </h2>
+                            <div className="prose prose-sm max-w-none rounded-[3px] border border-border bg-card/80 p-5 sm:prose-base sm:p-7 dark:prose-invert prose-pre:rounded-[3px] prose-pre:border">
                                 <Markdown>{q.content}</Markdown>
                             </div>
                         </>
                     ) : null}
 
-                    <h2 className="mt-7 mb-2.5 text-[15px] font-semibold">参考答案</h2>
+                    <h2 className="mb-3 mt-8 flex items-center gap-2.5 font-serif text-[17px]">
+                        <span className="size-1.5 bg-seal" aria-hidden />
+                        参考答案
+                    </h2>
                     {q.answer.trim() ? (
                         <>
-                            <div className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-5 shadow-sm sm:prose-base sm:p-6 dark:prose-invert prose-pre:rounded-lg prose-pre:border">
+                            <div className="prose prose-sm max-w-none rounded-[3px] border border-border bg-card/80 p-5 sm:prose-base sm:p-7 dark:prose-invert prose-pre:rounded-[3px] prose-pre:border">
                                 <Markdown>{q.answer}</Markdown>
                             </div>
                             <CopyButton text={q.answer} slug={slug} />
                         </>
                     ) : (
-                        <div className="rounded-xl border border-dashed border-border bg-muted p-7 text-center text-sm text-muted-foreground">
+                        <div className="rounded-[3px] border border-dashed border-border bg-muted p-7 text-center text-sm text-muted-foreground">
                             这道题的答案还在整理中。可以先看题干自己作答,
                             <a
                                 href={`${WEB_URL}/test-center/practice/${q.id}`}
@@ -213,22 +221,22 @@ export default async function QuestionPage({ params }: Props) {
                     )}
                 </div>
 
-                {/* 信息栏:桌面 sticky,移动端落到正文后 */}
-                <aside className="grid gap-4 self-start text-sm max-lg:static lg:sticky lg:top-[78px]">
-                    <div className="rounded-xl border border-border bg-card p-4">
-                        <h3 className="mb-2.5 text-[13px] font-semibold text-muted-foreground">题目信息</h3>
-                        <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
+                {/* 页边注:桌面 sticky,移动端落到正文后 */}
+                <aside className="grid gap-7 self-start text-sm max-lg:static lg:sticky lg:top-[84px]">
+                    <div className="border-t border-foreground/80 pt-3">
+                        <h3 className="margin-title mb-2">题目信息</h3>
+                        <div className="flex items-center justify-between gap-3 py-0.5 text-[12.5px]">
                             <span className="text-muted-foreground">难度</span>
                             <DiffBadge difficulty={q.difficulty} />
                         </div>
                         {q.publishedAt ? (
-                            <div className="flex items-center justify-between gap-3 py-0.5 text-[13.5px]">
+                            <div className="flex items-center justify-between gap-3 py-0.5 text-[12.5px]">
                                 <span className="text-muted-foreground">发布</span>
-                                <b className="font-semibold">{q.publishedAt.slice(0, 10)}</b>
+                                <b className="font-mono font-normal">{q.publishedAt.slice(0, 10)}</b>
                             </div>
                         ) : null}
                         {q.direction || q.techStack || q.knowledgePoints?.length ? (
-                            <div className="space-y-1.5 pt-1">
+                            <div className="mt-3 space-y-1 border-t border-border pt-2">
                                 <TagLinks
                                     label="方向"
                                     items={q.direction ? [q.direction] : []}
@@ -246,36 +254,39 @@ export default async function QuestionPage({ params }: Props) {
                                 />
                             </div>
                         ) : q.tags?.length ? (
-                            <div className="pt-1">
+                            <div className="mt-3 border-t border-border pt-2">
                                 <TagLinks label="标签" items={q.tags} slugByName={slugByName} />
                             </div>
                         ) : null}
                     </div>
 
-                    <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4">
-                        <p className="text-[13px] font-semibold">发现答案有误,或你有更好的解法?</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <div className="border-t border-border pt-3">
+                        <p className="font-serif text-[14.5px]">发现答案有误?</p>
+                        <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
                             众人拾柴火焰高,欢迎补充或纠错这道题。
                         </p>
                         <a
                             href={`${WEB_URL}/test-center`}
-                            className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                            className="seal-link mt-2 inline-flex items-center gap-2 text-[12px] text-foreground transition-colors hover:text-seal"
                         >
-                            去贡献 →
+                            去贡献
+                            <span className="seal" aria-hidden>
+                                献
+                            </span>
                         </a>
                     </div>
 
                     {related.length ? (
-                        <div className="rounded-xl border border-border bg-card p-4">
-                            <h3 className="mb-2 text-[13px] font-semibold text-muted-foreground">相关题目</h3>
+                        <div className="border-t border-border pt-3">
+                            <h3 className="margin-title mb-1.5">相关题目</h3>
                             <div>
                                 {related.slice(0, 8).map((item) => (
                                     <a
                                         key={item.slug}
                                         href={`/question/${item.slug}`}
-                                        className="group -mx-1.5 flex items-baseline justify-between gap-2.5 rounded-lg px-1.5 py-2.5 text-[13.5px] transition-colors hover:bg-muted"
+                                        className="group -mx-1.5 flex items-baseline justify-between gap-2.5 px-1.5 py-2 transition-colors hover:bg-muted/60"
                                     >
-                                        <span className="title-underline min-w-0 transition-colors group-hover:text-accent">
+                                        <span className="title-underline min-w-0 font-serif text-[13.5px] leading-5 transition-colors group-hover:text-accent">
                                             {item.title}
                                         </span>
                                         <DiffBadge difficulty={item.difficulty} />

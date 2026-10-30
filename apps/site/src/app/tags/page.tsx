@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 }
 
 const GROUPS = [
-    { kind: 'direction', label: '方向', hint: '先选大方向,再往下钻' },
-    { kind: 'stack', label: '技术栈', hint: 'Vue / React / JavaScript / MySQL…' },
-    { kind: 'point', label: '知识点', hint: '闭包 / 事件循环 / B+树…' },
+    { kind: 'direction', label: '方向', hint: '先选大方向' },
+    { kind: 'stack', label: '技术栈', hint: '按语言与框架' },
+    { kind: 'point', label: '知识点', hint: '按具体原理' },
 ]
 
 export default async function TagsPage() {
@@ -21,33 +21,36 @@ export default async function TagsPage() {
 
     return (
         <>
-            <h1 className="text-balance text-[26px] font-bold tracking-[-0.022em]">标签</h1>
-            <p className="mt-2 mb-7 max-w-[62ch] text-[15px] text-muted-foreground">
-                按「方向 → 技术栈 → 知识点」浏览题目;所有标签都由社区共同维护。
+            <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
+                标签
+            </h1>
+            <p className="mt-2 mb-10 max-w-[58ch] text-[14px] leading-6 text-muted-foreground">
+                按「方向 → 技术栈 → 知识点」浏览题目。所有标签都由社区共同维护。
             </p>
 
             {GROUPS.map((g) => {
-                const items = canonical.filter(
-                    (t) => t.kind === g.kind && t.questionCount > 0,
-                )
+                const items = canonical.filter((t) => t.kind === g.kind && t.questionCount > 0)
                 if (!items.length) return null
                 return (
-                    <section key={g.kind} className="mb-8">
-                        <div className="mb-3 flex items-baseline justify-between gap-3">
-                            <h2 className="text-[17px] font-semibold">{g.label}</h2>
-                            <span className="text-xs text-muted-foreground">{g.hint}</span>
+                    <section key={g.kind} className="mb-10">
+                        <div className="flex items-baseline justify-between border-b border-foreground/80 pb-2">
+                            <h2 className="font-serif text-[15px] tracking-[0.04em]">{g.label}</h2>
+                            <span className="text-[11px] text-muted-foreground">{g.hint}</span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="mt-3 grid gap-x-10 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
                             {items.map((t) => (
                                 <a
                                     key={t.slug}
                                     href={`/tag/${t.slug}`}
-                                    className="rounded-full border border-border bg-card px-4 py-1.5 text-[13.5px] text-foreground/85 transition-colors hover:border-accent hover:text-accent"
+                                    className="group flex items-baseline gap-2 border-b border-border/60 py-2 text-[13.5px]"
                                 >
-                                    {t.name}
-                                    <small className="ml-1.5 font-mono text-muted-foreground">
+                                    <span className="title-underline min-w-0 transition-colors group-hover:text-accent">
+                                        {t.name}
+                                    </span>
+                                    <span className="leader" />
+                                    <span className="flex-none font-mono text-[10.5px] text-muted-foreground">
                                         {t.questionCount}
-                                    </small>
+                                    </span>
                                 </a>
                             ))}
                         </div>
@@ -56,21 +59,23 @@ export default async function TagsPage() {
             })}
 
             {canonical.filter((t) => t.questionCount > 0).length === 0 ? (
-                <div className="w-full rounded-xl border border-dashed border-border bg-muted p-14 text-center text-sm text-muted-foreground">
+                <div className="border border-dashed border-border bg-card p-14 text-center text-sm text-muted-foreground">
                     还没有登记标签
                 </div>
             ) : null}
 
-            <div className="mt-10 rounded-xl border border-dashed border-border bg-muted/40 p-5">
-                <p className="text-[15px] font-semibold">没有找到你要的方向?</p>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    众人拾柴火焰高。分享一道你遇到的面试题,或者补充/纠正现有答案。
+            <div className="mt-12 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[13px] leading-6 text-muted-foreground">
+                    没有找到你要的方向?分享一道题,或者补一个标签。
                 </p>
                 <a
                     href={`${WEB_URL}/test-center`}
-                    className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+                    className="seal-link flex flex-none items-center gap-2 text-[13px] text-foreground transition-colors hover:text-seal"
                 >
-                    贡献一道题 →
+                    贡献一道题
+                    <span className="seal" aria-hidden>
+                        献
+                    </span>
                 </a>
             </div>
         </>
