@@ -9,6 +9,9 @@
  */
 export const API_BASE = process.env.SITE_API_BASE ?? 'https://hls.kskbl.com.cn/api-hls'
 
+/** 公开仓库:题目纠错走 GitHub Issue。仓库是 public 且已开启 Issues。 */
+export const GITHUB_REPO_URL = 'https://github.com/JG1848244690/xy-tab-server'
+
 /**
  * 内容库最后整理时间。题库/标签数据变了但代码没变时,靠它触发静态重建,
  * 同时给 sitemap 里没有独立更新时间的条目兜底。

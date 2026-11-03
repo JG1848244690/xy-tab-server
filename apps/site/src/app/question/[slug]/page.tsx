@@ -5,7 +5,7 @@ import { DiffBadge } from '@/components/rows'
 import { CopyButton } from '@/components/copy-button'
 import { ReadingProgress } from '@/components/reading-progress'
 import { Markdown } from '@/lib/markdown'
-import { siteApi, absoluteUrl } from '@/lib/site-api'
+import { siteApi, absoluteUrl, GITHUB_REPO_URL } from '@/lib/site-api'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -158,6 +158,22 @@ export default async function QuestionPage({ params }: Props) {
         ],
     }
 
+    // 题目纠错:预填标题/页面/slug,用户只需要补问题和依据
+    const issueBody = [
+        `**题目**:${q.title}`,
+        `**页面**:${absoluteUrl(`/question/${slug}`)}`,
+        `**slug**:\`${slug}\``,
+        '',
+        '### 问题描述',
+        '(哪里不对 / 缺了什么)',
+        '',
+        '### 依据 / 建议答案',
+        '(可选)',
+    ].join('\n')
+    const issueUrl = `${GITHUB_REPO_URL}/issues/new?title=${encodeURIComponent(
+        `[题目纠错] ${q.title}`,
+    )}&body=${encodeURIComponent(issueBody)}`
+
     return (
         <>
             <ReadingProgress />
@@ -265,15 +281,22 @@ export default async function QuestionPage({ params }: Props) {
                         <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
                             众人拾柴火焰高,欢迎补充或纠错这道题。
                         </p>
-                        <a
-                            href={`${WEB_URL}/test-center`}
-                            className="seal-link mt-2 inline-flex items-center gap-2 text-[12px] text-foreground transition-colors hover:text-seal"
-                        >
-                            去贡献
-                            <span className="seal" aria-hidden>
-                                献
-                            </span>
-                        </a>
+                        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+                            <a
+                                href={issueUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[12px] text-accent transition-colors hover:text-seal"
+                            >
+                                在 GitHub 反馈 ↗
+                            </a>
+                            <a
+                                href={`${WEB_URL}/test-center`}
+                                className="text-[12px] text-muted-foreground transition-colors hover:text-seal"
+                            >
+                                补充新题
+                            </a>
+                        </div>
                     </div>
 
                     {related.length ? (
