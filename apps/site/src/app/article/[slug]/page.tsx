@@ -67,8 +67,8 @@ export default async function ArticlePage({ params }: Props) {
             </div>
 
             {a.kind === 'curated' && a.externalUrl ? (
-                <div className="mt-7 border-l-2 border-seal/70 pl-5">
-                    <p className="m-0 font-serif text-[17px] leading-8 text-foreground/90">
+                <div className="mt-8 max-w-[62ch]">
+                    <p className="m-0 font-serif text-[19px] leading-8 text-foreground/90">
                         {a.comment}
                     </p>
                     <a

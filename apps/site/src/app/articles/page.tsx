@@ -56,7 +56,7 @@ export default async function ArticlesPage() {
                 <a
                     key={a.slug}
                     href={`/article/${a.slug}`}
-                    className="group -mx-3 block border-b border-l-2 border-border border-l-seal/70 px-3 py-4 transition-colors hover:bg-card/70"
+                    className="group -mx-3 block border-b border-border px-3 py-4 transition-colors hover:bg-card/70"
                 >
                     <h3 className="m-0 font-serif text-[17px] leading-snug transition-colors group-hover:text-accent">
                         {a.title}
