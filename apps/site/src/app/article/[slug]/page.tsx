@@ -53,31 +53,32 @@ export default async function ArticlePage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
             />
             <div className="border-b border-border pb-5">
-                <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
+                <p className="mb-3 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground">
+                    {a.kind === 'own' ? 'ESSAY' : 'CURATED LINK'}
+                </p>
+                <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em] sm:text-[36px]">
                     {a.title}
                 </h1>
-                <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[12.5px] text-muted-foreground">
-                    <span className="rounded-full border border-border px-2.5 py-0.5">
-                        {a.kind === 'own' ? '原创' : '荐文'}
-                    </span>
-                    {a.sourceDomain ? <span className="font-mono text-xs">{a.sourceDomain}</span> : null}
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+                    <span>{a.kind === 'own' ? '原创' : '荐文'}</span>
+                    {a.sourceDomain ? <span className="font-mono">{a.sourceDomain}</span> : null}
                     {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
                 </div>
             </div>
 
             {a.kind === 'curated' && a.externalUrl ? (
-                <div className="mt-6 rounded-xl border border-border border-l-2 border-l-accent bg-card p-5">
-                    <p className="m-0 text-[14.5px] text-foreground/90">{a.comment}</p>
-                    <div className="mt-2 text-[13px]">
-                        <a
-                            href={a.externalUrl}
-                            rel="nofollow noopener"
-                            target="_blank"
-                            className="text-accent underline underline-offset-[3px]"
-                        >
-                            阅读原文 ↗
-                        </a>
-                    </div>
+                <div className="mt-7 border-l-2 border-seal/70 pl-5">
+                    <p className="m-0 font-serif text-[17px] leading-8 text-foreground/90">
+                        {a.comment}
+                    </p>
+                    <a
+                        href={a.externalUrl}
+                        rel="nofollow noopener"
+                        target="_blank"
+                        className="mt-3 inline-flex items-center gap-2 text-[13px] text-accent hover:text-seal"
+                    >
+                        阅读原文 ↗
+                    </a>
                 </div>
             ) : null}
 
@@ -85,6 +86,21 @@ export default async function ArticlePage({ params }: Props) {
                 <div className="prose prose-sm mt-6 max-w-none sm:prose-base dark:prose-invert">
                     <Markdown>{a.contentMd}</Markdown>
                 </div>
+            ) : null}
+
+            {a.kind === 'curated' && a.externalUrl ? (
+                <p className="mt-10 border-t border-border pt-4 text-[12px] leading-6 text-muted-foreground">
+                    原文来源:
+                    <a
+                        href={a.externalUrl}
+                        rel="nofollow noopener"
+                        target="_blank"
+                        className="text-accent underline underline-offset-2 hover:text-seal"
+                    >
+                        {a.sourceDomain ?? a.externalUrl}
+                    </a>
+                    。本文仅作推荐,版权归原作者所有。
+                </p>
             ) : null}
         </>
     )
