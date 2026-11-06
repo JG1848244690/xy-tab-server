@@ -13,20 +13,26 @@ export const metadata: Metadata = {
 const CAT_COLORS = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)']
 
 export default async function HomePage() {
-    // 取两页算难度分布(构建期静态算好;>500 题后换专用聚合接口)
-    const [p1, p2, banks, tags] = await Promise.all([
+    const [p1, banks, tags] = await Promise.all([
         siteApi.questions({ size: 50 }),
-        siteApi.questions({ size: 50, page: 2 }),
         siteApi.banks(),
         siteApi.tags(),
     ])
-    const all = [...p1.data, ...p2.data]
+    // 难度分布要按全部题目算;第一页只用来做「最近更新/今日一题」
+    const totalPages = Math.max(1, Math.ceil(p1.total / 50))
+    const rest = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+            siteApi.questions({ size: 50, page: i + 2 }),
+        ),
+    )
+    const all = [p1, ...rest].flatMap((page) => page.data)
     const byDiff = {
         easy: all.filter((q) => q.difficulty === 'easy').length,
         medium: all.filter((q) => q.difficulty === 'medium').length,
         hard: all.filter((q) => q.difficulty === 'hard').length,
     }
     const maxDiff = Math.max(byDiff.easy, byDiff.medium, byDiff.hard, 1)
+    const updatedMonth = new Date().toISOString().slice(0, 7).replace('-', '.')
 
     // 人工精选池:每天轮换一道;详情接口失败时跳过,不让首页挂掉
     const featuredPool = (
@@ -79,7 +85,7 @@ export default async function HomePage() {
                         </div>
                         <div className="flex items-baseline gap-2">
                             <dt className="text-muted-foreground">更新</dt>
-                            <dd className="font-mono text-[12px]">2026.10</dd>
+                            <dd className="font-mono text-[12px]">{updatedMonth}</dd>
                         </div>
                     </dl>
                 </div>
