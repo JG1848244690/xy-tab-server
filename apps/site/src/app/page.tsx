@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { QuestionRow, DiffBadge } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 import { FEATURED_SLUGS, FEATURED_BLURBS } from '@/lib/featured'
+import { sortBanks } from '@/lib/bank-order'
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
@@ -41,6 +42,7 @@ export default async function HomePage() {
         .filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
         .filter((t) => t.kind === 'point')
         .slice(0, 14)
+    const orderedBanks = sortBanks(banks.data)
 
     return (
         <>
@@ -173,7 +175,7 @@ export default async function HomePage() {
                         </a>
                     </div>
                     <div>
-                        {banks.data.map((b, i) => (
+                        {orderedBanks.map((b, i) => (
                             <a
                                 key={b.slug}
                                 href={`/bank/${b.slug}`}
