@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -61,6 +61,13 @@ export const navItems: NavItem[] = [
     title: '文章',
     href: '/articles',
     icon: FileText,
+    adminOnly: true,
+  },
+  {
+    // 合集:把同主题文章串成有序系列(只放文章),仅 admin
+    title: '合集',
+    href: '/collections',
+    icon: Layers,
     adminOnly: true,
   },
   {

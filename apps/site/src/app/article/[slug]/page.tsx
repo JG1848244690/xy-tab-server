@@ -37,6 +37,8 @@ export default async function ArticlePage({ params }: Props) {
     }
     const a = await siteApi.article(slug).catch(() => notFound())
 
+    const series = a.collections?.[0]
+
     const articleJsonLd = {
         '@context': 'https://schema.org',
         '@type': 'Article',
@@ -63,6 +65,14 @@ export default async function ArticlePage({ params }: Props) {
                     <span>{a.kind === 'own' ? '原创' : '荐文'}</span>
                     {a.sourceDomain ? <span className="font-mono">{a.sourceDomain}</span> : null}
                     {a.publishedAt ? <span>{a.publishedAt.slice(0, 10)}</span> : null}
+                    {series ? (
+                        <a
+                            href={`/collection/${series.slug}`}
+                            className="text-accent underline underline-offset-2 hover:text-seal"
+                        >
+                            合集《{series.title}》第 {series.index + 1} / {series.total} 篇
+                        </a>
+                    ) : null}
                 </div>
             </div>
 
@@ -101,6 +111,48 @@ export default async function ArticlePage({ params }: Props) {
                     </a>
                     。本文仅作推荐,版权归原作者所有。
                 </p>
+            ) : null}
+
+            {series ? (
+                <nav className="mt-12 border-t border-foreground/80 pt-5">
+                    <p className="mb-3 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground">
+                        合集《{series.title}》· 第 {series.index + 1} / {series.total} 篇
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-4">
+                        {series.prevSlug ? (
+                            <a
+                                href={`/article/${series.prevSlug}`}
+                                className="group min-w-0 flex-1 border border-border bg-card px-4 py-3 transition-colors hover:border-accent/60"
+                            >
+                                <span className="block font-mono text-[10.5px] text-muted-foreground">
+                                    ← 上一篇
+                                </span>
+                                <span className="mt-1 block truncate font-serif text-[14px] transition-colors group-hover:text-accent">
+                                    {series.prevTitle}
+                                </span>
+                            </a>
+                        ) : null}
+                        {series.nextSlug ? (
+                            <a
+                                href={`/article/${series.nextSlug}`}
+                                className="group min-w-0 flex-1 border border-border bg-card px-4 py-3 text-right transition-colors hover:border-accent/60"
+                            >
+                                <span className="block font-mono text-[10.5px] text-muted-foreground">
+                                    下一篇 →
+                                </span>
+                                <span className="mt-1 block truncate font-serif text-[14px] transition-colors group-hover:text-accent">
+                                    {series.nextTitle}
+                                </span>
+                            </a>
+                        ) : null}
+                        <a
+                            href={`/collection/${series.slug}`}
+                            className="flex flex-none items-center justify-center border border-border px-4 py-3 text-[12px] text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
+                        >
+                            目录
+                        </a>
+                    </div>
+                </nav>
             ) : null}
         </>
     )

@@ -11,6 +11,7 @@ import stats from './routes/stats/stats.index.js'
 import review from './routes/review/review.index.js'
 import media from './routes/media/media.index.js'
 import articles from './routes/articles/articles.index.js'
+import collections from './routes/collections/collections.index.js'
 import publicRoutes from './routes/public/public.index.js'
 import { cookieAuth } from './middlewares/auth.js'
 import { requireAdmin } from './middlewares/admin.js'
@@ -86,6 +87,10 @@ app.use('/media/*', cookieAuth())
 app.use('/articles', cookieAuth(), requireAdmin())
 app.use('/articles/*', cookieAuth(), requireAdmin())
 
+// 文章合集(专题):同样仅 admin
+app.use('/collections', cookieAuth(), requireAdmin())
+app.use('/collections/*', cookieAuth(), requireAdmin())
+
 const routes = [
     index,
     auth,
@@ -95,6 +100,7 @@ const routes = [
     review,
     media,
     articles,
+    collections,
     publicRoutes,
 ] as const
 

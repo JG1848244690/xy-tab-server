@@ -25,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // 无 slug 的题(未清洗)没有公开 URL,不进 sitemap
         ...data.questions.filter((q) => q.slug).map((q) => entry(`/question/${q.slug!}`, q.updatedAt, 0.8)),
         ...data.articles.map((a) => entry(`/article/${a.slug}`, a.updatedAt, 0.6)),
+        ...(data.collections ?? []).map((c) => entry(`/collection/${c.slug}`, c.updatedAt, 0.7)),
         ...data.tags
             .filter((t) =>
                 tags.data.some((x) => x.slug === t.slug && x.questionCount > 0 && x.kind !== 'legacy'),

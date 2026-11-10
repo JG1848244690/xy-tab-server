@@ -13,6 +13,8 @@ const router = createRouter()
     .openapi(routes.listTags, handlers.listTags)
     .openapi(routes.listArticles, handlers.listArticles)
     .openapi(routes.getArticle, handlers.getArticle)
+    .openapi(routes.listCollections, handlers.listCollections)
+    .openapi(routes.getCollection, handlers.getCollection)
     .openapi(routes.sitemapData, handlers.sitemapData)
 
 export default router

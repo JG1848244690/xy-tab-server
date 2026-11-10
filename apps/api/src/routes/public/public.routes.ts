@@ -84,6 +84,29 @@ const publicArticleItemSchema = selectArticlesSchema.pick({
     updatedAt: true,
 })
 
+/** 合集(专题):只聚合文章,前台 /collections */
+const publicCollectionItemSchema = z.object({
+    slug: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    cover: z.string().nullable(),
+    updatedAt: z.date(),
+    articleCount: z.number(),
+})
+
+/** 文章详情里的「所属合集」:带前后篇,渲染系列导航 */
+const articleCollectionSchema = z.object({
+    slug: z.string(),
+    title: z.string(),
+    /** 本文在合集内的位置(0 起)与总数 */
+    index: z.number(),
+    total: z.number(),
+    prevSlug: z.string().nullable(),
+    prevTitle: z.string().nullable(),
+    nextSlug: z.string().nullable(),
+    nextTitle: z.string().nullable(),
+})
+
 const publicTagsSchema = z.object({
     slug: z.string(),
     name: z.string(),
@@ -99,6 +122,7 @@ const sitemapDataSchema = z.object({
     questions: z.array(z.object({ slug: z.string(), updatedAt: z.date() })),
     banks: z.array(z.object({ slug: z.string(), updatedAt: z.date() })),
     articles: z.array(z.object({ slug: z.string(), updatedAt: z.date() })),
+    collections: z.array(z.object({ slug: z.string(), updatedAt: z.date() })).default([]),
     tags: z.array(z.object({ slug: z.string() })),
 })
 
@@ -230,6 +254,8 @@ export const getArticle = createRoute({
                 contentMd: z.string().nullable(),
                 comment: z.string().nullable(),
                 relatedQuestionSlugs: z.array(z.string()),
+                /** 所属合集 + 前后篇(前台系列导航) */
+                collections: z.array(articleCollectionSchema),
             }),
             '文章详情',
         ),
@@ -250,6 +276,38 @@ export const sitemapData = createRoute({
     },
 })
 
+export const listCollections = createRoute({
+    method: 'get',
+    path: '/public/collections',
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({ data: z.array(publicCollectionItemSchema) }),
+            '已发布合集列表(带文章数,按 sort 排序)',
+        ),
+    },
+})
+
+export const getCollection = createRoute({
+    method: 'get',
+    path: '/public/collections/{slug}',
+    tags,
+    request: { params: slugParamsSchema },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            publicCollectionItemSchema.extend({
+                articles: z.array(publicArticleItemSchema),
+            }),
+            '合集详情 + 有序文章列表',
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            z.object({ message: z.string() }),
+            'slug 不存在或未发布',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: invalidQuery(slugParamsSchema),
+    },
+})
+
 // ============================================================
 // handler 用的类型别名
 // ============================================================
@@ -263,3 +321,5 @@ export type ListTagsRoute = typeof listTags
 export type ListArticlesRoute = typeof listArticles
 export type GetArticleRoute = typeof getArticle
 export type SitemapDataRoute = typeof sitemapData
+export type ListPublicCollectionsRoute = typeof listCollections
+export type GetPublicCollectionRoute = typeof getCollection

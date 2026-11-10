@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type {
     ListPublicQuestionsRoute,
     GetPublicQuestionRoute,
@@ -10,12 +10,16 @@ import type {
     ListArticlesRoute,
     GetArticleRoute,
     SitemapDataRoute,
+    ListPublicCollectionsRoute,
+    GetPublicCollectionRoute,
 } from './public.routes.js'
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import {
     articles,
     banks,
+    collectionArticles,
+    collections,
     questionViews,
     questions,
     tagRegistry,
@@ -318,6 +322,7 @@ export const getArticle: AppRouteHandler<GetArticleRoute> = async (c) => {
 
     const [row] = await db
         .select({
+            id: articles.id,
             slug: articles.slug,
             title: articles.title,
             kind: articles.kind,
@@ -338,27 +343,83 @@ export const getArticle: AppRouteHandler<GetArticleRoute> = async (c) => {
 
     if (!row) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
 
+    const { id: articleId, relatedQuestionIds, ...articleBody } = row
+
     // 内链:文章关联题目的公开 slug(题目必须也是 approved)
     let relatedQuestionSlugs: string[] = []
-    if (row.relatedQuestionIds?.length) {
+    if (relatedQuestionIds?.length) {
         const related = await db
             .select({ slug: questions.slug })
             .from(questions)
             .where(
                 and(
-                    inArray(questions.id, row.relatedQuestionIds),
+                    inArray(questions.id, relatedQuestionIds),
                     eq(questions.status, 'approved'),
                 ),
             )
         relatedQuestionSlugs = related.map((r) => r.slug!)
     }
 
-    return c.json({ ...row, relatedQuestionSlugs }, HttpStatusCodes.OK)
+    // 所属合集:给前台渲染「系列导航(上一篇/下一篇)」
+    const memberships = await db
+        .select({
+            collectionId: collections.id,
+            collectionSlug: collections.slug,
+            collectionTitle: collections.title,
+            articleId: collectionArticles.articleId,
+            articleSlug: articles.slug,
+            articleTitle: articles.title,
+        })
+        .from(collectionArticles)
+        .innerJoin(collections, eq(collections.id, collectionArticles.collectionId))
+        .innerJoin(articles, eq(articles.id, collectionArticles.articleId))
+        .where(and(eq(collections.status, 'approved'), eq(articles.status, 'approved')))
+        .orderBy(asc(collections.sort), asc(collectionArticles.sort))
+
+    const byCollection = new Map<string, typeof memberships>()
+    for (const m of memberships) {
+        const list = byCollection.get(m.collectionId) ?? []
+        list.push(m)
+        byCollection.set(m.collectionId, list)
+    }
+
+    const articleCollections: Array<{
+        slug: string
+        title: string
+        index: number
+        total: number
+        prevSlug: string | null
+        prevTitle: string | null
+        nextSlug: string | null
+        nextTitle: string | null
+    }> = []
+
+    for (const list of byCollection.values()) {
+        const idx = list.findIndex((m) => m.articleId === articleId)
+        if (idx < 0) continue
+        const prev = list[idx - 1]
+        const next = list[idx + 1]
+        articleCollections.push({
+            slug: list[idx]!.collectionSlug,
+            title: list[idx]!.collectionTitle,
+            index: idx,
+            total: list.length,
+            prevSlug: prev?.articleSlug ?? null,
+            prevTitle: prev?.articleTitle ?? null,
+            nextSlug: next?.articleSlug ?? null,
+            nextTitle: next?.articleTitle ?? null,
+        })
+    }
+
+    return c.json(
+        { ...articleBody, relatedQuestionSlugs, collections: articleCollections },
+        HttpStatusCodes.OK,
+    )
 }
 
 /** 构建期全量导航:CI 的 SSG 构建 generateStaticParams/sitemap/RSS 都吃这一口 */
 export const sitemapData: AppRouteHandler<SitemapDataRoute> = async (c) => {
-    const [questionRows, bankRows, articleRows, tagRows] = await Promise.all([
+    const [questionRows, bankRows, articleRows, collectionRows, tagRows] = await Promise.all([
         db
             .select({ slug: questions.slug, updatedAt: questions.updatedAt })
             .from(questions)
@@ -368,6 +429,10 @@ export const sitemapData: AppRouteHandler<SitemapDataRoute> = async (c) => {
             .select({ slug: articles.slug, updatedAt: articles.updatedAt })
             .from(articles)
             .where(eq(articles.status, 'approved')),
+        db
+            .select({ slug: collections.slug, updatedAt: collections.updatedAt })
+            .from(collections)
+            .where(eq(collections.status, 'approved')),
         db.select({ slug: tagRegistry.slug }).from(tagRegistry),
     ])
 
@@ -376,8 +441,80 @@ export const sitemapData: AppRouteHandler<SitemapDataRoute> = async (c) => {
             questions: questionRows.map((r) => ({ ...r, slug: r.slug! })),
             banks: bankRows,
             articles: articleRows,
+            collections: collectionRows,
             tags: tagRows,
         },
         HttpStatusCodes.OK,
     )
+}
+
+export const listCollections: AppRouteHandler<ListPublicCollectionsRoute> = async (c) => {
+    const rows = await db
+        .select({
+            slug: collections.slug,
+            title: collections.title,
+            description: collections.description,
+            cover: collections.cover,
+            updatedAt: collections.updatedAt,
+            articleCount: count(collectionArticles.articleId),
+        })
+        .from(collections)
+        .leftJoin(
+            collectionArticles,
+            eq(collectionArticles.collectionId, collections.id),
+        )
+        .where(eq(collections.status, 'approved'))
+        .groupBy(collections.id)
+        .orderBy(asc(collections.sort), asc(collections.title))
+
+    return c.json(
+        { data: rows.map((r) => ({ ...r, articleCount: Number(r.articleCount) })) },
+        HttpStatusCodes.OK,
+    )
+}
+
+export const getCollection: AppRouteHandler<GetPublicCollectionRoute> = async (c) => {
+    const { slug } = c.req.valid('param')
+
+    const [collection] = await db
+        .select({
+            id: collections.id,
+            slug: collections.slug,
+            title: collections.title,
+            description: collections.description,
+            cover: collections.cover,
+            updatedAt: collections.updatedAt,
+        })
+        .from(collections)
+        .where(and(eq(collections.slug, slug), eq(collections.status, 'approved')))
+        .limit(1)
+
+    if (!collection) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+
+    const items = await db
+        .select({
+            slug: articles.slug,
+            title: articles.title,
+            kind: articles.kind,
+            excerpt: articles.excerpt,
+            comment: articles.comment,
+            externalUrl: articles.externalUrl,
+            sourceDomain: articles.sourceDomain,
+            tags: articles.tags,
+            publishedAt: articles.publishedAt,
+            viewCount: articles.viewCount,
+            updatedAt: articles.updatedAt,
+        })
+        .from(collectionArticles)
+        .innerJoin(articles, eq(articles.id, collectionArticles.articleId))
+        .where(
+            and(
+                eq(collectionArticles.collectionId, collection.id),
+                eq(articles.status, 'approved'),
+            ),
+        )
+        .orderBy(asc(collectionArticles.sort), asc(articles.publishedAt))
+
+    const { id: _id, ...meta } = collection
+    return c.json({ ...meta, articleCount: items.length, articles: items }, HttpStatusCodes.OK)
 }

@@ -49,6 +49,7 @@ export type SitemapData = {
     questions: Array<{ slug: string; updatedAt: string }>
     banks: Array<{ slug: string; updatedAt: string }>
     articles: Array<{ slug: string; updatedAt: string }>
+    collections?: Array<{ slug: string; updatedAt: string }>
     tags: Array<{ slug: string }>
 }
 
@@ -115,6 +116,33 @@ export type ArticleDetail = ArticleListItem & {
     contentMd: string | null
     comment: string | null
     relatedQuestionSlugs: string[]
+    /** 所属合集(带前后篇);不在任何合集时是空数组 */
+    collections: ArticleCollectionRef[]
+}
+
+/** 文章所属合集 + 系列导航 */
+export type ArticleCollectionRef = {
+    slug: string
+    title: string
+    index: number
+    total: number
+    prevSlug: string | null
+    prevTitle: string | null
+    nextSlug: string | null
+    nextTitle: string | null
+}
+
+export type CollectionListItem = {
+    slug: string
+    title: string
+    description: string | null
+    cover: string | null
+    updatedAt: string
+    articleCount: number
+}
+
+export type CollectionDetail = CollectionListItem & {
+    articles: ArticleListItem[]
 }
 
 export const siteApi = {
@@ -148,6 +176,8 @@ export const siteApi = {
         return get<{ data: ArticleListItem[]; total: number }>(`/public/articles?${p}`)
     },
     article: (slug: string) => get<ArticleDetail>(`/public/articles/${slug}`),
+    collections: () => get<{ data: CollectionListItem[] }>('/public/collections'),
+    collection: (slug: string) => get<CollectionDetail>(`/public/collections/${slug}`),
 }
 
 /** 站点自身 URL(canonical/OG/sitemap 用),部署域名定了以后配 env */

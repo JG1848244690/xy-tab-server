@@ -470,6 +470,64 @@ export const insertArticlesSchema = createInsertSchema(articles).omit({
 });
 
 // ============================================================
+// collections —— 文章合集(专题):把一个主题下的多篇文章串成有序的系列
+// 只放文章(不含题目),与 banks / tags 的「题目聚合」互不干扰
+// ============================================================
+
+export const collections = pgTable(
+    'collections',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        slug: varchar('slug', { length: 255 }).notNull(),
+        title: varchar('title', { length: 255 }).notNull(),
+        /** 合集简介(前台详情页顶部 + 列表页摘要) */
+        description: text('description'),
+        cover: varchar('cover', { length: 500 }),
+        /** 列表排序,小的在前;同值时按标题 */
+        sort: integer('sort').default(0).notNull(),
+        status: reviewStatusEnum('status').default('draft').notNull(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' })
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
+    },
+    (t) => [
+        uniqueIndex('collections_slug_idx').on(t.slug),
+        index('collections_status_sort_idx').on(t.status, t.sort),
+    ],
+);
+
+export const selectCollectionsSchema = createSelectSchema(collections);
+export const insertCollectionsSchema = createInsertSchema(collections).omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    status: true,
+});
+
+/**
+ * 合集 ↔ 文章 的有序关联。
+ * sort 只在同一合集内有效,由后台整体替换(见 PUT /collections/{id}/articles)。
+ */
+export const collectionArticles = pgTable(
+    'collection_articles',
+    {
+        collectionId: uuid('collection_id')
+            .notNull()
+            .references(() => collections.id, { onDelete: 'cascade' }),
+        articleId: uuid('article_id')
+            .notNull()
+            .references(() => articles.id, { onDelete: 'cascade' }),
+        sort: integer('sort').default(0).notNull(),
+    },
+    (t) => [
+        primaryKey({ columns: [t.collectionId, t.articleId] }),
+        index('collection_articles_article_idx').on(t.articleId),
+    ],
+);
+
+// ============================================================
 // tag_registry —— 标签聚合页的介绍文案登记
 // 有 ≥240 字介绍才允许聚合页被搜索引擎收录,空页 noindex(防薄内容惩罚)
 // ============================================================
