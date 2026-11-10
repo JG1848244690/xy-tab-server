@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ListRow } from '@/components/rows'
-import { siteApi } from '@/lib/site-api'
+import { siteApi, type CollectionListItem } from '@/lib/site-api'
 
 export const metadata: Metadata = {
     title: '文章',
@@ -9,9 +9,11 @@ export const metadata: Metadata = {
 }
 
 export default async function ArticlesPage() {
-    const [own, curated] = await Promise.all([
+    const [own, curated, collections] = await Promise.all([
         siteApi.articles({ kind: 'own', size: 50 }),
         siteApi.articles({ kind: 'curated', size: 20 }),
+        // 兼容旧 API:合集接口没上线时降级成空
+        siteApi.collections().catch(() => ({ data: [] as CollectionListItem[] })),
     ])
 
     return (
@@ -20,6 +22,41 @@ export default async function ArticlesPage() {
                 文章
             </h1>
             <p className="mt-2 mb-10 text-[14px] text-muted-foreground">原创图文与每周荐文导读。</p>
+
+            {collections.data.length ? (
+                <>
+                    <div className="mb-2 flex items-baseline justify-between border-b border-foreground/80 pb-2">
+                        <h2 className="font-serif text-[15px] tracking-[0.04em]">合集</h2>
+                        <a
+                            href="/collections"
+                            className="text-[12px] text-muted-foreground transition-colors hover:text-accent"
+                        >
+                            全部合集 →
+                        </a>
+                    </div>
+                    <div className="mb-12">
+                        {collections.data.map((c) => (
+                            <a
+                                key={c.slug}
+                                href={`/collection/${c.slug}`}
+                                className="group flex items-baseline gap-4 border-b border-border py-3"
+                            >
+                                <span className="min-w-0 flex-1 font-serif text-[16.5px] leading-snug transition-colors group-hover:text-accent">
+                                    {c.title}
+                                </span>
+                                {c.description ? (
+                                    <span className="hidden min-w-0 max-w-[46ch] truncate text-[12px] text-muted-foreground sm:block">
+                                        {c.description}
+                                    </span>
+                                ) : null}
+                                <span className="flex-none font-mono text-[10.5px] text-muted-foreground">
+                                    {c.articleCount} 篇
+                                </span>
+                            </a>
+                        ))}
+                    </div>
+                </>
+            ) : null}
 
             <div className="mb-2 flex items-baseline justify-between border-b border-foreground/80 pb-2">
                 <h2 className="font-serif text-[15px] tracking-[0.04em]">原创图文</h2>

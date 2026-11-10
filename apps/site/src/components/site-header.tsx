@@ -8,7 +8,6 @@ const NAV = [
     { href: '/banks', label: '题库' },
     { href: '/tags', label: '标签' },
     { href: '/articles', label: '文章' },
-    { href: '/collections', label: '合集' },
     { href: '/digest', label: '荟萃' },
 ]
 
