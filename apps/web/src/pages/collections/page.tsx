@@ -8,6 +8,7 @@ import {
 } from '@/services/collections-api'
 import { CollectionDialog } from './collection-dialog'
 import { CollectionArticlesDialog } from './collection-articles-dialog'
+import { ContentTabs } from '@/components/content-tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -86,6 +87,8 @@ export default function CollectionsPage() {
                     新建合集
                 </Button>
             </div>
+
+            <ContentTabs />
 
             <div className="flex flex-wrap items-center gap-3">
                 <div className="w-32">
