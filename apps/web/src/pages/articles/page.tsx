@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Link2, Trash2 } from 'lucide-react'
 import { articlesApi, type Article, type ArticleKind, type ArticleStatus } from '@/services/articles-api'
 import { ArticleDialog } from './article-dialog'
-import { ContentTabs } from '@/components/content-tabs'
+import { CollectionsSection } from './collections-section'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -132,8 +132,6 @@ export default function ArticlesPage() {
                 </Button>
             </div>
 
-            <ContentTabs />
-
             <div className="rounded-lg border bg-card p-3">
                 <div className="flex items-center gap-2">
                     <Link2 className="ml-1 h-4 w-4 flex-none text-muted-foreground" />
@@ -162,6 +160,8 @@ export default function ArticlesPage() {
                 </p>
                 {quickError ? <p className="mt-1 pl-7 text-xs text-destructive">{quickError}</p> : null}
             </div>
+
+            <CollectionsSection />
 
             <div className="flex flex-wrap items-center gap-3">
                 <div className="w-32">
