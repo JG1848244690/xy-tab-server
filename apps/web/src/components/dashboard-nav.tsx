@@ -131,7 +131,6 @@ export function TopNav() {
                  [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
     >
       {visibleItems.map((item) => {
-        const Icon = item.icon
         const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
         return (
@@ -139,13 +138,12 @@ export function TopNav() {
             key={item.href}
             to={item.href}
             className={cn(
-              'relative flex flex-none items-center gap-1.5 border-b-2 px-3 text-[13.5px] transition-colors',
+              'relative flex flex-none items-center border-b-2 px-2.5 text-[13.5px] tracking-[0.01em] transition-colors xl:px-3.5',
               isActive
                 ? 'border-primary font-medium text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
+                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
             )}
           >
-            <Icon className={cn('h-3.5 w-3.5', isActive && 'text-primary')} />
             <span className="whitespace-nowrap">{item.title}</span>
           </Link>
         )

@@ -126,7 +126,9 @@ export default function DashboardLayout() {
 
       {/* 内容 */}
       <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4 lg:p-6">
-        <Outlet />
+        <div className="mx-auto w-full max-w-[1320px]">
+          <Outlet />
+        </div>
       </main>
     </div>
   )
