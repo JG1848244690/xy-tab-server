@@ -94,7 +94,8 @@ export default async function ArticlePage({ params }: Props) {
 
             {a.contentMd ? (
                 <div className="prose prose-sm mt-6 max-w-none sm:prose-base dark:prose-invert">
-                    <Markdown>{a.contentMd}</Markdown>
+                    {/* 正文自带的第一个 H1 和页面标题重复,渲染前去掉 */}
+                    <Markdown>{a.contentMd.replace(/^\s*#\s+.*(?:\r?\n)+/, '')}</Markdown>
                 </div>
             ) : null}
 
