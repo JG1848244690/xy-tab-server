@@ -50,11 +50,13 @@ function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
 
         const tryRender = () => {
             if (rendered.current || !ref.current || !window.turnstile) return
+            // 跟随当前主题,避免暗色下出现一块刺眼的白色 widget
+            const dark = document.documentElement.classList.contains('dark')
             window.turnstile.render(ref.current, {
                 sitekey: TURNSTILE_SITE_KEY!,
                 callback: onToken,
                 'expired-callback': () => onToken(''),
-                theme: 'auto',
+                theme: dark ? 'dark' : 'light',
             })
             rendered.current = true
             finish()
@@ -71,7 +73,17 @@ function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
     }, [onToken])
 
     if (!TURNSTILE_SITE_KEY) return null
-    return <div ref={ref} />
+    return (
+        <div className="space-y-2">
+            <p className="font-mono text-[10.5px] tracking-[0.12em] text-muted-foreground">
+                人机验证
+            </p>
+            <div
+                ref={ref}
+                className="min-h-[65px] overflow-hidden rounded-md border border-border bg-background p-1"
+            />
+        </div>
+    )
 }
 
 interface RegisterFormProps {

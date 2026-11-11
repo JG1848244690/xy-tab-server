@@ -102,7 +102,9 @@ export function UserNav() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending} autoFocus>
+              取消
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(e) => {
