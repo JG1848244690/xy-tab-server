@@ -13,7 +13,8 @@ interface NavItem {
 }
 
 interface DashboardNavProps {
-  collapsed?: boolean
+  /** 展开时显示文字;收起时只留图标 + 悬停提示 */
+  expanded?: boolean
 }
 export const navItems: NavItem[] = [
   {
@@ -75,13 +76,13 @@ export const navItems: NavItem[] = [
   },
 ]
 
-export function DashboardNav({ collapsed = false }: DashboardNavProps) {
+export function DashboardNav({ expanded = false }: DashboardNavProps) {
   const { pathname } = useLocation()
   const role = useAuthStore((s) => s.user?.role)
   const visibleItems = navItems.filter((item) => !item.adminOnly || role === 'admin')
 
   return (
-    <nav className="grid items-start px-4 text-sm font-medium">
+    <nav className="grid items-start gap-0.5 px-2 text-sm">
       {visibleItems.map((item, index) => {
         const Icon = item.icon
         const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
@@ -90,17 +91,24 @@ export function DashboardNav({ collapsed = false }: DashboardNavProps) {
           <Link
             key={index}
             to={item.href}
-            title={collapsed ? item.title : undefined}
+            title={expanded ? undefined : item.title}
             className={cn(
-              'flex items-center rounded-md px-3 py-2 transition-colors',
-              collapsed ? 'justify-center' : 'gap-3',
+              'group relative flex items-center rounded-md py-2 transition-colors',
+              expanded ? 'gap-3 px-2.5' : 'justify-center px-0',
               isActive
                 ? 'bg-primary/10 text-primary font-medium'
-                : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-foreground'
+                : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-foreground',
             )}
           >
-            <Icon className={cn('h-4 w-4', isActive && 'text-primary')} />
-            {!collapsed && <span>{item.title}</span>}
+            {/* 选中标记:左侧朱砂竖线 */}
+            <span
+              className={cn(
+                'absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-primary transition-opacity',
+                isActive ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            <Icon className={cn('h-4 w-4 flex-none', isActive && 'text-primary')} />
+            {expanded ? <span className="truncate">{item.title}</span> : null}
           </Link>
         )
       })}

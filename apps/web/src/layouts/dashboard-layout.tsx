@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Pin, PinOff } from 'lucide-react'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { UserNav } from '@/components/user-nav'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -9,10 +9,13 @@ import { RouteLoadingIndicator } from '@/components/route-loading-indicator'
 import { useState, useEffect } from 'react'
 import BreadCrumb from '@/components/breadcrumb'
 export default function DashboardLayout() {
-  const [collapsed, setCollapsed] = useState(true)
+  const [pinned, setPinned] = useState(() => localStorage.getItem('nav-pinned') === '1')
+  const [hover, setHover] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isOpening, setIsOpening] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  const expanded = pinned || hover
 
   useEffect(() => {
     setMounted(true)
@@ -33,49 +36,68 @@ export default function DashboardLayout() {
   return (
     <div className="flex min-h-screen w-full">
       <RouteLoadingIndicator />
-      {/* 桌面侧栏 */}
+      {/* 桌面侧栏:图标轨道,鼠标悬停「浮」出完整菜单,不挤压主内容 */}
       <div
-        className={`hidden border-r border-sidebar-border bg-sidebar lg:block dark:bg-sidebar lg:sticky lg:top-0 lg:h-screen transition-all duration-300 shrink-0 ${
-          collapsed ? 'lg:w-16' : 'lg:w-50'
-        }`}
+        className="relative hidden h-screen shrink-0 transition-[width] duration-200 ease-out lg:block"
+        style={{ width: pinned ? 216 : 64 }}
       >
-        <div className="flex h-full flex-col gap-2">
-          {/* 侧栏header logo和折叠按钮 */}
-          <div className="flex h-15 items-center border-b border-sidebar-border px-4 justify-between">
-            {!collapsed ? (
-              <Link
-                className="flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
-                to="/home"
-              >
-                <img
-                  src="/icon-96.png"
-                  alt="序言"
-                  className="h-7 w-7 rounded-[4px] object-cover"
-                />
-                <span className="font-serif text-[15px]">序言</span>
-              </Link>
-            ) : (
-              <Link to="/home" title="序言" className="hidden lg:block">
-                <img
-                  src="/icon-96.png"
-                  alt="序言"
-                  className="h-7 w-7 rounded-[4px] object-cover"
-                />
-              </Link>
-            )}
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="p-1.5 hover:bg-primary/10 rounded transition-colors"
-              aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
+        <aside
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          className={`absolute inset-y-0 left-0 z-30 flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width,box-shadow] duration-200 ease-out ${
+            expanded ? 'w-[216px]' : 'w-16'
+          } ${hover && !pinned ? 'shadow-[8px_0_28px_rgb(20_19_16/0.10)]' : ''}`}
+        >
+          {/* 顶部:logo + 固定/收起 */}
+          <div className="flex h-15 items-center justify-between border-b border-sidebar-border px-3">
+            <Link
+              to="/home"
+              title="序言"
+              className="flex items-center gap-2.5 text-foreground transition-colors hover:text-primary"
             >
-              <Menu className="h-5 w-5" />
+              <img
+                src="/icon-96.png"
+                alt="序言"
+                className="h-7 w-7 flex-none rounded-[4px] object-cover"
+              />
+              <span
+                className={`overflow-hidden whitespace-nowrap font-serif text-[15px] transition-opacity duration-150 ${
+                  expanded ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                序言
+              </span>
+            </Link>
+            <button
+              onClick={() => {
+                const next = !pinned
+                setPinned(next)
+                localStorage.setItem('nav-pinned', next ? '1' : '0')
+              }}
+              className={`flex-none rounded p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground ${
+                expanded ? 'opacity-100' : 'opacity-0'
+              }`}
+              aria-label={pinned ? '取消固定' : '固定展开'}
+              title={pinned ? '取消固定' : '固定展开'}
+            >
+              {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
             </button>
           </div>
-          {/* menu */}
-          <div className="flex-1 overflow-y-auto py-2">
-            <DashboardNav collapsed={collapsed} />
+
+          {/* 菜单 */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+            <DashboardNav expanded={expanded} />
           </div>
-        </div>
+
+          {/* 底部:未固定时提示 */}
+          <div
+            className={`border-t border-sidebar-border px-3 py-2.5 font-mono text-[10px] text-muted-foreground transition-opacity duration-150 ${
+              expanded ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {pinned ? '已固定 · 点击图钉取消' : '悬停展开 · 点击图钉固定'}
+          </div>
+        </aside>
       </div>
 
       {/* 移动端侧栏 */}
@@ -112,7 +134,7 @@ export default function DashboardLayout() {
               </button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto py-2">
-              <DashboardNav collapsed={false} />
+              <DashboardNav expanded />
             </div>
           </div>
         </>

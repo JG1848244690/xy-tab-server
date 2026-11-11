@@ -37,7 +37,18 @@ function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
     useEffect(() => {
         if (!TURNSTILE_SITE_KEY || !ref.current) return
 
-        function tryRender() {
+        // timer/stop 必须在 tryRender 之前用 let 声明:
+        // 之前是 const + 函数声明,window.turnstile 已就绪时会先调用 tryRender,
+        // 里面 clearInterval(timer) 命中 TDZ → 生产上点「立即注册」直接白屏
+        let timer: ReturnType<typeof setInterval> | undefined
+        let stop: ReturnType<typeof setTimeout> | undefined
+
+        const finish = () => {
+            if (timer) clearInterval(timer)
+            if (stop) clearTimeout(stop)
+        }
+
+        const tryRender = () => {
             if (rendered.current || !ref.current || !window.turnstile) return
             window.turnstile.render(ref.current, {
                 sitekey: TURNSTILE_SITE_KEY!,
@@ -46,7 +57,7 @@ function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
                 theme: 'auto',
             })
             rendered.current = true
-            clearInterval(timer)
+            finish()
         }
 
         // 脚本(index.html 里异步加载)就绪后再渲染
@@ -54,12 +65,9 @@ function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
             tryRender()
             return
         }
-        const timer = setInterval(tryRender, 300)
-        const stop = setTimeout(() => clearInterval(timer), 15_000)
-        return () => {
-            clearInterval(timer)
-            clearTimeout(stop)
-        }
+        timer = setInterval(tryRender, 300)
+        stop = setTimeout(finish, 15_000)
+        return finish
     }, [onToken])
 
     if (!TURNSTILE_SITE_KEY) return null
