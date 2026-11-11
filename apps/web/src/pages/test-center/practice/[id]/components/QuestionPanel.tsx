@@ -21,7 +21,7 @@ export function QuestionPanel({
   return (
     <div className="h-full flex flex-col overflow-hidden border-r">
       <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0">
-        <div className="shrink-0 px-3 py-2 border-b flex items-center justify-between">
+        <div className="shrink-0 border-b border-border bg-card/60 px-3 py-2 flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="content">题目内容</TabsTrigger>
             <TabsTrigger value="answer">参考答案</TabsTrigger>

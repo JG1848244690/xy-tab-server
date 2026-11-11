@@ -18,47 +18,44 @@ export function PracticeHeader({ question, timeSpent }: PracticeHeaderProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const getDifficultyText = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy':
-        return '简单'
-      case 'medium':
-        return '中等'
-      case 'hard':
-        return '困难'
-      default:
-        return difficulty
-    }
-  }
-
-  const getDifficultyVariant = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy':
-        return 'default' as const
-      case 'medium':
-        return 'secondary' as const
-      case 'hard':
-        return 'destructive' as const
-      default:
-        return 'default' as const
-    }
-  }
+  const difficulty =
+    question.difficulty === 'easy'
+      ? { label: '简单', className: 'text-emerald-700 dark:text-emerald-400' }
+      : question.difficulty === 'hard'
+        ? { label: '困难', className: 'text-red-700 dark:text-red-400' }
+        : { label: '中等', className: 'text-amber-700 dark:text-amber-400' }
 
   return (
-    <div className="border-b px-4 py-2 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-4 min-w-0">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-          <ArrowLeft className="h-4 w-4 mr-2" />
+    <div className="flex flex-none items-center justify-between gap-4 rounded-lg border border-border bg-card px-3 py-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+          className="h-8 flex-none text-muted-foreground"
+        >
+          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
           返回
         </Button>
-        <h1 className="text-lg font-semibold truncate">{question.title}</h1>
-        <Badge variant={getDifficultyVariant(question.difficulty)} className="shrink-0">
-          {getDifficultyText(question.difficulty)}
-        </Badge>
+
+        <span className="h-4 w-px flex-none bg-border" />
+
+        <h1 className="truncate font-serif text-[16px] font-medium leading-snug">
+          {question.title}
+        </h1>
+        <span className={`flex-none font-mono text-[10.5px] ${difficulty.className}`}>
+          {difficulty.label}
+        </span>
+        {question.type === 'text' ? (
+          <Badge variant="outline" className="flex-none text-[10px]">
+            理论题
+          </Badge>
+        ) : null}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <Clock className="h-4 w-4" />
-        <span className="text-sm">{formatTime(timeSpent)}</span>
+
+      <div className="flex flex-none items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+        <Clock className="h-3.5 w-3.5" />
+        <span className="tabular-nums">{formatTime(timeSpent)}</span>
       </div>
     </div>
   )

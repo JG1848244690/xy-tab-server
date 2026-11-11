@@ -9,7 +9,7 @@ import { useState } from 'react'
 interface CodeEditorProps {
   userAnswer: string
   onAnswerChange: (value: string) => void
-  monacoTheme: 'vs-dark' | 'light'
+  monacoTheme: 'paper-dark' | 'paper-light'
   isSubmitted: boolean
   isSubmitting: boolean
   onSubmitCorrect: () => void
@@ -120,10 +120,10 @@ export function CodeEditor({
   }
 
   return (
-    <div className="h-full w-full min-w-0 max-w-full overflow-hidden flex flex-col border-l">
+    <div className="h-full w-full min-w-0 max-w-full overflow-hidden flex flex-col">
       <Tabs defaultValue="editor" className="flex-1 flex flex-col min-h-0">
         {/* Tab 头部 - 与左侧题目面板高度一致 */}
-        <div className="shrink-0 px-3 py-2 border-b flex items-center justify-between">
+        <div className="shrink-0 border-b border-border bg-card/60 px-3 py-2 flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="editor">在线编辑</TabsTrigger>
             <TabsTrigger value="output">运行结果</TabsTrigger>

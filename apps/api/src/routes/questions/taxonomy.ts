@@ -78,6 +78,7 @@ export const KNOWLEDGE_POINTS = [
     'Webpack',
     'Vite',
     'CI/CD',
+    '模块化',
     '工程化',
     '性能优化',
     // 后端
@@ -147,6 +148,7 @@ export const TAG_SLUGS: Record<string, string> = {
     'B+树': 'b-plus-tree',
     CDN: 'cdn',
     'CI/CD': 'ci-cd',
+    模块化: 'modularization',
     DNS: 'dns',
     Fiber: 'fiber',
     'Function Calling': 'function-calling',
@@ -233,6 +235,79 @@ export function tagSlug(name: string): string {
         .replace(/^-+|-+$/g, '')
     return ascii || `tag-${shortHash(name)}`
 }
+
+/**
+ * 旧标签里「可信的别名」白名单。
+ *
+ * 之前的 bug:分类结果写回 tags,下一轮又把 tags 当输入喂给规则,
+ * 于是「TypeScript 泛型」这种题只要历史上挂过一次 安全/HTTP,就永远洗不掉。
+ * 现在只接受少量语义明确的别名,其余旧标签只做展示,不参与判定。
+ */
+const TRUSTED_ALIASES: Record<string, string> = {
+    闭包: '闭包',
+    原型链: '原型链',
+    promise: 'Promise',
+    'promise.all': 'Promise',
+    事件循环: '事件循环',
+    异步编程: '异步编程',
+    手写实现: '手写实现',
+    类型系统: '类型系统',
+    webpack: 'Webpack',
+    vite: 'Vite',
+    bfc: 'BFC',
+    'b+树': 'B+树',
+    fiber: 'Fiber',
+    hooks: 'Hooks',
+    跨域: '跨域',
+    浏览器缓存: '浏览器缓存',
+    防抖节流: '异步编程',
+    vue: 'Vue',
+    vuex: 'Vue',
+    react: 'React',
+    redux: 'React',
+}
+
+/**
+ * 每个技术栈允许出现的知识点。
+ * 没有列出的栈(JavaScript / Vue / React / Node.js / Java…)只受 FRONTEND_BLOCKED 限制。
+ * 目的:TS 题不会再挂 HTTP/安全/组件通信,SQL 题不会挂 Hooks。
+ */
+const POINTS_BY_STACK: Record<string, string[]> = {
+    TypeScript: ['类型系统', '元编程', '类型转换', '语言基础', '手写实现', '异步编程', 'Promise'],
+    CSS: ['布局', 'BFC', '响应式布局', '图片优化', '性能优化'],
+    HTML: ['HTML基础', '布局', '性能优化'],
+    浏览器: ['浏览器缓存', '跨域', '存储', '安全', 'HTTP', 'HTTPS', 'TCP', 'DNS', 'CDN', '渲染原理', '性能优化'],
+    工程化: ['Webpack', 'Vite', 'CI/CD', '模块化', '工程化', '性能优化'],
+    数据结构: ['数据结构', '哈希表', '双指针', '滑动窗口', '二分查找', '排序', '递归', '动态规划', '图'],
+    MySQL: ['索引', 'B+树', '事务', '锁', '数据库基础'],
+}
+
+/**
+ * 前端 / 框架 / 语言类题不允许出现的后端与算法知识点。
+ * 这些词在答案里出现(「索引」「事务」「排序」)不代表题目主题。
+ */
+const FRONTEND_BLOCKED = new Set([
+    '索引',
+    'B+树',
+    '事务',
+    '锁',
+    'JVM',
+    'Spring',
+    '数据库基础',
+    '数据结构',
+    '哈希表',
+    '双指针',
+    '滑动窗口',
+    '二分查找',
+    '排序',
+    '递归',
+    '动态规划',
+    '图',
+    'LLM',
+    'RAG',
+    'Function Calling',
+    'Prompt',
+])
 
 export interface ClassifyInput {
     title: string
@@ -337,7 +412,7 @@ function defaultPoint(stack: TechStack): string {
         case '浏览器':
             return '渲染原理'
         case '工程化':
-            return '工程化'
+            return '模块化'
         case 'MySQL':
         case 'Redis':
             return '索引'
@@ -360,23 +435,17 @@ function defaultPoint(stack: TechStack): string {
 export function classifyQuestion(input: ClassifyInput): Classification {
     const rawTags = (input.tags ?? []).filter((t) => typeof t === 'string' && t.trim())
     /**
-     * 参与判定用的标签。排除:
-     *  1. 方向名(前端/后端/算法/Agent/计算机基础)—— 它们是分类结果,回填后
-     *     又会被当成输入,形成自我强化(2026-10-28 实测:存储题被旧 tags 里的
-     *     Agent/LLM 反复判成 Agent)
-     *  2. LLM / RAG —— 同上,只让标题里的真实关键词决定
+     * 参与判定的标签:只保留可信别名,并且排除方向名(它们是分类结果,
+     * 回填后再当输入会自我强化)。
      */
-    const signalTags = rawTags.filter(
-        (t) =>
-            !(DIRECTIONS as readonly string[]).includes(t) &&
-            !['agent', 'llm', 'rag'].includes(t.toLowerCase()),
+    const signalTags = uniq(
+        rawTags
+            .map((t) => TRUSTED_ALIASES[t.trim().toLowerCase()])
+            .filter((t): t is string => !!t),
     )
-    // 只拿标题 + 旧标签 + 题库做判断:正文/答案里代码、图片 URL 太多,
-    // 会把 this / https / 实现 等词误当成知识点(2026-10-28 实测)。
-    const text = [input.title, signalTags.join(' '), input.bankSlug]
-        .filter(Boolean)
-        .join('\n')
-        .toLowerCase()
+    // 只用标题 + 题库名判定:正文/答案里的代码、URL、举例会把
+    // this / https / 数组方法 等词误判成知识点。
+    const text = [input.title, input.bankSlug].filter(Boolean).join('\n').toLowerCase()
 
     const titleText = [input.title, input.bankSlug].filter(Boolean).join('\n').toLowerCase()
 
@@ -396,22 +465,35 @@ export function classifyQuestion(input: ClassifyInput): Classification {
         direction = '计算机基础'
     }
 
-    // 技术栈(单主栈):标题优先,标签兜底。
-    // 旧标签质量参差(几乎每题都挂 HTML/前端),让标签先命中会把
-    // 「HTTP 与 HTTPS」判成 HTML。标题才是题目真实主题。
+    // 技术栈(单主栈):只看标题。题库名只做兜底 ——
+    // 'css-html' 这类 slug 会让 HTML 题全被判成 CSS(2026-11-11 实测)。
     const titleStack: TechStack | null =
         (
             [
                 { stack: 'Vue', re: /\bvue\b|vuex|vue\s*router|nexttick|keep-?alive|mixins?|v-if|v-for|v-show|computed|watch\b|slot|provide|inject|ref和reactive|defineproperty/i },
                 { stack: 'React', re: /\breact\b|redux|fiber|hooks?|usestate|useeffect|usenavigate|jsx|mobx/i },
-                { stack: 'TypeScript', re: /typescript|\bts\b|类型体操|泛型|枚举|装饰器|类型断言|类型推论|类型别名|联合类型|交叉类型|映射类型|索引签名|抽象类/i },
-                { stack: '浏览器', re: /http|https|\bpost\b|\bget\b|content-type|跨域|cors|缓存|cookie|localstorage|sessionstorage|websocket|\bsse\b|同源|状态码|报文|请求头|响应头|请求体|\bdns\b|\bcdn\b|tcp|udp|dom|bom|浏览器|事件冒泡|事件捕获|事件委托|存储/i },
-                { stack: 'CSS', re: /\bcss\b|flex|grid|bfc|布局|居中|定位|盒模型|选择器|伪类|伪元素|px|em\b|rem\b|transform|float|浮动|媒体查询|响应式设计/i },
-                { stack: 'HTML', re: /\bhtml\b|语义化|块级|行内/i },
-                { stack: '工程化', re: /webpack|vite|工程化|构建工具|模块化|commonjs|\bci\/cd\b|脚手架/i },
+                { stack: 'TypeScript', re: /typescript|\bts\b|类型体操|泛型|枚举|装饰器|类型断言|类型推论|类型别名|联合类型|交叉类型|映射类型|索引签名|抽象类|类型兼容/i },
+                { stack: 'HTML', re: /\bhtml\b|\bh5\b|\bh4\b|doctype|语义化|meta\s*标签|自定义属性|data-\*/i },
+                { stack: 'CSS', re: /\bcss\b|less\b|sass|scss|tailwind|display|visibility|position|margin|padding|border|background|z-index|overflow|opacity|flex|grid|bfc|布局|居中|定位|盒模型|选择器|伪类|伪元素|\bpx\b|\bem\b|\brem\b|transform|animation|transition|float|浮动|媒体查询|响应式设计|水平垂直/i },
+                { stack: '浏览器', re: /http|https|\bpost\b|\bget\b|content-type|跨域|cors|缓存|cookie|localstorage|sessionstorage|websocket|\bsse\b|同源|状态码|报文|请求头|响应头|请求体|\bdns\b|\bcdn\b|tcp|udp|\bdom\b|\bbom\b|浏览器|事件冒泡|事件捕获|事件委托|重绘|回流|渲染/i },
+                { stack: '工程化', re: /webpack|vite|工程化|构建工具|模块化|commonjs|esm\b|\bci\/cd\b|脚手架|babel|eslint/i },
                 { stack: 'Node.js', re: /\bnode\.?js\b|express|koa/i },
             ] as const
-        ).find((r) => r.re.test(titleText))?.stack ?? null
+        ).find((r) => r.re.test(input.title))?.stack ?? null
+
+    /** 标题没命中时,按题库 slug 兜底(题库是人工分的,比关键词可靠) */
+    const bankStack: TechStack | null =
+        input.bankSlug === 'algorithm'
+            ? '数据结构'
+            : input.bankSlug === 'typescript'
+              ? 'TypeScript'
+              : input.bankSlug === 'css-html'
+                ? /\bhtml\b|doctype|h5|语义化/i.test(input.title)
+                    ? 'HTML'
+                    : 'CSS'
+                : input.bankSlug === 'engineering'
+                  ? '工程化'
+                  : null
 
     const tagStack: TechStack | null = includesTag(signalTags, 'vue', 'vuex')
         ? 'Vue'
@@ -430,16 +512,22 @@ export function classifyQuestion(input: ClassifyInput): Classification {
         else if (includesTag(signalTags, 'mysql', 'innodb', 'b+树') || /mysql|innodb|b\+树/.test(text)) techStack = 'MySQL'
         else techStack = 'MySQL'
     } else {
-        techStack = titleStack ?? tagStack ?? 'JavaScript'
+        techStack = titleStack ?? tagStack ?? bankStack ?? 'JavaScript'
     }
 
     // 知识点
-    const points: string[] = []
+    const matched: string[] = []
     for (const rule of POINT_RULES) {
-        if (points.includes(rule.point)) continue
-        if (rule.test(text, signalTags)) points.push(rule.point)
-        if (points.length >= 4) break
+        if (matched.includes(rule.point)) continue
+        if (rule.test(text, signalTags)) matched.push(rule.point)
     }
+
+    // 按技术栈收敛:避免 TS 题挂 HTTP/安全、SQL 题挂 Hooks 这类串味
+    const allow = POINTS_BY_STACK[techStack]
+    const points = matched
+        .filter((p) => p !== techStack && p !== direction)
+        .filter((p) => (allow ? allow.includes(p) : !FRONTEND_BLOCKED.has(p)))
+        .slice(0, 4)
     if (points.length === 0) points.push(defaultPoint(techStack))
 
     // 方向/技术栈/知识点 + 非规范旧标签(Redux/Vuex/InnoDB 等)。

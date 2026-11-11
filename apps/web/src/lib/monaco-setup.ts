@@ -37,3 +37,45 @@ self.MonacoEnvironment = {
 }
 
 loader.config({ monaco })
+
+/**
+ * 自定义编辑器主题:纸色/墨色,和后台上下的界面一致。
+ * monaco 内置只有 vs / vs-dark,直接传 'light' 会落到默认白底。
+ */
+monaco.editor.defineTheme('paper-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+        { token: 'comment', foreground: '8a8478', fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'a93a31' },
+        { token: 'string', foreground: '2f6b57' },
+        { token: 'number', foreground: 'a15c2f' },
+    ],
+    colors: {
+        'editor.background': '#fbfaf6',
+        'editor.foreground': '#141310',
+        'editorGutter.background': '#fbfaf6',
+        'editor.lineHighlightBackground': '#f1eee2',
+        'editorLineNumber.foreground': '#b9b2a3',
+        'editorLineNumber.activeForeground': '#6e6a60',
+        'editor.selectionBackground': '#dcd7c9',
+        'editorWidget.background': '#fbfaf6',
+        'editorWidget.border': '#dcd7c9',
+        'editorSuggestWidget.background': '#fbfaf6',
+        'editorSuggestWidget.border': '#dcd7c9',
+    },
+})
+
+monaco.editor.defineTheme('paper-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+        'editor.background': '#1b1a15',
+        'editor.foreground': '#ece7da',
+        'editorGutter.background': '#1b1a15',
+        'editor.lineHighlightBackground': '#24221c',
+        'editorLineNumber.foreground': '#5c574b',
+        'editorLineNumber.activeForeground': '#a39c8b',
+    },
+})

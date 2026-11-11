@@ -25,8 +25,8 @@ export function MarkdownEditor({
   onRestart,
 }: MarkdownEditorProps) {
   return (
-    <div className="h-full w-full min-w-0 max-w-full overflow-hidden flex flex-col border-l">
-      <div className="shrink-0 px-3 py-2 border-b flex items-center justify-between">
+    <div className="h-full w-full min-w-0 max-w-full overflow-hidden flex flex-col">
+      <div className="shrink-0 border-b border-border bg-card/60 px-3 py-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold">我的答案</h3>
         <div className="flex items-center gap-2">
           {!isSubmitted ? (
