@@ -466,3 +466,27 @@
 .md-editor .md-editor-preview img {
     border-radius: 4px;
 }
+
+/* 代码块顶栏:md-editor 默认是深色条,和纸面冲突 */
+.md-editor.default-theme {
+    --md-theme-code-before-bg-color: var(--muted);
+}
+
+.md-editor .md-editor-preview .md-editor-code-head {
+    background: var(--muted) !important;
+    color: var(--muted-foreground) !important;
+    border-bottom: 1px solid var(--border);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+.md-editor .md-editor-preview .md-editor-code-head span,
+.md-editor .md-editor-preview .md-editor-code-head .md-editor-copy {
+    color: var(--muted-foreground) !important;
+}
+
+.md-editor .md-editor-preview .md-editor-code {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
