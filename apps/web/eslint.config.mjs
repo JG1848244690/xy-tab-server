@@ -82,6 +82,9 @@ export default [
         crypto: 'readonly',
         // Additional DOM types
         HTMLButtonElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
         // ES2021+
         Promise: 'readonly',
         Set: 'readonly',

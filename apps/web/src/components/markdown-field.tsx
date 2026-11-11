@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- 工具栏回调只在点击时读取 textarea ref,不是渲染期访问 */
 import { useRef, useState } from 'react'
 import {
     Bold,
