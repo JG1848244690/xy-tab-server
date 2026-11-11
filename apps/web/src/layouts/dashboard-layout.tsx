@@ -41,18 +41,26 @@ export default function DashboardLayout() {
       >
         <div className="flex h-full flex-col gap-2">
           {/* 侧栏header logo和折叠按钮 */}
-          <div className="flex h-15 items-center border-b px-6 justify-between">
-            {!collapsed && (
+          <div className="flex h-15 items-center border-b border-sidebar-border px-4 justify-between">
+            {!collapsed ? (
               <Link
-                className="flex items-center gap-2 font-semibold text-primary hover:text-primary/80 transition-colors"
+                className="flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
                 to="/home"
               >
                 <img
                   src="/icon-96.png"
                   alt="序言"
-                  className="h-7 w-7 rounded-md object-cover"
+                  className="h-7 w-7 rounded-[4px] object-cover"
                 />
-                <span>序言</span>
+                <span className="font-serif text-[15px]">序言</span>
+              </Link>
+            ) : (
+              <Link to="/home" title="序言" className="hidden lg:block">
+                <img
+                  src="/icon-96.png"
+                  alt="序言"
+                  className="h-7 w-7 rounded-[4px] object-cover"
+                />
               </Link>
             )}
             <button
