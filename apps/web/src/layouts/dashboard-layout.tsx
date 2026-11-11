@@ -75,7 +75,7 @@ export default function DashboardLayout() {
                 localStorage.setItem('nav-pinned', next ? '1' : '0')
               }}
               className={`flex-none rounded p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground ${
-                expanded ? 'opacity-100' : 'opacity-0'
+                expanded ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
               aria-label={pinned ? '取消固定' : '固定展开'}
               title={pinned ? '取消固定' : '固定展开'}
