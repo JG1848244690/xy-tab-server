@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Auth3DCard } from '@/components/auth-3d-card'
+import { Link } from 'react-router-dom'
+import { AuthAside } from '@/components/auth-aside'
 import { LoginForm } from '@/components/auth/login-form'
 import { RegisterForm } from '@/components/auth/register-form'
 
@@ -9,52 +10,44 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login')
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
-      {/* 左侧表单区域 */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12">
-        <div className="w-full max-w-[480px]">
-          {/* Logo 区域 */}
-          <div className="flex items-center gap-3 mb-12">
-            <div className="rounded-xl bg-primary/10 p-1.5">
-              <img
-                src="/icon-96.png"
-                alt="序言"
-                className="h-8 w-8 rounded-lg object-cover"
-              />
-            </div>
-            <span className="text-xl font-bold text-foreground">序言</span>
-          </div>
+    <div className="flex min-h-screen bg-background">
+      {/* 左侧:表单 */}
+      <div className="flex flex-1 items-center justify-center px-6 py-10 sm:px-10">
+        <div className="w-full max-w-[420px]">
+          {/* 品牌 */}
+          <Link to="/home" className="mb-12 flex items-center gap-3">
+            <img src="/icon-96.png" alt="序言" className="h-8 w-8 rounded-[4px] object-cover" />
+            <span className="font-serif text-xl font-semibold tracking-tight">序言</span>
+            <span className="mt-0.5 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+              ADMIN
+            </span>
+          </Link>
 
-          {/* 动态切换表单 */}
-          <div className="transition-all duration-300 ease-in-out">
-            {mode === 'login' ? (
-              <LoginForm onSwitchToRegister={() => setMode('register')} />
-            ) : (
-              <RegisterForm
-                onSwitchToLogin={() => setMode('login')}
-                onRegisterSuccess={() => setMode('login')}
-              />
-            )}
-          </div>
+          {mode === 'login' ? (
+            <LoginForm onSwitchToRegister={() => setMode('register')} />
+          ) : (
+            <RegisterForm
+              onSwitchToLogin={() => setMode('login')}
+              onRegisterSuccess={() => setMode('login')}
+            />
+          )}
 
-          {/* 底部提示 */}
-          <div className="mt-12 text-center">
-            <p className="text-xs text-muted-foreground">
-              {mode === 'login' ? '登录' : '注册'}即表示您同意我们的
-              <button className="text-primary hover:underline mx-1">服务条款</button>和
-              <button className="text-primary hover:underline mx-1">隐私政策</button>
-            </p>
-          </div>
+          <p className="mt-12 border-t border-border pt-5 text-[11.5px] leading-5 text-muted-foreground">
+            {mode === 'login' ? '登录' : '注册'}即表示同意
+            <button className="mx-1 text-primary underline-offset-2 hover:underline">服务条款</button>
+            和
+            <button className="mx-1 text-primary underline-offset-2 hover:underline">隐私政策</button>
+          </p>
         </div>
       </div>
 
-      {/* 右侧 3D 卡片 - 桌面端显示 */}
-      <Auth3DCard
-        title={mode === 'login' ? '欢迎回来' : '加入我们'}
+      {/* 右侧:书页 aside(桌面端) */}
+      <AuthAside
+        title={mode === 'login' ? '欢迎回来' : '加入编务'}
         description={
           mode === 'login'
-            ? '登录 序言，继续您的学习之旅'
-            : '注册 序言，开启您的知识探索之旅'
+            ? '继续维护这座题库:审题、归档、写文章。'
+            : '注册后即可提交题目、参与审核与内容整理。'
         }
       />
     </div>

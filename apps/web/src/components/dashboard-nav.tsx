@@ -92,11 +92,11 @@ export function DashboardNav({ collapsed = false }: DashboardNavProps) {
             to={item.href}
             title={collapsed ? item.title : undefined}
             className={cn(
-              'flex items-center rounded-lg px-3 py-2 transition-all',
+              'flex items-center rounded-md px-3 py-2 transition-colors',
               collapsed ? 'justify-center' : 'gap-3',
               isActive
-                ? 'bg-primary/10 text-primary font-semibold shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-primary/5 hover:text-primary'
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-foreground'
             )}
           >
             <Icon className={cn('h-4 w-4', isActive && 'text-primary')} />

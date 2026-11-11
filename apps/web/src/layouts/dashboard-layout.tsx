@@ -35,7 +35,7 @@ export default function DashboardLayout() {
       <RouteLoadingIndicator />
       {/* 桌面侧栏 */}
       <div
-        className={`hidden border-r bg-gray-100/40 lg:block dark:bg-gray-800/40 lg:sticky lg:top-0 lg:h-screen transition-all duration-300 shrink-0 ${
+        className={`hidden border-r border-sidebar-border bg-sidebar lg:block dark:bg-sidebar lg:sticky lg:top-0 lg:h-screen transition-all duration-300 shrink-0 ${
           collapsed ? 'lg:w-16' : 'lg:w-50'
         }`}
       >
@@ -80,11 +80,11 @@ export default function DashboardLayout() {
             onClick={handleClose}
           />
           <div
-            className={`fixed top-0 left-0 right-0 h-auto bg-white dark:bg-gray-800 z-50 lg:hidden shadow-lg transition-transform duration-300 ${
+            className={`fixed top-0 left-0 right-0 h-auto bg-card border-b border-border z-50 lg:hidden shadow-lg transition-transform duration-300 ${
               isOpening ? 'translate-y-0' : '-translate-y-full'
             }`}
           >
-            <div className="flex h-15 items-center border-b px-6 justify-between">
+            <div className="flex h-15 items-center border-b border-sidebar-border px-6 justify-between">
               <Link
                 className="flex items-center gap-2 font-semibold text-primary hover:text-primary/80 transition-colors"
                 to="/home"
@@ -111,7 +111,7 @@ export default function DashboardLayout() {
       )}
 
       <div className="flex flex-col min-h-screen lg:h-screen flex-1 min-w-0">
-        <header className="sticky top-0 z-10 flex h-14 lg:h-15 items-center gap-4 border-b bg-primary/5 backdrop-blur-sm px-6">
+        <header className="sticky top-0 z-10 flex h-14 lg:h-15 items-center gap-4 border-b border-border bg-background/85 backdrop-blur-md px-6">
           <button
             onClick={handleOpen}
             className="lg:hidden p-1.5 hover:bg-primary/10 rounded transition-colors"

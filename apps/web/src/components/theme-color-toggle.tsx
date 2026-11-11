@@ -12,37 +12,37 @@ const themes = [
   {
     name: 'Zinc',
     value: 'zinc' as const,
-    color: 'oklch(0.7 0.15 85)',
+    color: '#b5342a',
   },
   {
     name: 'Slate',
     value: 'slate' as const,
-    color: 'oklch(0.45 0.08 256)',
+    color: '#24406b',
   },
   {
     name: 'Rose',
     value: 'rose' as const,
-    color: 'oklch(0.6 0.22 20)',
+    color: '#a63b52',
   },
   {
     name: 'Blue',
     value: 'blue' as const,
-    color: 'oklch(0.55 0.2 260)',
+    color: '#2f5d9e',
   },
   {
     name: 'Green',
     value: 'green' as const,
-    color: 'oklch(0.55 0.15 150)',
+    color: '#2f6b57',
   },
   {
     name: 'Orange',
     value: 'orange' as const,
-    color: 'oklch(0.65 0.2 45)',
+    color: '#a15c2f',
   },
   {
     name: 'Purple',
     value: 'purple' as const,
-    color: 'oklch(0.55 0.2 300)',
+    color: '#6b4e8e',
   },
 ]
 
