@@ -1,4 +1,4 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { DashboardNav, TopNav } from '@/components/dashboard-nav'
 import { UserNav } from '@/components/user-nav'
@@ -10,9 +10,13 @@ import { useState, useEffect } from 'react'
 import BreadCrumb from '@/components/breadcrumb'
 
 export default function DashboardLayout() {
+  const { pathname } = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isOpening, setIsOpening] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  /** 只有二级及以上页面才需要面包屑(顶级页的标题已经在内容里) */
+  const showBreadcrumb = pathname.split('/').filter(Boolean).length > 1
 
   useEffect(() => {
     setMounted(true)
@@ -80,10 +84,12 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        {/* 面包屑 / 当前位置:细线一行,不跟内容抢注意力 */}
-        <div className="hidden h-9 items-center border-t border-border/70 bg-card/40 px-4 sm:px-6 lg:flex">
-          <BreadCrumb />
-        </div>
+        {/* 面包屑:只在二级页面出现,避免和页面标题重复 */}
+        {showBreadcrumb ? (
+          <div className="hidden h-9 items-center border-t border-border/70 bg-card/40 px-4 sm:px-6 lg:flex">
+            <BreadCrumb />
+          </div>
+        ) : null}
       </header>
 
       {/* 移动端抽屉 */}
