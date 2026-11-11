@@ -305,11 +305,12 @@
 }
 
 /* ============================================================
-   md-editor-rt 预览器:从"白底文档"改成"纸面正文"
-   md-editor 自带一套浅色主题变量和排版,直接贴在纸色界面里会非常割裂。
-   这里只覆盖色板和排版,不改它的高亮逻辑。
+   md-editor-rt 预览器:从「白底文档」改成「纸面正文」
+   md-editor 的样式在组件里 import,bundle 后排在 globals.css 之后,
+   同权重规则会被它盖掉,所以这里统一提高选择器权重 + 必要的 !important。
    ============================================================ */
-.md-editor {
+.md-editor.default-theme,
+.md-editor.md-editor-previewOnly {
     --md-theme-color: var(--foreground);
     --md-theme-bg-color: transparent;
     --md-theme-code-bg-color: var(--muted);
@@ -317,158 +318,151 @@
     --md-theme-code-inline-bg-color: var(--muted);
     --md-theme-border-color: var(--border);
     --md-theme-link-color: var(--primary);
-    background: transparent;
+    background: transparent !important;
     color: var(--foreground);
-    border: none;
+    border: none !important;
     font-family: var(--font-sans);
 }
 
-.md-editor-preview-wrapper {
-    padding: 0;
-    background: transparent;
+.md-editor .md-editor-preview-wrapper {
+    padding: 0 !important;
+    background: transparent !important;
 }
 
-.md-editor-preview {
-    padding: 0;
-    background: transparent;
+.md-editor .md-editor-preview {
+    padding: 0 !important;
+    background: transparent !important;
     color: var(--foreground);
-    font-family: var(--font-sans);
-    font-size: 13.5px;
-    line-height: 1.85;
+    font-family: var(--font-sans) !important;
+    font-size: 13.5px !important;
+    line-height: 1.85 !important;
     word-break: break-word;
 }
 
-.md-editor-preview h1,
-.md-editor-preview h2,
-.md-editor-preview h3,
-.md-editor-preview h4,
-.md-editor-preview h5,
-.md-editor-preview h6 {
-    font-family: var(--font-serif);
+.md-editor .md-editor-preview h1,
+.md-editor .md-editor-preview h2,
+.md-editor .md-editor-preview h3,
+.md-editor .md-editor-preview h4,
+.md-editor .md-editor-preview h5,
+.md-editor .md-editor-preview h6 {
+    font-family: var(--font-serif) !important;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--foreground);
-    margin: 1.4em 0 0.6em;
     line-height: 1.4;
 }
 
-.md-editor-preview h1 {
+.md-editor .md-editor-preview h1 {
     font-size: 1.5em;
+    margin: 1.2em 0 0.6em;
     padding-bottom: 0.35em;
     border-bottom: 1px solid var(--border);
 }
 
-.md-editor-preview h2 {
-    font-size: 1.28em;
+.md-editor .md-editor-preview h2 {
+    font-size: 1.26em;
+    margin: 1.2em 0 0.55em;
     padding-bottom: 0.3em;
     border-bottom: 1px solid var(--border);
 }
 
-.md-editor-preview h3 {
+.md-editor .md-editor-preview h3 {
     font-size: 1.12em;
+    margin: 1em 0 0.5em;
 }
 
-.md-editor-preview h4 {
+.md-editor .md-editor-preview h4 {
     font-size: 1em;
+    margin: 1em 0 0.4em;
 }
 
-.md-editor-preview p {
+.md-editor .md-editor-preview p {
     margin: 0.65em 0;
 }
 
-.md-editor-preview a {
+.md-editor .md-editor-preview a {
     color: var(--primary);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
 
-.md-editor-preview strong {
+.md-editor .md-editor-preview strong {
     font-weight: 600;
     color: var(--foreground);
 }
 
-.md-editor-preview ul,
-.md-editor-preview ol {
+.md-editor .md-editor-preview ul,
+.md-editor .md-editor-preview ol {
     padding-left: 1.35em;
     margin: 0.6em 0;
 }
 
-.md-editor-preview li {
+.md-editor .md-editor-preview li {
     margin: 0.25em 0;
 }
 
-.md-editor-preview hr {
+.md-editor .md-editor-preview hr {
     border: none;
     border-top: 1px solid var(--border);
     margin: 1.4em 0;
 }
 
-.md-editor-preview blockquote {
+.md-editor .md-editor-preview blockquote {
     margin: 0.9em 0;
     padding: 0.45em 0.9em;
     border-left: 2px solid var(--primary);
-    background: color-mix(in oklab, var(--muted) 60%, transparent);
+    background: color-mix(in oklab, var(--muted) 60%, transparent) !important;
     color: var(--muted-foreground);
 }
 
-.md-editor-preview blockquote p {
+.md-editor .md-editor-preview blockquote p {
     margin: 0.2em 0;
 }
 
-/* 行内代码 */
-.md-editor-preview code {
-    font-family: var(--font-mono);
+.md-editor .md-editor-preview code {
+    font-family: var(--font-mono) !important;
     font-size: 0.88em;
-    background: var(--muted);
+    background: var(--muted) !important;
     color: var(--foreground);
     border-radius: 2px;
     padding: 0.12em 0.35em;
 }
 
-/* 代码块:纸面上的浅色块,不用纯白 */
-.md-editor-preview pre {
-    background: var(--muted);
+.md-editor .md-editor-preview pre {
+    background: var(--muted) !important;
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 12px 14px;
+    padding: 12px 14px !important;
     margin: 0.9em 0;
     overflow-x: auto;
 }
 
-.md-editor-preview pre code {
-    background: transparent;
-    padding: 0;
+.md-editor .md-editor-preview pre code {
+    background: transparent !important;
+    padding: 0 !important;
     font-size: 12.5px;
     line-height: 1.7;
 }
 
-/* 表格:细线,和站点的目录表一致 */
-.md-editor-preview table {
+.md-editor .md-editor-preview table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.9em 0;
     font-size: 13px;
 }
 
-.md-editor-preview th,
-.md-editor-preview td {
+.md-editor .md-editor-preview th,
+.md-editor .md-editor-preview td {
     border: 1px solid var(--border);
     padding: 6px 10px;
     text-align: left;
 }
 
-.md-editor-preview th {
+.md-editor .md-editor-preview th {
     background: var(--muted);
     font-weight: 600;
 }
 
-.md-editor-preview img {
+.md-editor .md-editor-preview img {
     border-radius: 4px;
-}
-
-/* monaco:交给自定义主题,这里只兜底容器底色 */
-.monaco-editor,
-.monaco-editor-background,
-.monaco-editor .margin {
-    background-color: var(--card) !important;
 }
