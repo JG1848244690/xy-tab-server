@@ -76,7 +76,8 @@ export const navItems: NavItem[] = [
   },
 ]
 
-export function DashboardNav({ expanded = false }: DashboardNavProps) {  const { pathname } = useLocation()
+export function DashboardNav({ expanded = false }: DashboardNavProps) {
+  const { pathname } = useLocation()
   const role = useAuthStore((s) => s.user?.role)
   const visibleItems = navItems.filter((item) => !item.adminOnly || role === 'admin')
 
@@ -114,41 +115,3 @@ export function DashboardNav({ expanded = false }: DashboardNavProps) {  const {
     </nav>
   )
 }
-
-/**
- * 顶部横向导航(桌面端)。
- * 9 个模块用下划线的书页式指示,不用药丸块;
- * 窄屏时横向可滚动,不影响右侧全局操作区。
- */
-export function TopNav() {
-  const { pathname } = useLocation()
-  const role = useAuthStore((s) => s.user?.role)
-  const visibleItems = navItems.filter((item) => !item.adminOnly || role === 'admin')
-
-  return (
-    <nav
-      className="hidden min-w-0 items-stretch gap-0.5 self-stretch overflow-x-auto lg:flex
-                 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
-    >
-      {visibleItems.map((item) => {
-        const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-        return (
-          <Link
-            key={item.href}
-            to={item.href}
-            className={cn(
-              'relative flex flex-none items-center border-b-2 px-2.5 text-[13.5px] tracking-[0.01em] transition-colors xl:px-3.5',
-              isActive
-                ? 'border-primary font-medium text-foreground'
-                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
-            )}
-          >
-            <span className="whitespace-nowrap">{item.title}</span>
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
