@@ -18,9 +18,16 @@ export function QuestionPanel({
   editorTheme,
   onOpenHistory,
 }: QuestionPanelProps) {
+  /**
+   * 存量导入的题里有 160/297 道 content 只是标题(≤20 字),
+   * 真正的解析都在 answer 里。这种情况直接打开「参考答案」。
+   */
+  const contentIsStub = (question.content ?? '').trim().length < 20
+  const defaultTab = contentIsStub && question.answer ? 'answer' : 'content'
+
   return (
-    <div className="h-full flex flex-col overflow-hidden border-r">
-      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0">
+    <div className="h-full flex flex-col overflow-hidden">
+      <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
         <div className="shrink-0 border-b border-border bg-card/60 px-3 py-2 flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="content">题目内容</TabsTrigger>
