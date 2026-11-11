@@ -33,9 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SiteChrome
                     brand={
                         <>
-                            <span className="seal" aria-hidden>
-                                序
-                            </span>
+                            <img
+                                src="/icon.png"
+                                alt=""
+                                width={28}
+                                height={28}
+                                className="size-7 rounded-[4px] object-cover"
+                            />
                             <span className="font-serif font-semibold">序言</span>
                         </>
                     }

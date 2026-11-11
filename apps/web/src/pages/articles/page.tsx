@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Link2, Trash2 } from 'lucide-react'
+import { Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { articlesApi, type Article, type ArticleKind, type ArticleStatus } from '@/services/articles-api'
 import { ArticleDialog } from './article-dialog'
 import { CollectionsSection } from './collections-section'
@@ -17,8 +17,11 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import Select from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 20
+
+type Tab = 'articles' | 'collections'
 
 const STATUS_LABEL: Record<ArticleStatus, string> = {
     draft: '草稿',
@@ -41,6 +44,8 @@ function fmtDate(value: string | null) {
 
 export default function ArticlesPage() {
     const queryClient = useQueryClient()
+    const [tab, setTab] = useState<Tab>('articles')
+    const [collectionsTotal, setCollectionsTotal] = useState<number | null>(null)
     const [kind, setKind] = useState<'all' | ArticleKind>('all')
     const [status, setStatus] = useState<'all' | ArticleStatus>('all')
     const [q, setQ] = useState('')
@@ -64,6 +69,7 @@ export default function ArticlesPage() {
     const { data, isLoading } = useQuery({
         queryKey: ['articles', filters],
         queryFn: () => articlesApi.list(filters),
+        enabled: tab === 'articles',
     })
 
     const invalidate = () => queryClient.invalidateQueries({ queryKey: ['articles'] })
@@ -113,213 +119,265 @@ export default function ArticlesPage() {
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
     return (
-        <div className="flex h-full flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-semibold">文章</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        原创文章与外部荐文。发布后由定时构建同步到前台。
+                        原创图文、外部荐文与主题合集。发布后由定时构建同步到前台。
                     </p>
                 </div>
-                <Button
-                    onClick={() => {
-                        setEditing(null)
-                        setOpen(true)
-                    }}
-                >
-                    <Plus className="mr-1 h-4 w-4" />
-                    新建文章
-                </Button>
-            </div>
-
-            <div className="rounded-lg border bg-card p-3">
-                <div className="flex items-center gap-2">
-                    <Link2 className="ml-1 h-4 w-4 flex-none text-muted-foreground" />
-                    <Input
-                        value={quickUrl}
-                        onChange={(e) => {
-                            setQuickUrl(e.target.value)
-                            setQuickError(null)
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') submitQuick()
-                        }}
-                        placeholder="刷到好链接?粘贴 URL,回车直接发布成荐文"
-                        className="border-0 shadow-none focus-visible:ring-0"
-                    />
+                {tab === 'articles' ? (
                     <Button
-                        onClick={submitQuick}
-                        disabled={quickAdd.isPending || !quickUrl.trim()}
-                        className="flex-none"
+                        onClick={() => {
+                            setEditing(null)
+                            setOpen(true)
+                        }}
                     >
-                        {quickAdd.isPending ? '抓取中…' : '存链接'}
+                        <Plus className="mr-1 h-4 w-4" />
+                        新建文章
                     </Button>
-                </div>
-                <p className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                    只填 URL 即可,标题和摘要会自动抓取;抓不到就用域名兜底。
-                </p>
-                {quickError ? <p className="mt-1 pl-7 text-xs text-destructive">{quickError}</p> : null}
+                ) : null}
             </div>
 
-            <CollectionsSection />
-
-            <div className="flex flex-wrap items-center gap-3">
-                <div className="w-32">
-                    <Select
-                        value={kind}
-                        onChange={(v) => {
-                            setKind(v as 'all' | ArticleKind)
-                            setPage(1)
-                        }}
-                        options={[
-                            { label: '全部类型', value: 'all' },
-                            { label: '原创', value: 'own' },
-                            { label: '荐文', value: 'curated' },
-                        ]}
-                    />
-                </div>
-                <div className="w-32">
-                    <Select
-                        value={status}
-                        onChange={(v) => {
-                            setStatus(v as 'all' | ArticleStatus)
-                            setPage(1)
-                        }}
-                        options={[
-                            { label: '全部状态', value: 'all' },
-                            { label: '草稿', value: 'draft' },
-                            { label: '已发布', value: 'approved' },
-                        ]}
-                    />
-                </div>
-                <Input
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value)
-                        setPage(1)
-                    }}
-                    placeholder="搜索标题"
-                    className="max-w-64"
-                />
-                <span className="ml-auto text-xs text-muted-foreground">共 {total} 篇</span>
+            <div className="flex items-center gap-1 border-b">
+                <TabButton active={tab === 'articles'} onClick={() => setTab('articles')}>
+                    文章
+                    {tab === 'articles' || total > 0 ? (
+                        <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{total}</span>
+                    ) : null}
+                </TabButton>
+                <TabButton active={tab === 'collections'} onClick={() => setTab('collections')}>
+                    合集
+                    {collectionsTotal !== null ? (
+                        <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+                            {collectionsTotal}
+                        </span>
+                    ) : null}
+                </TabButton>
             </div>
 
-            <div className="overflow-hidden rounded-lg border bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>标题</TableHead>
-                            <TableHead className="w-20">类型</TableHead>
-                            <TableHead className="w-24">状态</TableHead>
-                            <TableHead className="w-28">发布时间</TableHead>
-                            <TableHead className="w-36 text-right">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            Array.from({ length: 4 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell colSpan={5}>
-                                        <Skeleton className="h-6 w-full" />
-                                    </TableCell>
+            {tab === 'articles' ? (
+                <>
+                    <div className="rounded-lg border bg-card p-3">
+                        <div className="flex items-center gap-2">
+                            <Link2 className="ml-1 h-4 w-4 flex-none text-muted-foreground" />
+                            <Input
+                                value={quickUrl}
+                                onChange={(e) => {
+                                    setQuickUrl(e.target.value)
+                                    setQuickError(null)
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') submitQuick()
+                                }}
+                                placeholder="刷到好链接?粘贴 URL,回车直接发布成荐文"
+                                className="border-0 shadow-none focus-visible:ring-0"
+                            />
+                            <Button
+                                onClick={submitQuick}
+                                disabled={quickAdd.isPending || !quickUrl.trim()}
+                                className="flex-none"
+                            >
+                                {quickAdd.isPending ? '抓取中…' : '存链接'}
+                            </Button>
+                        </div>
+                        <p className="mt-1 pl-7 text-[11px] text-muted-foreground">
+                            只填 URL 即可,标题和摘要会自动抓取;抓不到就用域名兜底。
+                        </p>
+                        {quickError ? (
+                            <p className="mt-1 pl-7 text-xs text-destructive">{quickError}</p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="w-32">
+                            <Select
+                                value={kind}
+                                onChange={(v) => {
+                                    setKind(v as 'all' | ArticleKind)
+                                    setPage(1)
+                                }}
+                                options={[
+                                    { label: '全部类型', value: 'all' },
+                                    { label: '原创', value: 'own' },
+                                    { label: '荐文', value: 'curated' },
+                                ]}
+                            />
+                        </div>
+                        <div className="w-32">
+                            <Select
+                                value={status}
+                                onChange={(v) => {
+                                    setStatus(v as 'all' | ArticleStatus)
+                                    setPage(1)
+                                }}
+                                options={[
+                                    { label: '全部状态', value: 'all' },
+                                    { label: '草稿', value: 'draft' },
+                                    { label: '已发布', value: 'approved' },
+                                ]}
+                            />
+                        </div>
+                        <Input
+                            value={q}
+                            onChange={(e) => {
+                                setQ(e.target.value)
+                                setPage(1)
+                            }}
+                            placeholder="搜索标题"
+                            className="max-w-64"
+                        />
+                        <span className="ml-auto text-xs text-muted-foreground">共 {total} 篇</span>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>标题</TableHead>
+                                    <TableHead className="w-20">类型</TableHead>
+                                    <TableHead className="w-24">状态</TableHead>
+                                    <TableHead className="w-28">发布时间</TableHead>
+                                    <TableHead className="w-36 text-right">操作</TableHead>
                                 </TableRow>
-                            ))
-                        ) : rows.length ? (
-                            rows.map((article) => (
-                                <TableRow key={article.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{article.title}</div>
-                                        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                                            /article/{article.slug}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            {article.kind === 'own' ? '原创' : '荐文'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span
-                                            className={`inline-flex rounded-full px-2 py-0.5 text-xs ${STATUS_CLASS[article.status]}`}
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    Array.from({ length: 4 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell colSpan={5}>
+                                                <Skeleton className="h-6 w-full" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : rows.length ? (
+                                    rows.map((article) => (
+                                        <TableRow key={article.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{article.title}</div>
+                                                <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                                                    /article/{article.slug}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">
+                                                    {article.kind === 'own' ? '原创' : '荐文'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span
+                                                    className={`inline-flex rounded-full px-2 py-0.5 text-xs ${STATUS_CLASS[article.status]}`}
+                                                >
+                                                    {STATUS_LABEL[article.status]}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {fmtDate(article.publishedAt)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setEditing(article)
+                                                            setOpen(true)
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => togglePublish.mutate(article)}
+                                                        disabled={togglePublish.isPending}
+                                                    >
+                                                        {article.status === 'approved' ? '下线' : '发布'}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive hover:text-destructive"
+                                                        onClick={() => {
+                                                            if (window.confirm(`删除《${article.title}》?`))
+                                                                remove.mutate(article.id)
+                                                        }}
+                                                        disabled={remove.isPending}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={5}
+                                            className="py-16 text-center text-sm text-muted-foreground"
                                         >
-                                            {STATUS_LABEL[article.status]}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        {fmtDate(article.publishedAt)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setEditing(article)
-                                                    setOpen(true)
-                                                }}
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => togglePublish.mutate(article)}
-                                                disabled={togglePublish.isPending}
-                                            >
-                                                {article.status === 'approved' ? '下线' : '发布'}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-destructive hover:text-destructive"
-                                                onClick={() => {
-                                                    if (window.confirm(`删除《${article.title}》?`))
-                                                        remove.mutate(article.id)
-                                                }}
-                                                disabled={remove.isPending}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} className="py-16 text-center text-sm text-muted-foreground">
-                                    还没有文章,点右上角「新建文章」。
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                                            还没有文章,点右上角「新建文章」。
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
 
-            {totalPages > 1 ? (
-                <div className="flex items-center justify-end gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => p - 1)}
-                    >
-                        上一页
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                        {page} / {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage((p) => p + 1)}
-                    >
-                        下一页
-                    </Button>
-                </div>
-            ) : null}
+                    {totalPages > 1 ? (
+                        <div className="flex items-center justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page <= 1}
+                                onClick={() => setPage((p) => p - 1)}
+                            >
+                                上一页
+                            </Button>
+                            <span className="text-xs text-muted-foreground">
+                                {page} / {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page >= totalPages}
+                                onClick={() => setPage((p) => p + 1)}
+                            >
+                                下一页
+                            </Button>
+                        </div>
+                    ) : null}
+                </>
+            ) : (
+                <CollectionsSection onLoaded={setCollectionsTotal} />
+            )}
 
             <ArticleDialog open={open} onOpenChange={setOpen} article={editing} />
         </div>
+    )
+}
+
+function TabButton({
+    active,
+    onClick,
+    children,
+}: {
+    active: boolean
+    onClick: () => void
+    children: React.ReactNode
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                '-mb-px flex items-center border-b-2 px-3 py-2 text-sm transition-colors',
+                active
+                    ? 'border-primary font-medium text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+        >
+            {children}
+        </button>
     )
 }

@@ -75,7 +75,8 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                     <a
                         href={WEB_APP_URL}
                         className="nav-link ml-1 flex min-h-11 items-center px-3 text-foreground transition-colors hover:text-seal sm:min-h-0"
-                        rel="nofollow"
+                        rel="nofollow noopener noreferrer"
+                        target="_blank"
                         onClick={() => setOpen(false)}
                     >
                         贡献题目
