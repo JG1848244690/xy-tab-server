@@ -134,8 +134,7 @@ export default function PracticePage() {
             <ResizablePanel defaultSize={50}>
               <QuestionPanel
                 question={question}
-                questionId={questionId}
-                editorTheme={editorTheme}
+                questionId={questionId}
                 onOpenHistory={() => setHistoryDialogOpen(true)}
               />
             </ResizablePanel>
@@ -149,7 +148,6 @@ export default function PracticePage() {
                 <MarkdownEditor
                   userAnswer={userAnswer}
                   onAnswerChange={setUserAnswer}
-                  editorTheme={editorTheme}
                   isSubmitted={isSubmitted}
                   isSubmitting={submitAndMarkMutation.isPending}
                   onSubmitCorrect={() => handleSubmitAndMark(true)}

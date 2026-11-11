@@ -1,21 +1,19 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { History } from 'lucide-react'
-import { MdPreview } from 'md-editor-rt'
-import 'md-editor-rt/lib/style.css'
+import { Markdown } from '@/components/markdown'
 import type { Question } from '../types'
 import Drawer from '@/components/drawer'
+
 interface QuestionPanelProps {
   question: Question
   questionId: string
-  editorTheme: 'dark' | 'light'
   onOpenHistory: () => void
 }
 
 export function QuestionPanel({
   question,
   questionId,
-  editorTheme,
   onOpenHistory,
 }: QuestionPanelProps) {
   /**
@@ -42,18 +40,12 @@ export function QuestionPanel({
 
         {/* 题目内容 */}
         <TabsContent value="content" className="flex-1 min-h-0 m-0">
-          <div className="h-full overflow-y-auto overflow-x-auto p-3 min-w-0">
-            {question.content ? (
-              <div className="w-full min-w-0">
-                <MdPreview
-                  id={`content-${questionId}`}
-                  modelValue={question.content}
-                  theme={editorTheme}
-                />
-              </div>
+          <div className="h-full overflow-y-auto overflow-x-auto p-4 min-w-0">
+            {question.content?.trim() ? (
+              <Markdown>{question.content}</Markdown>
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                暂无内容
+                暂无内容,直接看「参考答案」即可
               </div>
             )}
           </div>
@@ -61,15 +53,9 @@ export function QuestionPanel({
 
         {/* 参考答案 */}
         <TabsContent value="answer" className="flex-1 min-h-0 m-0">
-          <div className="h-full overflow-y-auto overflow-x-auto p-3 min-w-0">
-            {question.answer ? (
-              <div className="w-full min-w-0">
-                <MdPreview
-                  id={`answer-${questionId}`}
-                  modelValue={question.answer}
-                  theme={editorTheme}
-                />
-              </div>
+          <div className="h-full overflow-y-auto overflow-x-auto p-4 min-w-0">
+            {question.answer?.trim() ? (
+              <Markdown>{question.answer}</Markdown>
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
                 暂无参考答案

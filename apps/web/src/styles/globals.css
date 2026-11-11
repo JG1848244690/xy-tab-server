@@ -305,188 +305,252 @@
 }
 
 /* ============================================================
-   md-editor-rt 预览器:从「白底文档」改成「纸面正文」
-   md-editor 的样式在组件里 import,bundle 后排在 globals.css 之后,
-   同权重规则会被它盖掉,所以这里统一提高选择器权重 + 必要的 !important。
+   .markdown-body —— 统一的 Markdown 正文样式(纸色/墨色)
+   使用 react-markdown 渲染,前台与后台共用同一套视觉语言。
    ============================================================ */
-.md-editor.default-theme,
-.md-editor.md-editor-previewOnly {
-    --md-theme-color: var(--foreground);
-    --md-theme-bg-color: transparent;
-    --md-theme-code-bg-color: var(--muted);
-    --md-theme-code-block-bg-color: var(--muted);
-    --md-theme-code-inline-bg-color: var(--muted);
-    --md-theme-border-color: var(--border);
-    --md-theme-link-color: var(--primary);
-    background: transparent !important;
+.markdown-body {
     color: var(--foreground);
-    border: none !important;
     font-family: var(--font-sans);
-}
-
-.md-editor .md-editor-preview-wrapper {
-    padding: 0 !important;
-    background: transparent !important;
-}
-
-.md-editor .md-editor-preview {
-    padding: 0 !important;
-    background: transparent !important;
-    color: var(--foreground);
-    font-family: var(--font-sans) !important;
-    font-size: 13.5px !important;
-    line-height: 1.85 !important;
+    font-size: 13.5px;
+    line-height: 1.85;
     word-break: break-word;
 }
 
-.md-editor .md-editor-preview h1,
-.md-editor .md-editor-preview h2,
-.md-editor .md-editor-preview h3,
-.md-editor .md-editor-preview h4,
-.md-editor .md-editor-preview h5,
-.md-editor .md-editor-preview h6 {
-    font-family: var(--font-serif) !important;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--foreground);
-    line-height: 1.4;
+.markdown-body > :first-child {
+    margin-top: 0;
 }
 
-.md-editor .md-editor-preview h1 {
+.markdown-body > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+    color: var(--foreground);
+}
+
+.markdown-body h1 {
     font-size: 1.5em;
     margin: 1.2em 0 0.6em;
     padding-bottom: 0.35em;
     border-bottom: 1px solid var(--border);
 }
 
-.md-editor .md-editor-preview h2 {
+.markdown-body h2 {
     font-size: 1.26em;
     margin: 1.2em 0 0.55em;
     padding-bottom: 0.3em;
     border-bottom: 1px solid var(--border);
 }
 
-.md-editor .md-editor-preview h3 {
+.markdown-body h3 {
     font-size: 1.12em;
     margin: 1em 0 0.5em;
 }
 
-.md-editor .md-editor-preview h4 {
+.markdown-body h4 {
     font-size: 1em;
     margin: 1em 0 0.4em;
 }
 
-.md-editor .md-editor-preview p {
+.markdown-body p {
     margin: 0.65em 0;
 }
 
-.md-editor .md-editor-preview a {
+.markdown-body a {
     color: var(--primary);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
 
-.md-editor .md-editor-preview strong {
+.markdown-body strong {
     font-weight: 600;
-    color: var(--foreground);
 }
 
-.md-editor .md-editor-preview ul,
-.md-editor .md-editor-preview ol {
-    padding-left: 1.35em;
+.markdown-body ul,
+.markdown-body ol {
     margin: 0.6em 0;
+    padding-left: 1.4em;
 }
 
-.md-editor .md-editor-preview li {
+.markdown-body ul {
+    list-style: disc;
+}
+
+.markdown-body ol {
+    list-style: decimal;
+}
+
+.markdown-body li {
     margin: 0.25em 0;
 }
 
-.md-editor .md-editor-preview hr {
+.markdown-body li > p {
+    margin: 0.2em 0;
+}
+
+.markdown-body hr {
     border: none;
     border-top: 1px solid var(--border);
     margin: 1.4em 0;
 }
 
-.md-editor .md-editor-preview blockquote {
+.markdown-body blockquote {
     margin: 0.9em 0;
     padding: 0.45em 0.9em;
     border-left: 2px solid var(--primary);
-    background: color-mix(in oklab, var(--muted) 60%, transparent) !important;
+    background: color-mix(in oklab, var(--muted) 60%, transparent);
     color: var(--muted-foreground);
 }
 
-.md-editor .md-editor-preview blockquote p {
+.markdown-body blockquote p {
     margin: 0.2em 0;
 }
 
-.md-editor .md-editor-preview code {
-    font-family: var(--font-mono) !important;
+/* 行内代码 */
+.markdown-body :not(pre) > code {
+    font-family: var(--font-mono);
     font-size: 0.88em;
-    background: var(--muted) !important;
+    background: var(--muted);
     color: var(--foreground);
     border-radius: 2px;
     padding: 0.12em 0.35em;
 }
 
-.md-editor .md-editor-preview pre {
-    background: var(--muted) !important;
+/* 代码块 */
+.markdown-body pre {
+    margin: 0.9em 0;
+    padding: 12px 14px;
+    background: var(--muted);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 12px 14px !important;
-    margin: 0.9em 0;
     overflow-x: auto;
-}
-
-.md-editor .md-editor-preview pre code {
-    background: transparent !important;
-    padding: 0 !important;
+    font-family: var(--font-mono);
     font-size: 12.5px;
     line-height: 1.7;
+    tab-size: 2;
 }
 
-.md-editor .md-editor-preview table {
+.markdown-body pre code {
+    display: block;
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    color: var(--foreground);
+    white-space: pre;
+}
+
+/* 表格 */
+.markdown-body table {
     width: 100%;
-    border-collapse: collapse;
     margin: 0.9em 0;
+    border-collapse: collapse;
     font-size: 13px;
 }
 
-.md-editor .md-editor-preview th,
-.md-editor .md-editor-preview td {
+.markdown-body th,
+.markdown-body td {
     border: 1px solid var(--border);
     padding: 6px 10px;
     text-align: left;
+    vertical-align: top;
 }
 
-.md-editor .md-editor-preview th {
+.markdown-body th {
     background: var(--muted);
     font-weight: 600;
 }
 
-.md-editor .md-editor-preview img {
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
     border-radius: 4px;
 }
 
-/* 代码块顶栏:md-editor 默认是深色条,和纸面冲突 */
-.md-editor.default-theme {
-    --md-theme-code-before-bg-color: var(--muted);
+/* ============================================================
+   代码高亮(highlight.js token):纸色底上的低饱和配色
+   ============================================================ */
+.markdown-body .hljs-comment,
+.markdown-body .hljs-quote {
+    color: var(--muted-foreground);
+    font-style: italic;
 }
 
-.md-editor .md-editor-preview .md-editor-code-head {
-    background: var(--muted) !important;
-    color: var(--muted-foreground) !important;
-    border-bottom: 1px solid var(--border);
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+.markdown-body .hljs-keyword,
+.markdown-body .hljs-selector-tag,
+.markdown-body .hljs-literal,
+.markdown-body .hljs-doctag {
+    color: #a93a31;
 }
 
-.md-editor .md-editor-preview .md-editor-code-head span,
-.md-editor .md-editor-preview .md-editor-code-head .md-editor-copy {
-    color: var(--muted-foreground) !important;
+.markdown-body .hljs-string,
+.markdown-body .hljs-regexp,
+.markdown-body .hljs-addition {
+    color: #2f6b57;
 }
 
-.md-editor .md-editor-preview .md-editor-code {
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
+.markdown-body .hljs-number,
+.markdown-body .hljs-symbol,
+.markdown-body .hljs-bullet,
+.markdown-body .hljs-meta {
+    color: #a15c2f;
+}
+
+.markdown-body .hljs-title,
+.markdown-body .hljs-section,
+.markdown-body .hljs-name,
+.markdown-body .hljs-title.function_ {
+    color: #24406b;
+}
+
+.markdown-body .hljs-attr,
+.markdown-body .hljs-attribute,
+.markdown-body .hljs-variable,
+.markdown-body .hljs-template-variable {
+    color: #6b4e8e;
+}
+
+.markdown-body .hljs-built_in,
+.markdown-body .hljs-type,
+.markdown-body .hljs-class .hljs-title {
+    color: #2f5d9e;
+}
+
+.markdown-body .hljs-deletion {
+    color: #a93a31;
+}
+
+.dark .markdown-body .hljs-keyword,
+.dark .markdown-body .hljs-selector-tag,
+.dark .markdown-body .hljs-literal {
+    color: #e08a9c;
+}
+
+.dark .markdown-body .hljs-string,
+.dark .markdown-body .hljs-regexp {
+    color: #7fc9a6;
+}
+
+.dark .markdown-body .hljs-number,
+.dark .markdown-body .hljs-symbol {
+    color: #e2b071;
+}
+
+.dark .markdown-body .hljs-title,
+.dark .markdown-body .hljs-section,
+.dark .markdown-body .hljs-name {
+    color: #8fb3e0;
+}
+
+.dark .markdown-body .hljs-attr,
+.dark .markdown-body .hljs-variable {
+    color: #bda6d8;
 }

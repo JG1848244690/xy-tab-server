@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTheme } from 'next-themes'
-import { MdPreview } from 'md-editor-rt'
-import 'md-editor-rt/lib/style.css'
+import { Markdown } from '@/components/markdown'
 import {
     ShieldCheck,
     ChevronDown,
@@ -136,31 +135,17 @@ function plainPreview(text: string): string {
         .trim()
 }
 
-/** 原题详情:题干 + 参考答案 + 标签(用 MdPreview 渲染,图片/代码块都能看) */
-function QuestionPanel({
-    item,
-    editorTheme,
-}: {
-    item: ReviewQueueItem
-    editorTheme: 'dark' | 'light'
-}) {
+/** 原题详情:题干 + 参考答案 + 标签(用统一 Markdown 渲染,图片/代码块都能看) */
+function QuestionPanel({ item }: { item: ReviewQueueItem }) {
     return (
         <div className="mt-3 max-h-96 space-y-4 overflow-y-auto border-t pt-3 text-sm">
             <div>
                 <p className="mb-1 text-xs font-medium text-muted-foreground">题干</p>
-                <MdPreview
-                    id={`review-q-${item.id}`}
-                    modelValue={item.content}
-                    theme={editorTheme}
-                />
+                <Markdown>{item.content}</Markdown>
             </div>
             <div>
                 <p className="mb-1 text-xs font-medium text-muted-foreground">参考答案</p>
-                <MdPreview
-                    id={`review-a-${item.id}`}
-                    modelValue={item.answer}
-                    theme={editorTheme}
-                />
+                <Markdown>{item.answer}</Markdown>
             </div>
             {item.tags?.length ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -250,19 +235,11 @@ function ReportPanel({
                     <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
                         <div>
                             <p className="mb-1 text-xs text-muted-foreground">题干</p>
-                            <MdPreview
-                                id={`review-rev-q-${item.id}`}
-                                modelValue={r.revised.content}
-                                theme={editorTheme}
-                            />
+                            <Markdown>{r.revised.content}</Markdown>
                         </div>
                         <div>
                             <p className="mb-1 text-xs text-muted-foreground">答案</p>
-                            <MdPreview
-                                id={`review-rev-a-${item.id}`}
-                                modelValue={r.revised.answer}
-                                theme={editorTheme}
-                            />
+                            <Markdown>{r.revised.answer}</Markdown>
                         </div>
                     </div>
                     {r.revised.tags?.length ? (
@@ -482,7 +459,7 @@ function QueueItemCard({ item }: { item: ReviewQueueItem }) {
             </div>
 
             {openPanel === 'question' ? (
-                <QuestionPanel item={item} editorTheme={editorTheme} />
+                <QuestionPanel item={item} />
             ) : null}
             {openPanel === 'report' ? (
                 <ReportPanel item={item} editorTheme={editorTheme} />

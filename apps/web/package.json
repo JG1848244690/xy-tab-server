@@ -47,9 +47,12 @@
     "react": "19.2.1",
     "react-day-picker": "^9.13.0",
     "react-dom": "19.2.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.0.15",
     "react-router-dom": "^7.18.4",
     "recharts": "^2.15.4",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"
   },
