@@ -13,30 +13,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Select from '@/components/ui/select'
-import { MdEditor } from 'md-editor-rt'
-import 'md-editor-rt/lib/style.css'
+import { MarkdownField } from '@/components/markdown-field'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { questionsApi, CreateQuestionDto } from '@/services/questions-api'
 import { DIRECTIONS, TECH_STACKS } from '@/lib/taxonomy'
 import { reviewApi, type GeneratedQuestion } from '@/services/review-api'
-import { uploadEditorImages } from '@/services/media-api'
 import { QuotaBadge } from '@/components/ai-quota-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { CircleAlert, Loader2, Sparkles, Wand2 } from 'lucide-react'
 
-// 添加样式确保 MdEditor 不会溢出
-const editorStyle = {
-  height: '400px',
-  width: '100%',
-  maxWidth: '100%',
-}
-
 const Modal = () => {
   const { open, updates } = store()
   const queryClient = useQueryClient()
-  const { resolvedTheme } = useTheme()
-  const editorTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
 
   const editQuestionId = open.editQuestionId as string | undefined
   const isEditMode = !!editQuestionId
@@ -574,48 +563,26 @@ const Modal = () => {
             <div className="grid grid-cols-1 gap-4 w-full lg:grid-cols-2">
               <div className="space-y-2 w-full min-w-0">
                 <Label htmlFor="content">题目内容 *</Label>
-                <div className="w-full min-w-0" style={{ overflow: 'hidden' }}>
-                  <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-                    {(!isEditMode || isDataLoaded) && (
-                      <MdEditor
-                        key={`content-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
-                        modelValue={formData.content || ''}
-                        onChange={(value) =>
-                          setFormData((prev) => ({ ...prev, content: value || '' }))
-                        }
-                        language="zh-CN"
-                        theme={editorTheme}
-                        previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}
-                        codeTheme={editorTheme === 'dark' ? 'dark' : 'github'}
-                        style={editorStyle}
-                        onUploadImg={uploadEditorImages}
-                      />
-                    )}
-                  </div>
-                </div>
+                {(!isEditMode || isDataLoaded) && (
+                  <MarkdownField
+                    key={`content-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
+                    value={formData.content || ''}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, content: value }))}
+                    height={400}
+                  />
+                )}
               </div>
 
               <div className="space-y-2 w-full min-w-0">
                 <Label htmlFor="answer">参考答案 *</Label>
-                <div className="w-full min-w-0" style={{ overflow: 'hidden' }}>
-                  <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-                    {(!isEditMode || isDataLoaded) && (
-                      <MdEditor
-                        key={`answer-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
-                        modelValue={formData.answer || ''}
-                        onChange={(value) =>
-                          setFormData((prev) => ({ ...prev, answer: value || '' }))
-                        }
-                        language="zh-CN"
-                        theme={editorTheme}
-                        previewTheme={editorTheme === 'dark' ? 'dark' : 'github'}
-                        codeTheme={editorTheme === 'dark' ? 'dark' : 'github'}
-                        style={editorStyle}
-                        onUploadImg={uploadEditorImages}
-                      />
-                    )}
-                  </div>
-                </div>
+                {(!isEditMode || isDataLoaded) && (
+                  <MarkdownField
+                    key={`answer-${editQuestionId || 'new'}-${isDataLoaded}-${editorRevision}`}
+                    value={formData.answer || ''}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, answer: value }))}
+                    height={400}
+                  />
+                )}
               </div>
             </div>
 
