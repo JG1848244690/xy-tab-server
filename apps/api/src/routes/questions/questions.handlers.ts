@@ -15,7 +15,7 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { detectQuestionType } from '../../lib/question-type.js'
 import { resolveBankId } from '../../lib/question-bank.js'
-import { aiReviewEnabled } from '../review/llm.js'
+import { aiReviewEnabled, aiReviewDisabled } from '../review/llm.js'
 import {
     questionAttempts,
     questionStats,
@@ -318,8 +318,9 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
-    // AI 审核关闭时,新题直接进人工队列(否则停在 draft,审核页看不到)
+    // AI 审核被显式关闭时,新题直接进人工队列(否则停在 draft,审核页看不到)
     const aiOn = aiReviewEnabled()
+    const aiOff = aiReviewDisabled()
 
     // 三级标签:老客户端只传 tags 也能自动归类;新表单可显式传三级字段
     const classified = classifyQuestion({
@@ -352,7 +353,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
             // 没显式给题库时按技术栈归库,否则新题不属于任何 bank
             ...(body.bankId ? {} : { bankId: await resolveBankId(techStack, direction) }),
             // AI 关闭时直接进人工队列
-            ...(aiOn ? {} : { status: 'human_pending' as const }),
+            ...(aiOff ? { status: 'human_pending' as const } : {}),
             direction,
             techStack,
             knowledgePoints,

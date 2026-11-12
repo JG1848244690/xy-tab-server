@@ -109,6 +109,11 @@ export function aiReviewEnabled(): boolean {
     return process.env.AI_REVIEW_ENABLED !== 'false' && llmConfigured()
 }
 
+/** 是否被显式关闭(未配置 LLM 不算关闭:本地/测试环境不应改变业务状态) */
+export function aiReviewDisabled(): boolean {
+    return process.env.AI_REVIEW_ENABLED === 'false'
+}
+
 /**
  * 从回复里抠 JSON。
  *
