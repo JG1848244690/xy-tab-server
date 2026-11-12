@@ -13,6 +13,7 @@ import type {
 } from './questions.routes.js'
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
+import { detectQuestionType } from '../../lib/question-type.js'
 import {
     questionAttempts,
     questionStats,
@@ -342,6 +343,8 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
         .insert(questions)
         .values({
             ...body,
+            // 没显式给 type 时按标题自动判定代码题/理论题
+            type: body.type ?? detectQuestionType(body),
             direction,
             techStack,
             knowledgePoints,

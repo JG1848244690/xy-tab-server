@@ -23,15 +23,30 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { CircleAlert, Loader2, Sparkles, Wand2 } from 'lucide-react'
 
+/**
+ * 标题 → 题目类型(与 API 的 lib/question-type.ts 同一套规则)。
+ * 'markdown' = 代码题(Monaco),'text' = 理论题(Markdown)。
+ */
+function guessTypeByTitle(title: string): 'markdown' | 'text' {
+  return /(^实现|^封装|^编写|手写|算法[:：]|写出|输出顺序|输出什么|输出结果|以下代码|这段代码|代码输出|写一个|实现一个|模拟实现|二分查找|插入排序|快速排序|堆排序|遍历|递归实现)/.test(
+    title,
+  )
+    ? 'markdown'
+    : 'text'
+}
+
 const Modal = () => {
   const { open, updates } = store()
   const queryClient = useQueryClient()
+
+  /** 用户手动选过「题目类型」后,就不再按标题自动改 */
+  const [typeTouched, setTypeTouched] = useState(false)
 
   const editQuestionId = open.editQuestionId as string | undefined
   const isEditMode = !!editQuestionId
 
   const [formData, setFormData] = useState<CreateQuestionDto>({
-    type: 'markdown',
+    type: 'text',
     title: '',
     content: '',
     answer: '',
@@ -113,14 +128,16 @@ const Modal = () => {
       setTagsInput(
         (questionData.knowledgePoints ?? questionData.tags ?? []).join(','),
       )
+      setTypeTouched(true)
       setIsDataLoaded(true)
     } else if (!open.modal) {
       // 模态框关闭时重置所有状态
       setIsDataLoaded(false)
+      setTypeTouched(false)
       if (!isEditMode) {
         // 如果不是编辑模式，重置表单
         setFormData({
-          type: 'markdown',
+          type: 'text',
           title: '',
           content: '',
           answer: '',
@@ -158,7 +175,7 @@ const Modal = () => {
       queryClient.invalidateQueries({ queryKey: ['question', data.id] })
       // 重置表单
       setFormData({
-        type: 'markdown',
+        type: 'text',
         title: '',
         content: '',
         answer: '',
@@ -254,7 +271,7 @@ const Modal = () => {
       queryClient.invalidateQueries({ queryKey: ['question', editQuestionId] })
       // 重置表单
       setFormData({
-        type: 'markdown',
+        type: 'text',
         title: '',
         content: '',
         answer: '',
@@ -311,7 +328,7 @@ const Modal = () => {
       setAiError(null)
       resetAiState()
       setFormData({
-        type: 'markdown',
+        type: 'text',
         title: '',
         content: '',
         answer: '',
@@ -463,12 +480,13 @@ const Modal = () => {
                 <Label htmlFor="type">题目类型 *</Label>
                 <Select
                   value={formData.type}
-                  onChange={(value) =>
+                  onChange={(value) => {
+                    setTypeTouched(true)
                     setFormData((prev) => ({
                       ...prev,
                       type: value as 'markdown' | 'text',
                     }))
-                  }
+                  }}
                   options={[
                     { label: '代码题', value: 'markdown' },
                     { label: '理论题', value: 'text' },
@@ -539,9 +557,15 @@ const Modal = () => {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, title: e.target.value }))
-                }
+                onChange={(e) => {
+                  const title = e.target.value
+                  setFormData((prev) => ({
+                    ...prev,
+                    title,
+                    // 用户没手动改过类型时,按标题猜测代码题/理论题
+                    ...(typeTouched ? {} : { type: guessTypeByTitle(title) }),
+                  }))
+                }}
                 placeholder="请输入题目标题"
                 required
               />
