@@ -14,7 +14,7 @@ import { and, desc, eq, ne } from 'drizzle-orm'
 import db from '../../db/index.js'
 import { questions, reviewLogs } from '../../db/schema.js'
 import { LLM_JSON_RETRY, REVIEW_THRESHOLDS } from '../../lib/constants.js'
-import { LlmError, agentReportSchema, chatJson, chatJsonWithRetry, llmConfigured, llmConfig, revisionSchema } from './llm.js'
+import { LlmError, agentReportSchema, aiReviewEnabled, chatJson, chatJsonWithRetry, llmConfigured, llmConfig, revisionSchema } from './llm.js'
 import type { AgentReport } from './llm.js'
 import { reviewSystemPrompt } from './prompts/system.js'
 import { reviewRubricPrompt } from './prompts/rubric.js'
@@ -54,6 +54,14 @@ export function isHighConfidence(total: number): boolean {
  * 调用方 trigger 接口拿不到本次结果 —— 结果通过 /review/:id/result 轮询。
  */
 export async function runReview(questionId: string): Promise<'reviewed' | 'skipped' | 'failed'> {
+    if (!aiReviewEnabled()) {
+        // AI 审核关闭(额度/省钱):直接转人工队列,不调模型
+        await db
+            .update(questions)
+            .set({ status: 'human_pending' })
+            .where(and(eq(questions.id, questionId), ne(questions.status, 'approved')))
+        return 'skipped'
+    }
     if (!llmConfigured()) throw new LlmError('LLM 未配置')
     if (inFlight.has(questionId)) return 'skipped'
     inFlight.add(questionId)

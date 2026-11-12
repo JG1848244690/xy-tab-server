@@ -16,7 +16,7 @@ import { questions, reviewLogs } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { LLM_JSON_RETRY, REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
 import { contentHashOf, runReview, isReviewing } from './agent.js'
-import { llmConfigured } from './llm.js'
+import { aiReviewEnabled } from './llm.js'
 import { resolveBankId } from '../../lib/question-bank.js'
 import { getQuota, consumeQuota } from './quota.js'
 import { normalizeTags, existingTags } from './tags.js'
@@ -54,9 +54,9 @@ export const triggerOne: AppRouteHandler<TriggerOneRoute> = async (c) => {
         return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
     }
 
-    if (!llmConfigured()) {
+    if (!aiReviewEnabled()) {
         return c.json(
-            { message: 'LLM 未配置,审核 agent 不可用' },
+            { message: 'AI 审核已关闭,请人工审核' },
             HttpStatusCodes.SERVICE_UNAVAILABLE,
         )
     }
@@ -137,8 +137,8 @@ export const triggerBatch: AppRouteHandler<TriggerBatchRoute> = async (c) => {
     const userId = c.get('userId')!
     const { limit } = c.req.valid('json')
 
-    if (!llmConfigured()) {
-        return c.json({ message: 'LLM 未配置,审核 agent 不可用' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+    if (!aiReviewEnabled()) {
+        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     const candidates = await db
@@ -427,8 +427,8 @@ export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
     const userId = c.get('userId')!
     const { source, type, difficulty } = c.req.valid('json')
 
-    if (!llmConfigured()) {
-        return c.json({ message: 'LLM 未配置,审核 agent 不可用' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+    if (!aiReviewEnabled()) {
+        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     // 生成也是真实 LLM 成本:和审核共用每日配额(admin 豁免)
@@ -519,8 +519,8 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
     const { id } = c.req.valid('param')
     const userId = c.get('userId')!
 
-    if (!llmConfigured()) {
-        return c.json({ message: 'LLM 未配置,审核 agent 不可用' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+    if (!aiReviewEnabled()) {
+        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     const [q] = await db

@@ -101,6 +101,15 @@ export function llmConfigured(): boolean {
 }
 
 /**
+ * AI 审核总开关:AI_REVIEW_ENABLED=false 时完全不走模型。
+ * 额度用尽/想省钱时关掉,新题直接进人工队列。
+ */
+export function aiReviewEnabled(): boolean {
+    // 直接读 process.env:与 llmConfig 一致,避免 env.ts 的模块级快照
+    return process.env.AI_REVIEW_ENABLED !== 'false' && llmConfigured()
+}
+
+/**
  * 从回复里抠 JSON。
  *
  * 关键坑(2026-10-26):`revised.answer` 里常含 ```js 代码块,旧实现先匹配

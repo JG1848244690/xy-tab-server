@@ -58,6 +58,10 @@ const EnvSchema = z.object({
     LLM_BASE_URL: z.string().default(''),
     LLM_MODEL: z.string().default(''),
     LLM_API_KEY: z.string().default(''),
+
+    // AI 审核总开关:false = 不调模型,新题直接进人工队列
+    // (额度用尽时关掉,避免每道题都打一次失败的请求)
+    AI_REVIEW_ENABLED: z.enum(['true', 'false']).default('true'),
 })
 
 export type env = z.infer<typeof EnvSchema>
