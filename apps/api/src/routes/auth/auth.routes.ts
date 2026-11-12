@@ -33,6 +33,15 @@ const registerBodySchema = z.object({
     name: z.string().min(1),
     // CF Turnstile token:服务端 SECRET 配置后必验(docs/abuse-defense-plan.md §3)
     turnstileToken: z.string().optional(),
+    // 国内加载不到 Turnstile 时的本地兜底(GET /auth/challenge 下发)
+    challenge: z
+        .object({
+            id: z.string().min(1),
+            answer: z.string().min(1),
+            sig: z.string().min(1),
+            expiresAt: z.coerce.number(),
+        })
+        .optional(),
 })
 
 const loginResponseSchema = z.object({ user: userResponseSchema })
@@ -80,6 +89,23 @@ export const register = createRoute({
     },
 })
 
+export const humanChallenge = createRoute({
+    method: 'get',
+    path: '/auth/challenge',
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                id: z.string(),
+                question: z.string(),
+                sig: z.string(),
+                expiresAt: z.number(),
+            }),
+            '本地人机验证题(无法加载 Turnstile 时使用)',
+        ),
+    },
+})
+
 export const logout = createRoute({
     method: 'post',
     path: '/auth/logout',
@@ -107,5 +133,6 @@ export const me = createRoute({
 
 export type LoginRoute = typeof login
 export type RegisterRoute = typeof register
+export type HumanChallengeRoute = typeof humanChallenge
 export type LogoutRoute = typeof logout
 export type MeRoute = typeof me

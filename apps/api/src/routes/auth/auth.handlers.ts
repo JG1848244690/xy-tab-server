@@ -1,5 +1,5 @@
 import { and, count, eq, gte } from 'drizzle-orm'
-import type { LoginRoute, RegisterRoute, LogoutRoute, MeRoute } from './auth.routes.js'
+import type { LoginRoute, RegisterRoute, LogoutRoute, MeRoute, HumanChallengeRoute } from './auth.routes.js'
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { users } from '../../db/schema.js'
@@ -7,6 +7,7 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
 import { errorBody } from '../../lib/errors.js'
 import { clientIp, ipHashOf } from '../../lib/client-ip.js'
 import { verifyTurnstile } from '../../lib/turnstile.js'
+import { createChallenge, verifyChallenge } from '../../lib/human-challenge.js'
 import { REGISTER_IP_DAILY_LIMIT, REGISTER_IP_TOTAL_LIMIT } from '../../lib/constants.js'
 import env from '../../env.js'
 import {
@@ -70,13 +71,18 @@ export const register: AppRouteHandler<RegisterRoute> = async (c) => {
         )
     }
 
-    const { email, password, name, turnstileToken } = c.req.valid('json')
+    const { email, password, name, turnstileToken, challenge } = c.req.valid('json')
     const ip = clientIp(c)
 
-    // 真人验证(CF Turnstile):SECRET 未配时直通(本地/测试),
-    // 生产必挂 —— 防批量注册的主防线
-    const humanVerified = await verifyTurnstile(turnstileToken, ip)
-    if (!humanVerified) {
+    /**
+     * 真人验证,两条路任选其一:
+     *  1. CF Turnstile(海外/能访问 challenges.cloudflare.com)
+     *  2. 本地 HMAC 算术题(国内加载不到 Turnstile 时的兜底)
+     * 都失败才拒绝。IP 维度的日/总量上限不受影响。
+     */
+    const turnstileOk = await verifyTurnstile(turnstileToken, ip)
+    const challengeOk = turnstileOk ? false : verifyChallenge(challenge)
+    if (!turnstileOk && !challengeOk) {
         return c.json(errorBody('真人验证未通过,请重试', 'TURNSTILE_FAILED'), HttpStatusCodes.FORBIDDEN)
     }
 
@@ -125,6 +131,10 @@ export const register: AppRouteHandler<RegisterRoute> = async (c) => {
 
     // 旧 Nest 的 register 不下发登录态,前端注册后仍需走一次 login,保持一致
     return c.json(toUserResponse(created), HttpStatusCodes.OK)
+}
+
+export const humanChallenge: AppRouteHandler<HumanChallengeRoute> = (c) => {
+    return c.json(createChallenge(), HttpStatusCodes.OK)
 }
 
 export const logout: AppRouteHandler<LogoutRoute> = (c) => {

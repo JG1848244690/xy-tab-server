@@ -7,6 +7,7 @@ import * as routes from './auth.routes.js'
 const router = createRouter()
     .openapi(routes.login, handlers.login)
     .openapi(routes.register, handlers.register)
+    .openapi(routes.humanChallenge, handlers.humanChallenge)
     .openapi(routes.logout, handlers.logout)
     .openapi(routes.me, handlers.me)
 

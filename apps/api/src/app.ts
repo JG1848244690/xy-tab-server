@@ -68,6 +68,8 @@ app.get('/uploads/*', async (c) => {
 // docs/abuse-defense-plan.md);注册是低频动作,5/小时对真人绰绰有余
 app.use('/auth/login', rateLimit({ windowMs: 60_000, max: 30 }))
 app.use('/auth/register', rateLimit({ windowMs: 3_600_000, max: 5 }))
+// 本地人机验证题:轻量只读接口,给注册页兜底用
+app.use('/auth/challenge', rateLimit({ windowMs: 60_000, max: 30 }))
 app.use('/auth/me', cookieAuth())
 app.use('/questions', cookieAuth())
 app.use('/questions/*', cookieAuth())

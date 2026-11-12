@@ -1,16 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { request } from '@/lib/request'
 
-/**
- * CF Turnstile widget(防滥用:注册真人验证,docs/abuse-defense-plan.md §3)
- * VITE_TURNSTILE_SITE_KEY 未配置(本地/测试)→ 不渲染,后端验证也是关的;
- * 生产配置后:渲染 widget,提交携带 token,失败后 reset 让用户重来。
- */
 declare global {
     interface Window {
         turnstile?: {
@@ -30,187 +25,320 @@ declare global {
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
 
-function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
-    const ref = useRef<HTMLDivElement>(null)
-    const rendered = useRef(false)
+type CaptchaMode = 'checking' | 'turnstile' | 'local' | 'off'
 
-    useEffect(() => {
-        if (!TURNSTILE_SITE_KEY || !ref.current) return
+interface LocalChallenge {
+    id: string
+    question: string
+    sig: string
+    expiresAt: number
+}
 
-        // timer/stop 必须在 tryRender 之前用 let 声明:
-        // 之前是 const + 函数声明,window.turnstile 已就绪时会先调用 tryRender,
-        // 里面 clearInterval(timer) 命中 TDZ → 生产上点「立即注册」直接白屏
-        let timer: ReturnType<typeof setInterval> | undefined
-        let stop: ReturnType<typeof setTimeout> | undefined
-
-        const finish = () => {
-            if (timer) clearInterval(timer)
-            if (stop) clearTimeout(stop)
-        }
-
-        const tryRender = () => {
-            if (rendered.current || !ref.current || !window.turnstile) return
-            // 跟随当前主题,避免暗色下出现一块刺眼的白色 widget
-            const dark = document.documentElement.classList.contains('dark')
-            window.turnstile.render(ref.current, {
-                sitekey: TURNSTILE_SITE_KEY!,
-                callback: onToken,
-                'expired-callback': () => onToken(''),
-                theme: dark ? 'dark' : 'light',
-            })
-            rendered.current = true
-            finish()
-        }
-
-        // 脚本(index.html 里异步加载)就绪后再渲染
-        if (window.turnstile) {
-            tryRender()
-            return
-        }
-        timer = setInterval(tryRender, 300)
-        stop = setTimeout(finish, 15_000)
-        return finish
-    }, [onToken])
-
-    if (!TURNSTILE_SITE_KEY) return null
+/** Turnstile 加载不出来时的本地兜底:服务端下发的算术题 */
+function LocalChallengeBox({
+    challenge,
+    answer,
+    loading,
+    error,
+    onAnswer,
+    onRefresh,
+}: {
+    challenge: LocalChallenge | null
+    answer: string
+    loading: boolean
+    error: string | null
+    onAnswer: (v: string) => void
+    onRefresh: () => void
+}) {
     return (
         <div className="space-y-2">
-            <p className="font-mono text-[10.5px] tracking-[0.12em] text-muted-foreground">
-                人机验证
+            <div className="flex items-center justify-between">
+                <p className="font-mono text-[10.5px] tracking-[0.12em] text-muted-foreground">
+                    人机验证
+                </p>
+                <button
+                    type="button"
+                    onClick={onRefresh}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                    <RefreshCw className={loading ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
+                    换一题
+                </button>
+            </div>
+            <div className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                <span className="font-mono text-sm tabular-nums">
+                    {challenge ? challenge.question : '加载中…'}
+                </span>
+                <Input
+                    value={answer}
+                    onChange={(e) => onAnswer(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="答案"
+                    className="h-8 max-w-24"
+                />
+            </div>
+            <p className="text-[11px] leading-5 text-muted-foreground">
+                当前网络加载不到 Cloudflare 验证,已切换为本地验证。
+                {error ? <span className="text-destructive"> {error}</span> : null}
             </p>
-            <div
-                ref={ref}
-                className="min-h-[65px] overflow-hidden rounded-md border border-border bg-background p-1"
-            />
         </div>
     )
 }
 
 interface RegisterFormProps {
-  onSwitchToLogin: () => void
-  onRegisterSuccess: () => void
+    onSwitchToLogin: () => void
+    onRegisterSuccess: () => void
 }
 
 export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFormProps) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [error, setError] = useState('')
-  const [turnstileToken, setTurnstileToken] = useState('')
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [name, setName] = useState('')
+    const [error, setError] = useState('')
 
-  const registerMutation = useMutation({
-    mutationFn: async () => {
-      const res = await request.post('/auth/register', {
-        email,
-        password,
-        name,
-        // TURNSTILE 未启用时后端不校验,不传即可
-        turnstileToken: turnstileToken || undefined,
-      })
-      return res.data
-    },
-    onSuccess: () => {
-      onRegisterSuccess()
-    },
-    onError: (err: any) => {
-      setError(err.response?.data?.message || '注册失败，请重试')
-      // token 失败即作废,重置 widget 让用户重新过验证
-      setTurnstileToken('')
-      window.turnstile?.reset()
-    },
-  })
+    /** Turnstile token(正常网络) */
+    const [turnstileToken, setTurnstileToken] = useState('')
+    /** 本地算术题(国内兜底) */
+    const [challenge, setChallenge] = useState<LocalChallenge | null>(null)
+    const [challengeAnswer, setChallengeAnswer] = useState('')
+    const [challengeError, setChallengeError] = useState<string | null>(null)
+    const [captchaMode, setCaptchaMode] = useState<CaptchaMode>(
+        TURNSTILE_SITE_KEY ? 'checking' : 'off',
+    )
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    registerMutation.mutate()
-  }
+    const turnstileRef = useRef<HTMLDivElement>(null)
+    const renderedRef = useRef(false)
 
-  return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">创建新账号</h1>
-        <p className="text-muted-foreground text-sm">填写以下信息以创建您的账号</p>
-      </div>
+    const loadChallenge = useCallback(async () => {
+        setChallengeError(null)
+        try {
+            const res = await request.get<LocalChallenge>('/auth/challenge')
+            setChallenge(res.data)
+            setChallengeAnswer('')
+        } catch {
+            setChallengeError('验证题加载失败,请刷新页面重试')
+        }
+    }, [])
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {error && (
-          <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
-            {error}
-          </div>
-        )}
+    /** 切到本地验证 */
+    const useLocal = useCallback(() => {
+        setCaptchaMode('local')
+        void loadChallenge()
+    }, [loadChallenge])
 
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-medium text-foreground">
-            用户名
-          </Label>
-          <Input
-            id="name"
-            type="text"
-            placeholder="请输入用户名"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="h-11 bg-background"
-          />
+    useEffect(() => {
+        if (!TURNSTILE_SITE_KEY) return
+        if (captchaMode !== 'checking') return
+
+        let stop = false
+        let timer: ReturnType<typeof setInterval> | undefined
+        const deadline = Date.now() + 6000
+
+        const tryRender = () => {
+            if (stop) return
+            const el = turnstileRef.current
+            if (renderedRef.current) return
+
+            if (!window.turnstile) {
+                if (Date.now() > deadline) {
+                    stop = true
+                    if (timer) clearInterval(timer)
+                    // 6 秒还没加载出来,基本就是被墙/被拦 → 本地验证
+                    useLocal()
+                }
+                return
+            }
+
+            if (!el) return
+            try {
+                const dark = document.documentElement.classList.contains('dark')
+                window.turnstile.render(el, {
+                    sitekey: TURNSTILE_SITE_KEY,
+                    callback: (token) => {
+                        setTurnstileToken(token)
+                        setCaptchaMode('turnstile')
+                    },
+                    'expired-callback': () => setTurnstileToken(''),
+                    theme: dark ? 'dark' : 'light',
+                })
+                renderedRef.current = true
+                setCaptchaMode('turnstile')
+                if (timer) clearInterval(timer)
+            } catch {
+                useLocal()
+            }
+        }
+
+        tryRender()
+        timer = setInterval(tryRender, 300)
+
+        return () => {
+            stop = true
+            if (timer) clearInterval(timer)
+        }
+    }, [captchaMode, useLocal])
+
+    const registerMutation = useMutation({
+        mutationFn: async () => {
+            const res = await request.post('/auth/register', {
+                email,
+                password,
+                name,
+                turnstileToken: turnstileToken || undefined,
+                challenge: challenge
+                    ? {
+                          id: challenge.id,
+                          answer: challengeAnswer.trim(),
+                          sig: challenge.sig,
+                          expiresAt: challenge.expiresAt,
+                      }
+                    : undefined,
+            })
+            return res.data
+        },
+        onSuccess: () => {
+            onRegisterSuccess()
+        },
+        onError: (err: any) => {
+            const code = err.response?.data?.code
+            setError(err.response?.data?.message || '注册失败,请重试')
+            // token/题目失效都重置一次,让用户重来
+            setTurnstileToken('')
+            window.turnstile?.reset()
+            if (code === 'TURNSTILE_FAILED' && captchaMode === 'local') void loadChallenge()
+        },
+    })
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        setError('')
+        registerMutation.mutate()
+    }
+
+    const captchaReady =
+        captchaMode === 'off' ||
+        (captchaMode === 'turnstile' && !!turnstileToken) ||
+        (captchaMode === 'local' && !!challenge && challengeAnswer.trim().length > 0)
+
+    return (
+        <div className="w-full max-w-md mx-auto">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-foreground mb-2">创建新账号</h1>
+                <p className="text-muted-foreground text-sm">填写以下信息以创建您的账号</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
+                        {error}
+                    </div>
+                )}
+
+                <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium text-foreground">
+                        用户名
+                    </Label>
+                    <Input
+                        id="name"
+                        type="text"
+                        placeholder="请输入用户名"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        className="h-11 bg-background"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                        邮箱
+                    </Label>
+                    <Input
+                        id="email"
+                        type="email"
+                        placeholder="name@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="h-11 bg-background"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                        密码
+                    </Label>
+                    <Input
+                        id="password"
+                        type="password"
+                        placeholder="至少 8 位密码"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        minLength={8}
+                        className="h-11 bg-background"
+                    />
+                </div>
+
+                {/* 人机验证:Turnstile 优先,失败自动切本地算术题 */}
+                {TURNSTILE_SITE_KEY ? (
+                    <>
+                        <div className={captchaMode === 'local' ? 'hidden' : ''}>
+                            <p className="mb-2 font-mono text-[10.5px] tracking-[0.12em] text-muted-foreground">
+                                人机验证
+                            </p>
+                            <div
+                                ref={turnstileRef}
+                                className="min-h-[65px] overflow-hidden rounded-md border border-border bg-background p-1"
+                            />
+                            {captchaMode === 'checking' ? (
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                    正在加载验证组件…
+                                </p>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => useLocal()}
+                                    className="mt-1 text-[11px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+                                >
+                                    加载不出来?改用手动验证
+                                </button>
+                            )}
+                        </div>
+
+                        {captchaMode === 'local' ? (
+                            <LocalChallengeBox
+                                challenge={challenge}
+                                answer={challengeAnswer}
+                                loading={!challenge && !challengeError}
+                                error={challengeError}
+                                onAnswer={setChallengeAnswer}
+                                onRefresh={() => void loadChallenge()}
+                            />
+                        ) : null}
+                    </>
+                ) : null}
+
+                <Button
+                    type="submit"
+                    className="w-full h-11 text-base font-medium"
+                    disabled={registerMutation.isPending || !captchaReady}
+                >
+                    {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    注册
+                </Button>
+
+                <div className="text-center text-sm text-muted-foreground pt-2">
+                    已有账号？{' '}
+                    <button
+                        type="button"
+                        onClick={onSwitchToLogin}
+                        className="text-primary hover:underline font-medium transition-colors"
+                    >
+                        立即登录
+                    </button>
+                </div>
+            </form>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium text-foreground">
-            邮箱
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="h-11 bg-background"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium text-foreground">
-            密码
-          </Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder="至少6位密码"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="h-11 bg-background"
-          />
-        </div>
-
-        {/* CF Turnstile:配了 site key 才渲染;提交必须带过验 token */}
-        {TURNSTILE_SITE_KEY ? (
-          <TurnstileWidget onToken={setTurnstileToken} />
-        ) : null}
-
-        <Button
-          type="submit"
-          className="w-full h-11 text-base font-medium"
-          disabled={registerMutation.isPending || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
-        >
-          {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          注册
-        </Button>
-
-        <div className="text-center text-sm text-muted-foreground pt-4">
-          已有账号？{' '}
-          <button
-            type="button"
-            onClick={onSwitchToLogin}
-            className="text-primary hover:underline font-medium transition-colors"
-          >
-            立即登录
-          </button>
-        </div>
-      </form>
-    </div>
-  )
+    )
 }
