@@ -15,7 +15,7 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { detectQuestionType } from '../../lib/question-type.js'
 import { resolveBankId } from '../../lib/question-bank.js'
-import { aiReviewEnabled, aiReviewDisabled } from '../review/llm.js'
+import { aiReviewDisabled } from '../review/llm.js'
 import {
     questionAttempts,
     questionStats,
@@ -319,7 +319,6 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
     // AI 审核被显式关闭时,新题直接进人工队列(否则停在 draft,审核页看不到)
-    const aiOn = aiReviewEnabled()
     const aiOff = aiReviewDisabled()
 
     // 三级标签:老客户端只传 tags 也能自动归类;新表单可显式传三级字段
@@ -366,7 +365,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     // 验收标准"新加题自动触发 agent 审核")。
     // - 配额内:扣 1 次 + 异步送审(AI 结果走人工队列)
     // - 配额尽/admin 豁免/agent 忙:题照常创建,停在 draft,不阻塞
-    if (created && aiOn && !isReviewing(created.id)) {
+    if (created && !aiOff && !isReviewing(created.id)) {
         const admin = c.get('userRole') === 'admin'
         if (!admin) {
             const quotaState = await consumeQuota(userId)

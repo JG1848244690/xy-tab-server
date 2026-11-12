@@ -56,7 +56,7 @@ export const triggerOne: AppRouteHandler<TriggerOneRoute> = async (c) => {
 
     if (!aiReviewEnabled()) {
         return c.json(
-            { message: 'AI 审核已关闭,请人工审核' },
+            { message: 'LLM 未配置或 AI 审核已关闭,请人工审核' },
             HttpStatusCodes.SERVICE_UNAVAILABLE,
         )
     }
@@ -138,7 +138,7 @@ export const triggerBatch: AppRouteHandler<TriggerBatchRoute> = async (c) => {
     const { limit } = c.req.valid('json')
 
     if (!aiReviewEnabled()) {
-        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+        return c.json({ message: 'LLM 未配置或 AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     const candidates = await db
@@ -356,28 +356,32 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
     const { decision, note } = c.req.valid('json')
     const reviewerId = c.get('userId')!
 
+    // 先读题并在事务外算好题库归属:事务内不要再用另一个连接查库
+    // (测试库里连接池很小,嵌套取连接会互相等待)
+    const [existing] = await db
+        .select({
+            id: questions.id,
+            contentHash: questions.contentHash,
+            reviewScore: questions.reviewScore,
+            publishedAt: questions.publishedAt,
+            bankId: questions.bankId,
+            techStack: questions.techStack,
+            direction: questions.direction,
+        })
+        .from(questions)
+        .where(eq(questions.id, id))
+        .limit(1)
+    if (!existing) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+
+    const bankId =
+        decision === 'approve' && !existing.bankId
+            ? await resolveBankId(existing.techStack, existing.direction)
+            : undefined
+
     const result = await db.transaction(async (tx) => {
-        const [q] = await tx
-            .select({
-                id: questions.id,
-                contentHash: questions.contentHash,
-                reviewScore: questions.reviewScore,
-                publishedAt: questions.publishedAt,
-                bankId: questions.bankId,
-                techStack: questions.techStack,
-                direction: questions.direction,
-            })
-            .from(questions)
-            .where(eq(questions.id, id))
-            .limit(1)
-        if (!q) return null
+        const q = existing
 
         const nextStatus = decision === 'approve' ? 'approved' : 'rejected'
-        // 审核通过时补题库归属:没有 bank 的题不会出现在任何题库页
-        const bankId =
-            decision === 'approve' && !q.bankId
-                ? await resolveBankId(q.techStack, q.direction)
-                : undefined
 
         const [updated] = await tx
             .update(questions)
@@ -428,7 +432,7 @@ export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
     const { source, type, difficulty } = c.req.valid('json')
 
     if (!aiReviewEnabled()) {
-        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+        return c.json({ message: 'LLM 未配置或 AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     // 生成也是真实 LLM 成本:和审核共用每日配额(admin 豁免)
@@ -520,7 +524,7 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
     const userId = c.get('userId')!
 
     if (!aiReviewEnabled()) {
-        return c.json({ message: 'AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
+        return c.json({ message: 'LLM 未配置或 AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
     }
 
     const [q] = await db
