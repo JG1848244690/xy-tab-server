@@ -49,6 +49,9 @@ jobs:
         run: pnpm run lint
 
       - name: Build
+        env:
+          # 作为 Sentry release,把线上错误关联到具体 commit
+          VITE_APP_VERSION: ${{ github.sha }}
         run: pnpm run build
 
       - name: Upload dist to server

@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 import { SiteFooter } from '@/components/site-chrome'
 import { SiteChrome } from '@/components/site-header'
+import { SentryInit } from '@/components/sentry-init'
 import { SITE_NAME, SITE_URL } from '@/lib/site-api'
 import './globals.css'
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="zh-CN" suppressHydrationWarning>
             <body>
+                <SentryInit />
                 <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
                 <SiteChrome
                     brand={

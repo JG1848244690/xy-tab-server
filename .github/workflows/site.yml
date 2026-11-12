@@ -72,6 +72,8 @@ jobs:
         env:
           # 构建数据走隧道;站点自身的对外地址用于 canonical/sitemap
           SITE_API_BASE: http://127.0.0.1:8080
+          # 作为 Sentry release,把线上错误关联到具体 commit
+          NEXT_PUBLIC_APP_VERSION: ${{ github.sha }}
         run: pnpm run build
 
       # 定时重建(同一 commit 可能构建多次):用 run_id 做后缀,避免复用同一
