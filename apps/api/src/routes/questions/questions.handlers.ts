@@ -14,6 +14,7 @@ import type {
 import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { detectQuestionType } from '../../lib/question-type.js'
+import { resolveBankId } from '../../lib/question-bank.js'
 import {
     questionAttempts,
     questionStats,
@@ -345,6 +346,8 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
             ...body,
             // 没显式给 type 时按标题自动判定代码题/理论题
             type: body.type ?? detectQuestionType(body),
+            // 没显式给题库时按技术栈归库,否则新题不属于任何 bank
+            ...(body.bankId ? {} : { bankId: await resolveBankId(techStack, direction) }),
             direction,
             techStack,
             knowledgePoints,

@@ -21,6 +21,7 @@ import { reviewRubricPrompt } from './prompts/rubric.js'
 import { reviewOutputPrompt } from './prompts/output.js'
 import { revisionSystemPrompt } from './prompts/revision.js'
 import { normalizeTags, existingTags } from './tags.js'
+import { resolveBankId } from '../../lib/question-bank.js'
 
 /** 题目内容指纹:任一字符改动都会换 hash → 触发重审 */
 export const contentHashOf = (q: { title: string; content: string; answer: string }) =>
@@ -130,14 +131,25 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
                 LLM_JSON_RETRY,
             ))
         } catch (err) {
-            // LLM 挂了/输出坏:落失败审计,状态停在 pending_review,等 stale 重跑
+            const message = err instanceof Error ? err.message : String(err)
+            // LLM 挂了/额度用完/输出坏:落失败审计,并把题交给人工队列,
+            // 否则它会一直卡在 pending_review,没人看得见。
             await db.insert(reviewLogs).values({
                 questionId,
                 contentHash: hash,
                 verdict: 'pending_review',
-                report: { error: err instanceof Error ? err.message : String(err) },
+                report: { error: message },
                 model: llmConfig().model || null,
             })
+            if (!wasApproved) {
+                await db
+                    .update(questions)
+                    .set({
+                        status: 'human_pending',
+                        reviewResult: { error: message },
+                    })
+                    .where(eq(questions.id, questionId))
+            }
             return 'failed'
         }
 
@@ -195,6 +207,9 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
         }
 
         // 结果回写 + 审计同事务:日志和状态必须同生共死
+        // 归库:AI 审核不该改变归属,只在没有 bank 时补一个
+        const bankId = q.bankId ? undefined : await resolveBankId(q.techStack, q.direction)
+
         await db.transaction(async (tx) => {
             await tx
                 .update(questions)
@@ -203,6 +218,7 @@ export async function runReview(questionId: string): Promise<'reviewed' | 'skipp
                     reviewScore: report.total,
                     reviewResult: report as unknown as Record<string, unknown>,
                     contentHash: hash,
+                    ...(bankId ? { bankId } : {}),
                     ...(slug ? { slug } : {}),
                     summary: report.summary,
                     ...(tags.length ? { tags } : {}),

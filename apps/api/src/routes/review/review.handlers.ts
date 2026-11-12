@@ -17,6 +17,7 @@ import { HttpStatusCodes } from '../../lib/openapi.js'
 import { LLM_JSON_RETRY, REVIEW_BATCH_MAX, REVIEW_STALE_MINUTES } from '../../lib/constants.js'
 import { contentHashOf, runReview, isReviewing } from './agent.js'
 import { llmConfigured } from './llm.js'
+import { resolveBankId } from '../../lib/question-bank.js'
 import { getQuota, consumeQuota } from './quota.js'
 import { normalizeTags, existingTags } from './tags.js'
 import { runGenerateAgent } from './generate-agent.js'
@@ -362,6 +363,9 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
                 contentHash: questions.contentHash,
                 reviewScore: questions.reviewScore,
                 publishedAt: questions.publishedAt,
+                bankId: questions.bankId,
+                techStack: questions.techStack,
+                direction: questions.direction,
             })
             .from(questions)
             .where(eq(questions.id, id))
@@ -369,10 +373,17 @@ export const humanDecision: AppRouteHandler<HumanDecisionRoute> = async (c) => {
         if (!q) return null
 
         const nextStatus = decision === 'approve' ? 'approved' : 'rejected'
+        // 审核通过时补题库归属:没有 bank 的题不会出现在任何题库页
+        const bankId =
+            decision === 'approve' && !q.bankId
+                ? await resolveBankId(q.techStack, q.direction)
+                : undefined
+
         const [updated] = await tx
             .update(questions)
             .set({
                 status: nextStatus,
+                ...(bankId ? { bankId } : {}),
                 // 通过即发布:publishedAt 首次落值后不再改(重审不重发)
                 ...(decision === 'approve' ? { publishedAt: q.publishedAt ?? new Date() } : {}),
             })
