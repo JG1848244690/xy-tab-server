@@ -268,8 +268,9 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
 
     it('remove:普通用户只能撤回自己未过审的投稿;已过审/他人的一律 403', async () => {
         const pending = await createQuestion(OWNER, { title: '待撤回' })
+        // createQuestion 默认落 approved(方便测列表),这里改回待审
+        await db.update(questions).set({ status: 'human_pending' }).where(eq(questions.id, pending.id))
         const approved = await createQuestion(OWNER, { title: '已发布' })
-        await db.update(questions).set({ status: 'approved' }).where(eq(questions.id, approved.id))
         // 撤回时 stats / attempts 要跟着级联清掉
         await req(app, OTHER, `/questions/${pending.id}/submit`, {
             method: 'POST',
@@ -363,8 +364,9 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
 
     it('GET /questions/submissions 只返回本人未过审的题', async () => {
         const mine = await createQuestion(OWNER, { title: '我的待审' })
+        // 同上:createQuestion 默认 approved,这里改回待审
+        await db.update(questions).set({ status: 'human_pending' }).where(eq(questions.id, mine.id))
         const approved = await createQuestion(OWNER, { title: '我的已过审' })
-        await db.update(questions).set({ status: 'approved' }).where(eq(questions.id, approved.id))
         await createQuestion(OTHER, { title: '别人的待审' })
 
         const res = await req(app, OWNER, '/questions/submissions')

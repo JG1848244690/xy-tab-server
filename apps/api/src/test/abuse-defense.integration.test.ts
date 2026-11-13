@@ -154,29 +154,33 @@ describe.skipIf(!hasDb)('abuse defense: AI quota', () => {
         expect(quota.used).toBe(0)
     })
 
-    it('创建题目自动送审并消耗配额;配额尽后创建仍成功(题停 draft)', async () => {
-        // 连建 21 题:前 20 题触发 AI,第 21 题配额尽但创建照常成功
-        for (let i = 0; i < 21; i++) {
-            const res = await req(app, USER, '/questions', {
-                method: 'POST',
-                body: JSON.stringify({
-                    title: `自动送审题 ${i}`,
-                    type: 'text',
-                    content: '内容',
-                    answer: '答案',
-                    difficulty: 'easy',
-                }),
-            })
-            expect(res.status).toBe(200)
-        }
+    it('创建题目自动送审;AI 配额尽后创建仍成功(题停 draft)', async () => {
+        // 2026-11-13:普通用户投稿有 5 条/天配额,不能再靠「连建 21 题」耗尽 AI 额度。
+        // 直接预置 ai_quota 到上限,验证「AI 额度用尽不影响建题」这个语义。
+        await db
+            .insert(aiQuota)
+            .values({ userId: USER.id, day: new Date().toISOString().slice(0, 10), used: 20 })
 
-        // 21 题都建成了;但 2026-10-26 起题库列表只显示已过审的题,
-        // 这批还停在审核中心,所以直接按库里的行数断言
+        const res = await req(app, USER, '/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: '配额尽后建的题',
+                type: 'text',
+                content: '内容',
+                answer: '答案',
+                difficulty: 'easy',
+            }),
+        })
+        expect(res.status).toBe(200)
+
+        // 建成了,但没送审 → 停在 draft
         const rows = await db
-            .select({ id: questions.id })
+            .select({ status: questions.status })
             .from(questions)
             .where(eq(questions.createdBy, USER.id))
-        expect(rows).toHaveLength(21)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].status).toBe('draft')
+
         const l1 = await (await req(app, USER, '/questions?size=50')).json()
         expect(l1.total).toBe(0)
     })
