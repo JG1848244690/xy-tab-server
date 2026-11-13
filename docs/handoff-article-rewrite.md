@@ -59,14 +59,14 @@
 | # | 状态 | 站内 slug | 标题 |
 | --- | --- | --- | --- |
 | 01 | ✅ 已改写 | `package-managers-pnpm-yarn-npm` | pnpm / yarn / npm 到底差在哪 |
-| 02 | ⬜ 外链 | `wechat-fe-02` | Vite 工程化完整指南 |
+| 02 | ✅ 已改写 | `vite-engineering-guide` | Vite 工程化:从 dev server 到生产构建 |
 | 03 | ⬜ 外链 | `wechat-fe-03` | 代码质量工具链全套落地 |
 | 04 | ⬜ 外链 | `wechat-fe-04` | Monorepo 实战 |
 | 05 | ✅ 已改写 | `frontend-cicd-pipeline` | 前端 CI/CD 流水线:从 commit 到上线 |
 | 06 | ⬜ 外链 | `wechat-fe-06` | 前端依赖治理与供应链安全 |
 | 07 | ✅ 已改写 | `core-web-vitals-in-practice` | Core Web Vitals 实战 |
 | 08 | ⬜ 外链 | `wechat-fe-08` | 微前端方案选型与落地 |
-| 09 | ⬜ 外链 | `wechat-fe-09` | 渲染策略选型 |
+| 09 | ✅ 已改写 | `rendering-strategy-selection` | 渲染策略选型 |
 | 10 | ⬜ 外链 | `wechat-fe-10` | 前端缓存策略全景 |
 | 11 | ✅ 已改写 | `bundle-analysis-tree-shaking` | Bundle 分析与瘦身 |
 | 12 | ✅ 已改写 | `error-monitoring-and-source-maps` | 前端错误监控与上报 |
@@ -173,19 +173,17 @@ ssh root@47.94.85.91 '
 
 按「技术点密度 + 与面试题重合度」排序:
 
-1. `wechat-fe-09` 渲染策略选型
-2. `wechat-fe-02` Vite 工程化
-3. `wechat-fe-03` 代码质量工具链
-4. `wechat-fe-04` Monorepo
-5. `wechat-fe-06` 依赖治理
-6. `wechat-fe-08` 微前端
-7. `wechat-fe-10` 缓存策略
+1. `wechat-fe-03` 代码质量工具链
+2. `wechat-fe-04` Monorepo
+3. `wechat-fe-06` 依赖治理
+4. `wechat-fe-08` 微前端
+5. `wechat-fe-10` 缓存策略
 
 每轮 2 篇,写完立刻重建前台,不要攒着。
 
 > 2026-11-13 记录:11、12 两篇当天先被风控拦,几小时后恢复,已完成改写。
 > 遇到「环境异常」不要反复重试,间隔几小时再试通常就通了。
-> 同日完成 05(CI/CD)、07(CWV),合集 15 项中已有 7 项为站内原创。
+> 同日完成 05(CI/CD)、07(CWV)、09(渲染策略)、02(Vite),合集 15 项中已有 9 项为站内原创。
 
 ## 8. 相关文件
 
