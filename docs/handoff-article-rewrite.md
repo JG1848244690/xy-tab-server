@@ -61,9 +61,9 @@
 | 01 | ✅ 已改写 | `package-managers-pnpm-yarn-npm` | pnpm / yarn / npm 到底差在哪 |
 | 02 | ✅ 已改写 | `vite-engineering-guide` | Vite 工程化:从 dev server 到生产构建 |
 | 03 | ✅ 已改写 | `code-quality-toolchain` | 代码质量工具链落地 |
-| 04 | ⬜ 外链 | `wechat-fe-04` | Monorepo 实战 |
+| 04 | ✅ 已改写 | `monorepo-pnpm-turborepo-changesets` | Monorepo 实战 |
 | 05 | ✅ 已改写 | `frontend-cicd-pipeline` | 前端 CI/CD 流水线:从 commit 到上线 |
-| 06 | ⬜ 外链 | `wechat-fe-06` | 前端依赖治理与供应链安全 |
+| 06 | ✅ 已改写 | `dependency-governance-supply-chain` | 依赖治理与供应链安全 |
 | 07 | ✅ 已改写 | `core-web-vitals-in-practice` | Core Web Vitals 实战 |
 | 08 | ⬜ 外链 | `wechat-fe-08` | 微前端方案选型与落地 |
 | 09 | ✅ 已改写 | `rendering-strategy-selection` | 渲染策略选型 |
@@ -173,15 +173,15 @@ ssh root@47.94.85.91 '
 
 按「技术点密度 + 与面试题重合度」排序:
 
-1. `wechat-fe-04` Monorepo
-2. `wechat-fe-06` 依赖治理
-3. `wechat-fe-08` 微前端
+1. `wechat-fe-08` 微前端
+
+最后一篇。写完这一篇,合集里除 `wechat-fe-14`(按计划保持外链)外全部为站内原创。
 
 每轮 2 篇,写完立刻重建前台,不要攒着。
 
 > 2026-11-13 记录:11、12 两篇当天先被风控拦,几小时后恢复,已完成改写。
 > 遇到「环境异常」不要反复重试,间隔几小时再试通常就通了。
-> 同日完成 05、07、09、02、03、10 共六篇,合集 15 项中已有 11 项为站内原创,仅剩 04 / 06 / 08 三条外链。
+> 同日完成 05、07、09、02、03、10、04、06 共八篇,合集 15 项中已有 13 项为站内原创。
 
 ## 8. 相关文件
 
