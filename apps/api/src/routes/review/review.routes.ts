@@ -321,6 +321,10 @@ export const applyRevision = createRoute({
             }),
             '改进版已写回,并触发同题重审',
         ),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            z.object({ message: z.string() }),
+            '非管理员',
+        ),
         [HttpStatusCodes.NOT_FOUND]: jsonContent(
             notFoundSchema,
             '题目不存在、无权操作,或最近一次 AI 报告没有改进版',

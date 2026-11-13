@@ -513,15 +513,22 @@ export const generate: AppRouteHandler<GenerateRoute> = async (c) => {
 }
 
 /**
- * POST /review/:id/apply-revision —— 一键应用 AI 改进版(admin 或创建者)
+ * POST /review/:id/apply-revision —— 一键应用 AI 改进版(admin only)
  *
  * AI 打回时(见 prompts/output.ts)会给出可直接落库的完整版本
  * (题干/答案/标签)。这里把 revised 写回**原题**(不新建),然后立即
  * 在原题上重触发审核 —— 用户交互 = 「让 AI 改好 → 再走一遍流程」。
+ *
+ * 2026-11-13:改成仅 admin。它本质是「改题目内容」,
+ * 普通用户能调就等于绕过了「题目编辑只给管理员」的边界。
  */
 export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
     const { id } = c.req.valid('param')
-    const userId = c.get('userId')!
+
+    // 权限先判:非管理员不该因为「AI 关着」拿到 503,那等于泄露配置状态
+    if (!isAdmin(c)) {
+        return c.json(errorBody('只有管理员可以修改题目', 'FORBIDDEN'), HttpStatusCodes.FORBIDDEN)
+    }
 
     if (!aiReviewEnabled()) {
         return c.json({ message: 'LLM 未配置或 AI 审核已关闭,请人工审核' }, HttpStatusCodes.SERVICE_UNAVAILABLE)
@@ -537,7 +544,7 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
         .from(questions)
         .where(eq(questions.id, id))
         .limit(1)
-    if (!q || (q.createdBy !== userId && !isAdmin(c))) {
+    if (!q) {
         return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
     }
 
@@ -594,25 +601,8 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
     updates.tags = classified.tags
 
     // 原题就地更新(不新建):内容变了 → contentHash 不匹配 → 重审必然执行。
-    // 配额先扣:额度用尽时不应留下"改了内容却没送审"的中间态
-    let quotaState: Awaited<ReturnType<typeof consumeQuota>> | null = null
-    if (!isAdmin(c)) {
-        quotaState = await consumeQuota(userId)
-        if (quotaState.limited) {
-            const retry = Math.ceil(
-                (new Date(quotaState.resetAt).getTime() - Date.now()) / 1000,
-            )
-            c.header('Retry-After', String(retry))
-            return c.json(
-                errorBody(
-                    `今日 AI 审核次数已用完(${quotaState.limit} 次),明天重置`,
-                    'QUOTA_EXCEEDED',
-                ),
-                HttpStatusCodes.TOO_MANY_REQUESTS,
-            )
-        }
-    }
-
+    // 只有 admin 能走到这里,配额对其豁免(见 consumeQuota 的 admin 分支),
+    // 所以不再做扣额判断。
     await db.update(questions).set(updates).where(eq(questions.id, id))
 
     // agent 正忙则只写回不重复排队
@@ -628,15 +618,6 @@ export const applyRevision: AppRouteHandler<ApplyRevisionRoute> = async (c) => {
             applied: true,
             status: 'pending_review',
             queued: !busy,
-            ...(quotaState
-                ? {
-                      quota: {
-                          used: quotaState.used,
-                          limit: quotaState.limit,
-                          remaining: quotaState.remaining,
-                      },
-                  }
-                : {}),
         },
         HttpStatusCodes.OK,
     )
