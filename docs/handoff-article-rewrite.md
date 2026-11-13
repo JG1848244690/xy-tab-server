@@ -68,8 +68,8 @@
 | 08 | ⬜ 外链 | `wechat-fe-08` | 微前端方案选型与落地 |
 | 09 | ⬜ 外链 | `wechat-fe-09` | 渲染策略选型 |
 | 10 | ⬜ 外链 | `wechat-fe-10` | 前端缓存策略全景 |
-| 11 | ⬜ 外链 | `wechat-fe-11` | Bundle 分析与瘦身 |
-| 12 | ⬜ 外链 | `wechat-fe-12` | 前端错误监控与上报 |
+| 11 | ✅ 已改写 | `bundle-analysis-tree-shaking` | Bundle 分析与瘦身 |
+| 12 | ✅ 已改写 | `error-monitoring-and-source-maps` | 前端错误监控与上报 |
 | 13 | ✅ 已改写 | `gray-release-and-ab-testing` | 灰度发布与 A/B 测试 |
 | 14 | 保持外链 | `wechat-fe-14` | 前端可观测性 |
 
@@ -173,16 +173,20 @@ ssh root@47.94.85.91 '
 
 按「技术点密度 + 与面试题重合度」排序:
 
-1. `wechat-fe-12` 错误监控(和站内《手写一个迷你 Sentry》互补,不重复)
-2. `wechat-fe-11` Bundle 分析与瘦身
-3. `wechat-fe-07` Core Web Vitals
-4. `wechat-fe-05` CI/CD 流水线
-5. `wechat-fe-09` 渲染策略选型
+1. `wechat-fe-07` Core Web Vitals
+2. `wechat-fe-05` CI/CD 流水线
+3. `wechat-fe-09` 渲染策略选型
+4. `wechat-fe-02` Vite 工程化
+5. `wechat-fe-03` 代码质量工具链
+6. `wechat-fe-04` Monorepo
+7. `wechat-fe-06` 依赖治理
+8. `wechat-fe-08` 微前端
+9. `wechat-fe-10` 缓存策略
 
 每轮 2 篇,写完立刻重建前台,不要攒着。
 
-> 2026-11-13 记录:`wechat-fe-11` / `wechat-fe-12` 抓正文时被微信风控拦(「环境异常」验证页),改抓 `wechat-fe-13` 并完成改写。
-> 下一轮先重试这两篇;仍失败就让用户提供正文。
+> 2026-11-13 记录:11、12 两篇当天先被风控拦,几小时后恢复,已完成改写。
+> 遇到「环境异常」不要反复重试,间隔几小时再试通常就通了。
 
 ## 8. 相关文件
 
