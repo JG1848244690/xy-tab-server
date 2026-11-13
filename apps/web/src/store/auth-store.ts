@@ -10,6 +10,8 @@ export interface User {
   role?: 'user' | 'admin'
   /** 邮箱验证时间;null/undefined = 未验证 */
   emailVerifiedAt?: string | null
+  /** 注册时间(/auth/me 返回,设置页展示用) */
+  createdAt?: string
 }
 
 interface AuthState {

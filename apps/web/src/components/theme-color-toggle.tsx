@@ -6,45 +6,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useThemeColor } from '@/components/theme-color-provider'
+import { THEME_COLORS } from '@/lib/theme-colors'
 import { cn } from '@/lib/utils'
-
-const themes = [
-  {
-    name: 'Zinc',
-    value: 'zinc' as const,
-    color: '#b5342a',
-  },
-  {
-    name: 'Slate',
-    value: 'slate' as const,
-    color: '#24406b',
-  },
-  {
-    name: 'Rose',
-    value: 'rose' as const,
-    color: '#a63b52',
-  },
-  {
-    name: 'Blue',
-    value: 'blue' as const,
-    color: '#2f5d9e',
-  },
-  {
-    name: 'Green',
-    value: 'green' as const,
-    color: '#2f6b57',
-  },
-  {
-    name: 'Orange',
-    value: 'orange' as const,
-    color: '#a15c2f',
-  },
-  {
-    name: 'Purple',
-    value: 'purple' as const,
-    color: '#6b4e8e',
-  },
-]
 
 export function ThemeColorToggle() {
   const { theme, setTheme } = useThemeColor()
@@ -59,7 +22,7 @@ export function ThemeColorToggle() {
       <DropdownMenuContent align="end" className="w-56 p-3">
         <div className="text-sm font-medium mb-3 text-primary ">切换主题色</div>
         <div className="flex flex-wrap gap-2">
-          {themes.map((t) => (
+          {THEME_COLORS.map((t) => (
             <button
               key={t.value}
               type="button"
