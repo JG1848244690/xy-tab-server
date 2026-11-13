@@ -255,20 +255,10 @@ export default function ArticleEditorPage() {
                         ) : (
                             <Save className="mr-1.5 h-3.5 w-3.5" />
                         )}
-                        存草稿
+                        {form.status === 'approved' ? '下线' : '存草稿'}
                     </Button>
 
-                    {form.status === 'approved' ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={save.isPending}
-                            onClick={() => save.mutate('draft')}
-                        >
-                            <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-                            下线
-                        </Button>
-                    ) : (
+                    {form.status === 'approved' ? null : (
                         <Button
                             size="sm"
                             disabled={save.isPending || !canPublish}
@@ -302,6 +292,11 @@ export default function ArticleEditorPage() {
                 )}
             >
                 <div className="flex min-h-0 flex-col">
+                    {form.kind === 'own' && form.contentMd.trimStart().startsWith('# ') ? (
+                        <p className="mb-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+                            正文开头的 H1 会和页面标题重复,前台渲染时已自动去掉(这里仍然保留原文)。
+                        </p>
+                    ) : null}
                     <MarkdownField
                         value={form.kind === 'own' ? form.contentMd : form.comment}
                         onChange={(v) =>
