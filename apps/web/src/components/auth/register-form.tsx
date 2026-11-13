@@ -3,8 +3,9 @@ import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, MailCheck, RefreshCw } from 'lucide-react'
 import { request } from '@/lib/request'
+import { authService } from '@/services/auth-service'
 
 declare global {
     interface Window {
@@ -95,6 +96,11 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
     const [password, setPassword] = useState('')
     const [name, setName] = useState('')
     const [error, setError] = useState('')
+
+    /** 注册成功后停在这一步:等用户去邮箱点链接 */
+    const [sentTo, setSentTo] = useState<string | null>(null)
+    const [resendCooldown, setResendCooldown] = useState(0)
+    const [resendHint, setResendHint] = useState('')
 
     /** Turnstile token(正常网络) */
     const [turnstileToken, setTurnstileToken] = useState('')
@@ -197,7 +203,10 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
             return res.data
         },
         onSuccess: () => {
-            onRegisterSuccess()
+            // 不再直接切回登录:先让用户去邮箱点验证链接
+            setSentTo(email)
+            setResendCooldown(60)
+            setResendHint('')
         },
         onError: (err: any) => {
             const code = err.response?.data?.code
@@ -206,6 +215,27 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
             setTurnstileToken('')
             window.turnstile?.reset()
             if (code === 'TURNSTILE_FAILED' && captchaMode === 'local') void loadChallenge()
+        },
+    })
+
+    /** 倒计时:让「重新发送」按钮在 60 秒内不可点,和后端冷却对齐 */
+    useEffect(() => {
+        if (resendCooldown <= 0) return
+        const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000)
+        return () => clearTimeout(t)
+    }, [resendCooldown])
+
+    const resendMutation = useMutation({
+        mutationFn: async () => {
+            if (!sentTo) return
+            await authService.resendVerification(sentTo)
+        },
+        onSuccess: () => {
+            setResendCooldown(60)
+            setResendHint('已重新发送,请查收(含垃圾邮件箱)')
+        },
+        onError: () => {
+            setResendHint('发送失败,请稍后再试')
         },
     })
 
@@ -222,10 +252,65 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
 
     return (
         <div className="w-full max-w-md mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground mb-2">创建新账号</h1>
-                <p className="text-muted-foreground text-sm">填写以下信息以创建您的账号</p>
-            </div>
+            {sentTo ? (
+                <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background">
+                            <MailCheck className="h-5 w-5 text-primary" />
+                        </span>
+                        <h1 className="text-2xl font-bold text-foreground">去邮箱完成验证</h1>
+                    </div>
+
+                    <p className="text-sm leading-6 text-muted-foreground">
+                        验证邮件已发送到{' '}
+                        <span className="font-medium text-foreground">{sentTo}</span>
+                        。点邮件里的按钮即完成验证,然后回来登录。
+                    </p>
+
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[12px] leading-5 text-muted-foreground">
+                        没收到?先看垃圾邮件箱。邮件可能需要一两分钟。
+                        {import.meta.env.DEV ? (
+                            <span className="mt-1 block text-[11px]">
+                                本地开发:未配置 SMTP,验证链接会打印在 API 控制台(搜索
+                                <code className="mx-1 rounded bg-background px-1">[mail:log]</code>)。
+                            </span>
+                        ) : null}
+                    </div>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11"
+                        disabled={resendCooldown > 0 || resendMutation.isPending}
+                        onClick={() => resendMutation.mutate()}
+                    >
+                        {resendMutation.isPending && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        {resendCooldown > 0 ? `${resendCooldown}s 后可重新发送` : '重新发送验证邮件'}
+                    </Button>
+
+                    {resendHint ? (
+                        <p className="text-center text-[12px] text-muted-foreground">{resendHint}</p>
+                    ) : null}
+
+                    <div className="text-center text-sm text-muted-foreground">
+                        已经验证过了?{' '}
+                        <button
+                            type="button"
+                            onClick={onRegisterSuccess}
+                            className="text-primary hover:underline font-medium transition-colors"
+                        >
+                            去登录
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-foreground mb-2">创建新账号</h1>
+                        <p className="text-muted-foreground text-sm">填写以下信息以创建您的账号</p>
+                    </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
@@ -339,6 +424,8 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
                     </button>
                 </div>
             </form>
+                </>
+            )}
         </div>
     )
 }

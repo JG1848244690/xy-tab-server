@@ -70,6 +70,10 @@ app.use('/auth/login', rateLimit({ windowMs: 60_000, max: 30 }))
 app.use('/auth/register', rateLimit({ windowMs: 3_600_000, max: 5 }))
 // 本地人机验证题:轻量只读接口,给注册页兜底用
 app.use('/auth/challenge', rateLimit({ windowMs: 60_000, max: 30 }))
+// 邮箱验证:verify 是用户点链接触发,给宽松一点(刷新/重试都正常);
+// resend 是发信动作,必须收紧 —— 不然就成了免费的发垃圾邮件接口
+app.use('/auth/email/verify', rateLimit({ windowMs: 60_000, max: 20 }))
+app.use('/auth/email/resend', rateLimit({ windowMs: 3_600_000, max: 5 }))
 app.use('/auth/me', cookieAuth())
 app.use('/questions', cookieAuth())
 app.use('/questions/*', cookieAuth())

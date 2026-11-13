@@ -77,6 +77,13 @@ export const users = pgTable(
         role: userRoleEnum('role').default('user').notNull(),
         // 注册时的 IP 哈希(sha256+盐 截断,不存裸 IP):防同 IP 批量注册多号
         createdIpHash: varchar('created_ip_hash', { length: 32 }),
+        /**
+         * 邮箱验证时间,null = 未验证。
+         * 注册后发一封带 HMAC 签名链接的邮件,用户点开 → 前端调
+         * POST /auth/email/verify → 写入这里。token 无状态、不落库
+         * (见 lib/email-token.ts),所以这张表只需要记「验证过没有」。
+         */
+        emailVerifiedAt: timestamp('email_verified_at', { mode: 'date' }),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()

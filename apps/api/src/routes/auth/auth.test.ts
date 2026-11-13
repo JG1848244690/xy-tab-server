@@ -52,6 +52,7 @@ vi.mock('../../db/index.js', () => ({
 import { Hono } from 'hono'
 import { cookieAuth } from '../../middlewares/auth.js'
 import { signToken } from '../../lib/auth.js'
+import { createEmailVerifyToken, verifyEmailVerifyToken } from '../../lib/email-token.js'
 import env from '../../env.js'
 import auth from './auth.index.js'
 
@@ -154,6 +155,81 @@ describe('auth contract', () => {
         expect(setCookie).toContain(`${env.AUTH_COOKIE_NAME}=`)
         expect(setCookie).toContain('Max-Age=0')
         expect(setCookie).toContain('Path=/')
+    })
+})
+
+describe('email verification', () => {
+    const app = new Hono()
+    app.route('/', auth)
+
+    it('token 往返:自己签的能验回来', () => {
+        const { token } = createEmailVerifyToken('u-1', 'a@test.com')
+        expect(verifyEmailVerifyToken(token)).toEqual({ userId: 'u-1', email: 'a@test.com' })
+    })
+
+    it('token 被改一个字符就失效(签名校验)', () => {
+        const { token } = createEmailVerifyToken('u-1', 'a@test.com')
+        const tampered = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A')
+        expect(verifyEmailVerifyToken(tampered)).toBeNull()
+        expect(verifyEmailVerifyToken('')).toBeNull()
+        expect(verifyEmailVerifyToken(undefined)).toBeNull()
+    })
+
+    it('过期 token 失效', () => {
+        const ttlMs = env.EMAIL_VERIFY_TTL_HOURS * 3_600_000
+        const { token } = createEmailVerifyToken('u-1', 'a@test.com', Date.now() - ttlMs - 1000)
+        expect(verifyEmailVerifyToken(token)).toBeNull()
+    })
+
+    it('POST /auth/email/verify 验证成功并写入 emailVerifiedAt', async () => {
+        const { token } = createEmailVerifyToken(EXISTING_USER.id, EXISTING_USER.email)
+        state.selectResult = [{ ...EXISTING_USER, emailVerifiedAt: null }]
+        state.insertResult = [{ ...EXISTING_USER, emailVerifiedAt: new Date() }]
+
+        const res = await app.request('/auth/email/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        })
+
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.alreadyVerified).toBe(false)
+        expect(body.user.emailVerifiedAt).toBeTruthy()
+    })
+
+    it('重复验证是幂等的(alreadyVerified=true)', async () => {
+        const { token } = createEmailVerifyToken(EXISTING_USER.id, EXISTING_USER.email)
+        state.selectResult = [{ ...EXISTING_USER, emailVerifiedAt: new Date() }]
+
+        const res = await app.request('/auth/email/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        })
+
+        expect(res.status).toBe(200)
+        expect((await res.json()).alreadyVerified).toBe(true)
+    })
+
+    it('乱填 token 返回 400', async () => {
+        const res = await app.request('/auth/email/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: 'not-a-real-token-at-all' }),
+        })
+        expect(res.status).toBe(400)
+    })
+
+    it('POST /auth/email/resend 对不存在的邮箱也返回 200(不泄露账号是否存在)', async () => {
+        state.selectResult = []
+        const res = await app.request('/auth/email/resend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'nobody@test.com' }),
+        })
+        expect(res.status).toBe(200)
+        expect((await res.json()).message).toContain('如果该邮箱需要验证')
     })
 })
 

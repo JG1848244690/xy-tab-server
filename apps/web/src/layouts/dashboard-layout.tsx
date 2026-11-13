@@ -6,6 +6,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ThemeColorToggle } from '@/components/theme-color-toggle'
 import { TodosDropdown } from '@/components/todos-dropdown'
 import { RouteLoadingIndicator } from '@/components/route-loading-indicator'
+import { EmailVerificationBanner } from '@/components/email-verification-banner'
 import { useState, useEffect } from 'react'
 import BreadCrumb from '@/components/breadcrumb'
 export default function DashboardLayout() {
@@ -162,6 +163,7 @@ export default function DashboardLayout() {
           )}
         </header>
         <main className="flex flex-1 flex-col p-4 min-h-0 overflow-y-auto overflow-x-hidden min-w-0">
+          <EmailVerificationBanner />
           <Outlet />
         </main>
       </div>

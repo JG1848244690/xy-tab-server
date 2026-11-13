@@ -36,6 +36,28 @@ const EnvSchema = z.object({
     // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
     REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),
 
+    // ===== 邮件(注册邮箱验证)=====
+    /** 站点公网地址,用来拼验证链接。生产填 https://hls.kskbl.com.cn */
+    APP_PUBLIC_URL: z.string().default('http://localhost:3000'),
+    /**
+     * 发信通道:
+     *  log  = 不真发,把链接写进日志(本地 / 测试;不需要任何账号)
+     *  smtp = 走 SMTP(阿里云邮件推送 / 腾讯企业邮 / 任何 SMTP 服务)
+     */
+    MAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
+    MAIL_FROM: z.string().default('noreply@example.com'),
+    MAIL_FROM_NAME: z.string().default('序言'),
+    SMTP_HOST: z.string().default(''),
+    SMTP_PORT: z.coerce.number().default(465),
+    /** 465 = SSL(secure),587 = STARTTLS(secure=false) */
+    SMTP_SECURE: z.enum(['true', 'false']).default('true'),
+    SMTP_USER: z.string().default(''),
+    SMTP_PASS: z.string().default(''),
+    /** 验证链接有效期(小时) */
+    EMAIL_VERIFY_TTL_HOURS: z.coerce.number().default(24),
+    /** 验证 token 的签名密钥;留空则复用 JWT_SECRET */
+    EMAIL_VERIFY_SECRET: z.string().default(''),
+
     // 是否在生产环境暴露 /doc 与 /reference(Scalar 文档)。默认关(B6):
     // 生产环境把 API 面完整暴露出去等于免费送攻击者踩点地图。
     // 调试需要时在 .env 设 true 重启,用完关掉

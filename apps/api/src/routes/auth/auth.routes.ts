@@ -106,6 +106,63 @@ export const humanChallenge = createRoute({
     },
 })
 
+const verifyEmailBodySchema = z.object({
+    // 前端从 ?token= 取出来原样回传
+    token: z.string().min(10, 'token 不合法'),
+})
+
+const resendVerificationBodySchema = z.object({
+    email: z.string().email(),
+})
+
+export const verifyEmail = createRoute({
+    method: 'post',
+    path: '/auth/email/verify',
+    tags,
+    request: {
+        body: jsonContentRequired(verifyEmailBodySchema, '邮件里的验证 token'),
+    },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({
+                user: userResponseSchema,
+                // true = 之前已经验证过(重复点链接 / 刷新页面),前端可以当成功处理
+                alreadyVerified: z.boolean(),
+            }),
+            '验证成功',
+        ),
+        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+            createMessageObjectSchema('Invalid or expired token'),
+            'token 无效或已过期',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(verifyEmailBodySchema),
+            '参数校验失败',
+        ),
+    },
+})
+
+export const resendVerification = createRoute({
+    method: 'post',
+    path: '/auth/email/resend',
+    tags,
+    request: {
+        body: jsonContentRequired(resendVerificationBodySchema, '邮箱'),
+    },
+    responses: {
+        // 无论邮箱是否存在、是否已验证,都返回同一句话:
+        // 否则这个接口就成了「查邮箱是否注册过」的探测器
+        [HttpStatusCodes.OK]: jsonContent(
+            createMessageObjectSchema('如果该邮箱需要验证,我们已重新发送'),
+            '已受理(不透露账号是否存在)',
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(resendVerificationBodySchema),
+            '参数校验失败',
+        ),
+    },
+})
+
 export const logout = createRoute({
     method: 'post',
     path: '/auth/logout',
@@ -134,5 +191,7 @@ export const me = createRoute({
 export type LoginRoute = typeof login
 export type RegisterRoute = typeof register
 export type HumanChallengeRoute = typeof humanChallenge
+export type VerifyEmailRoute = typeof verifyEmail
+export type ResendVerificationRoute = typeof resendVerification
 export type LogoutRoute = typeof logout
 export type MeRoute = typeof me

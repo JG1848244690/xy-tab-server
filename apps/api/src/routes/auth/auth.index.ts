@@ -8,6 +8,8 @@ const router = createRouter()
     .openapi(routes.login, handlers.login)
     .openapi(routes.register, handlers.register)
     .openapi(routes.humanChallenge, handlers.humanChallenge)
+    .openapi(routes.verifyEmail, handlers.verifyEmail)
+    .openapi(routes.resendVerification, handlers.resendVerification)
     .openapi(routes.logout, handlers.logout)
     .openapi(routes.me, handlers.me)
 

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/auth-store'
  * 按路由分包,重依赖只随所在页面下载。
  */
 const LoginPage = lazy(() => import('@/pages/login/page'))
+const VerifyEmailPage = lazy(() => import('@/pages/verify-email/page'))
 const HomePage = lazy(() => import('@/pages/home/page'))
 const TodosPage = lazy(() => import('@/pages/todos/page'))
 const TestCenterPage = lazy(() => import('@/pages/test-center/page'))
@@ -42,6 +43,8 @@ function page(node: React.ReactNode) {
 export const router = createBrowserRouter([
   { path: '/', element: <RootRedirect /> },
   { path: '/login', element: page(<LoginPage />) },
+  // 邮件里的验证链接落地页:公开路由,不需要登录(可能在另一台设备上点开)
+  { path: '/verify-email', element: page(<VerifyEmailPage />) },
   { path: '/register', element: <Navigate to="/login" replace /> },
   {
     element: (
