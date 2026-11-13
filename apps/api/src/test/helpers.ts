@@ -34,7 +34,9 @@ export function req(
     )
 }
 
-/** 清空业务表(用户保留):question_stats / question_attempts 随 questions 级联清掉 */
+/** 清空业务表(用户保留):question_stats / question_attempts 随 questions 级联清掉
+ *  question_quota 也要清:它是「每用户每天」的计数,不清的话同一测试文件里
+ *  创建超过 5 道题就会被投稿配额拦住 */
 export async function truncateBusinessTables(db: typeof dbType): Promise<void> {
-    await db.execute(sql`truncate table questions, todos restart identity cascade`)
+    await db.execute(sql`truncate table questions, todos, question_quota restart identity cascade`)
 }

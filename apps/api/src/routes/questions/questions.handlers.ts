@@ -1,7 +1,8 @@
-import { and, asc, count, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, isNull, ne, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type {
     ListRoute,
+    MySubmissionsRoute,
     GetOneRoute,
     CreateRoute,
     UpdateRoute,
@@ -24,6 +25,11 @@ import {
 } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { errorBody } from '../../lib/errors.js'
+import {
+    consumeSubmitQuota,
+    countPendingSubmissions,
+    QUESTION_PENDING_LIMIT,
+} from './submit-quota.js'
 import { runReview, isReviewing } from '../review/agent.js'
 import { consumeQuota } from '../review/quota.js'
 import { classifyQuestion } from './taxonomy.js'
@@ -248,8 +254,28 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 // 详情
 // ============================================================
 
-export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-    const { id } = c.req.valid('param')
+export const mySubmissions: AppRouteHandler<MySubmissionsRoute> = async (c) => {
+    const userId = c.get('userId')!
+
+    const rows = await db
+        .select({
+            id: questions.id,
+            title: questions.title,
+            type: questions.type,
+            difficulty: questions.difficulty,
+            status: questions.status,
+            reviewScore: questions.reviewScore,
+            createdAt: questions.createdAt,
+        })
+        .from(questions)
+        .where(and(eq(questions.createdBy, userId), ne(questions.status, 'approved')))
+        .orderBy(desc(questions.createdAt))
+        .limit(50)
+
+    return c.json({ data: rows }, HttpStatusCodes.OK)
+}
+
+export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {    const { id } = c.req.valid('param')
     const userId = c.get('userId')!
 
     const [row] = await db.select().from(questions).where(eq(questions.id, id)).limit(1)
@@ -321,6 +347,41 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const body = c.req.valid('json')
     // AI 审核被显式关闭时,新题直接进人工队列(否则停在 draft,审核页看不到)
     const aiOff = aiReviewDisabled()
+    const isAdmin = c.get('userRole') === 'admin'
+
+    /**
+     * 投稿配额(2026-11-13,普通用户)。
+     *
+     * 两个闸门:
+     *  1. 队列上限 —— 未裁决的投稿到 10 条就停,防止一次性灌满审核队列
+     *  2. 每日上限 —— 5 条/天,独立计数表,删题不重置
+     * admin 豁免(编辑工作台要批量录题)。
+     */
+    if (!isAdmin) {
+        const pending = await countPendingSubmissions(userId)
+        if (pending >= QUESTION_PENDING_LIMIT) {
+            return c.json(
+                errorBody(
+                    `待审核的投稿已有 ${pending} 条,等审核完再提交`,
+                    'PENDING_LIMIT',
+                ),
+                HttpStatusCodes.TOO_MANY_REQUESTS,
+            )
+        }
+
+        const quota = await consumeSubmitQuota(userId)
+        if (quota.limited) {
+            const retry = Math.ceil((new Date(quota.resetAt).getTime() - Date.now()) / 1000)
+            c.header('Retry-After', String(retry))
+            return c.json(
+                errorBody(
+                    `今日投稿次数已用完(${quota.limit} 条/天),明天重置`,
+                    'SUBMIT_QUOTA_EXCEEDED',
+                ),
+                HttpStatusCodes.TOO_MANY_REQUESTS,
+            )
+        }
+    }
 
     // 三级标签:老客户端只传 tags 也能自动归类;新表单可显式传三级字段
     const classified = classifyQuestion({
@@ -441,22 +502,35 @@ export const update: AppRouteHandler<UpdateRoute> = async (c) => {
 
 export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
     const { id } = c.req.valid('param')
-
-    // 同 update:删除也是管理员专属。普通用户删掉已过审的题,
-    // 会让公开题库出现「有链接但空白」的死链。
-    if (c.get('userRole') !== 'admin') {
-        return c.json(
-            errorBody('只有管理员可以删除题目', 'FORBIDDEN'),
-            HttpStatusCodes.FORBIDDEN,
-        )
-    }
+    const userId = c.get('userId')!
 
     const [row] = await db
-        .select({ id: questions.id })
+        .select({ createdBy: questions.createdBy, status: questions.status })
         .from(questions)
         .where(eq(questions.id, id))
         .limit(1)
     if (!row) return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
+
+    /**
+     * 删除规则(2026-11-13):
+     *   - admin:任意题
+     *   - 普通用户:只能撤回**自己还没过审**的投稿
+     *     (已过审的题在公开站上,删了会留死链,必须走管理员)
+     */
+    if (c.get('userRole') !== 'admin') {
+        if (row.createdBy !== userId) {
+            return c.json(
+                errorBody('只能撤回自己的投稿', 'FORBIDDEN'),
+                HttpStatusCodes.FORBIDDEN,
+            )
+        }
+        if (row.status === 'approved') {
+            return c.json(
+                errorBody('已发布的题目需要管理员处理', 'FORBIDDEN'),
+                HttpStatusCodes.FORBIDDEN,
+            )
+        }
+    }
 
     // question_stats / question_attempts 由 FK ON DELETE CASCADE 清理,
     // 不再手工两连删

@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CodeList from './codeList'
 import StrList from './strList'
+import { Submissions } from './submissions'
 import Modal from './addtest'
 import { store } from './store'
 import { useAuthStore } from '@/store/auth-store'
@@ -44,12 +45,16 @@ const TestCenter = () => {
         <TabsList>
           <TabsTrigger value="account">代码测试</TabsTrigger>
           <TabsTrigger value="password">理论测试</TabsTrigger>
+          <TabsTrigger value="submissions">我的投稿</TabsTrigger>
         </TabsList>
         <TabsContent value="account" className="w-full">
           <CodeList />
         </TabsContent>
         <TabsContent value="password">
           <StrList />
+        </TabsContent>
+        <TabsContent value="submissions">
+          <Submissions />
         </TabsContent>
       </Tabs>
       <Modal />

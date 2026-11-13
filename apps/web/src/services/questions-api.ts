@@ -62,6 +62,17 @@ export interface QuestionsListResponse {
   size: number
 }
 
+/** 我的投稿(未过审) */
+export interface Submission {
+  id: string
+  title: string
+  type: 'markdown' | 'text'
+  difficulty: 'easy' | 'medium' | 'hard'
+  status: 'draft' | 'pending_review' | 'human_pending' | 'rejected'
+  reviewScore: number | null
+  createdAt: string
+}
+
 export const questionsApi = {
   // 创建题目
   create: async (data: CreateQuestionDto): Promise<Question> => {
@@ -79,6 +90,12 @@ export const questionsApi = {
   getOne: async (id: string): Promise<Question> => {
     const res = await request.get(`/questions/${id}`)
     return res.data
+  },
+
+  // 我的投稿(只含未过审的)
+  getMySubmissions: async (): Promise<Submission[]> => {
+    const res = await request.get<{ data: Submission[] }>('/questions/submissions')
+    return res.data.data
   },
 
   // 更新题目

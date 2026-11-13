@@ -266,26 +266,115 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         expect(attemptRow[0].isCorrect).toBe(false)
     })
 
-    it('remove:只有 admin 能删;普通用户 403;删除后 stats/attempts 级联清空', async () => {
-        const shared = await createQuestion(OWNER, { title: '待删题' })
-        await req(app, OTHER, `/questions/${shared.id}/submit`, {
+    it('remove:普通用户只能撤回自己未过审的投稿;已过审/他人的一律 403', async () => {
+        const pending = await createQuestion(OWNER, { title: '待撤回' })
+        const approved = await createQuestion(OWNER, { title: '已发布' })
+        await db.update(questions).set({ status: 'approved' }).where(eq(questions.id, approved.id))
+        // 撤回时 stats / attempts 要跟着级联清掉
+        await req(app, OTHER, `/questions/${pending.id}/submit`, {
             method: 'POST',
             body: JSON.stringify({ userAnswer: '2', timeSpent: 5 }),
         })
 
-        // 普通用户(即便是创建者)删 → 403
-        const removeOwner = await req(app, OWNER, `/questions/${shared.id}`, { method: 'DELETE' })
-        expect(removeOwner.status).toBe(403)
-        const removeOther = await req(app, OTHER, `/questions/${shared.id}`, { method: 'DELETE' })
-        expect(removeOther.status).toBe(403)
-        // 题还在
-        expect(await db.select().from(questions).where(eq(questions.id, shared.id))).toHaveLength(1)
+        // 本人撤回未过审 → 200
+        const withdraw = await req(app, OWNER, `/questions/${pending.id}`, { method: 'DELETE' })
+        expect(withdraw.status).toBe(200)
+        expect(await db.select().from(questions).where(eq(questions.id, pending.id))).toHaveLength(0)
+        expect(
+            await db.select().from(questionStats).where(eq(questionStats.questionId, pending.id)),
+        ).toHaveLength(0)
+        expect(
+            await db.select().from(questionAttempts).where(eq(questionAttempts.questionId, pending.id)),
+        ).toHaveLength(0)
 
-        // admin 删别人的题 → 200,级联生效
-        const removeAdmin = await req(app, ADMIN, `/questions/${shared.id}`, { method: 'DELETE' })
-        expect(removeAdmin.status).toBe(200)
-        expect(await db.select().from(questionStats).where(eq(questionStats.questionId, shared.id))).toHaveLength(0)
-        expect(await db.select().from(questionAttempts).where(eq(questionAttempts.questionId, shared.id))).toHaveLength(0)
+        // 本人删已过审 → 403(公开站上有链接,删了是死链)
+        const delApproved = await req(app, OWNER, `/questions/${approved.id}`, { method: 'DELETE' })
+        expect(delApproved.status).toBe(403)
+        expect(await db.select().from(questions).where(eq(questions.id, approved.id))).toHaveLength(1)
+
+        // 别人的投稿 → 403
+        const otherPending = await createQuestion(OWNER, { title: '别人的' })
+        const delOthers = await req(app, OTHER, `/questions/${otherPending.id}`, { method: 'DELETE' })
+        expect(delOthers.status).toBe(403)
+
+        // admin 删已过审 → 200
+        const adminDel = await req(app, ADMIN, `/questions/${approved.id}`, { method: 'DELETE' })
+        expect(adminDel.status).toBe(200)
+    })
+
+    it('create:普通用户每天最多 5 条,第 6 条 429;admin 不限', async () => {
+        for (let i = 0; i < 5; i++) {
+            await createQuestion(OWNER, { title: `配额题 ${i}` })
+        }
+        const sixth = await req(app, OWNER, '/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: '第 6 条',
+                type: 'text',
+                content: 'x',
+                answer: 'y',
+                difficulty: 'easy',
+            }),
+        })
+        expect(sixth.status).toBe(429)
+        expect(((await sixth.json()) as { code: string }).code).toBe('SUBMIT_QUOTA_EXCEEDED')
+
+        // admin 不受限
+        const adminCreate = await req(app, ADMIN, '/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: '管理员第 6 条',
+                type: 'text',
+                content: 'x',
+                answer: 'y',
+                difficulty: 'easy',
+            }),
+        })
+        expect(adminCreate.status).toBe(200)
+    })
+
+    it('create:待审队列到 10 条后 429(PENDING_LIMIT)', async () => {
+        // 直接入库,绕开每日配额,只压队列上限
+        await db.insert(questions).values(
+            Array.from({ length: 10 }, (_, i) => ({
+                title: `排队题 ${i}`,
+                type: 'text' as const,
+                content: 'x',
+                answer: 'y',
+                difficulty: 'easy' as const,
+                status: 'human_pending' as const,
+                createdBy: OWNER.id,
+            })),
+        )
+
+        const res = await req(app, OWNER, '/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: '超出队列上限',
+                type: 'text',
+                content: 'x',
+                answer: 'y',
+                difficulty: 'easy',
+            }),
+        })
+        expect(res.status).toBe(429)
+        expect(((await res.json()) as { code: string }).code).toBe('PENDING_LIMIT')
+    })
+
+    it('GET /questions/submissions 只返回本人未过审的题', async () => {
+        const mine = await createQuestion(OWNER, { title: '我的待审' })
+        const approved = await createQuestion(OWNER, { title: '我的已过审' })
+        await db.update(questions).set({ status: 'approved' }).where(eq(questions.id, approved.id))
+        await createQuestion(OTHER, { title: '别人的待审' })
+
+        const res = await req(app, OWNER, '/questions/submissions')
+        expect(res.status).toBe(200)
+        const body = (await res.json()) as { data: { id: string; title: string }[] }
+        const titles = body.data.map((x) => x.title)
+        expect(titles).toContain('我的待审')
+        expect(titles).not.toContain('我的已过审')
+        expect(titles).not.toContain('别人的待审')
+        expect(body.data.find((x) => x.id === mine.id)).toBeTruthy()
     })
 
     it('getStats:GROUP BY 聚合口径与流水一致(B4)', async () => {

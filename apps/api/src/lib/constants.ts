@@ -42,3 +42,15 @@ export const REGISTER_IP_DAILY_LIMIT = 2
 
 /** 同一 IP 历史累计最多注册账号数 */
 export const REGISTER_IP_TOTAL_LIMIT = 5
+
+/**
+ * 普通用户投稿配额(2026-11-13)
+ *
+ * 题目列表只显示已过审的,普通用户的投稿会进 human_pending 队列。
+ * 不限量的话,一个人可以刷几百条垃圾题把审核队列淹掉。
+ *
+ * - QUESTION_DAILY_LIMIT:每人每天最多提交多少条(按自然日 UTC 分桶)
+ * - QUESTION_PENDING_LIMIT:同时在队列里(未裁决)的上限,防止一次性灌满
+ */
+export const QUESTION_DAILY_LIMIT = 5
+export const QUESTION_PENDING_LIMIT = 10

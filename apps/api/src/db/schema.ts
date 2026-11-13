@@ -646,6 +646,24 @@ export const aiQuota = pgTable(
 );
 
 // ============================================================
+// question_quota —— 普通用户投稿每日配额(2026-11-13)
+// 和 ai_quota 同构:每用户每天一行,SQL 侧自增,删题不会重置计数
+// (否则「提交 → 撤回 → 再提交」就能绕过日限额)
+// ============================================================
+
+export const questionQuota = pgTable(
+    'question_quota',
+    {
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        day: date('day').notNull(),
+        used: integer('used').default(0).notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.userId, t.day] })],
+);
+
+// ============================================================
 // 爬取管线占位表(P3.5 才写逻辑,P0 建表定形状)
 // 链路:source → crawl_run → staging_question →(agent 出题/审核)→ 正式表
 // ============================================================

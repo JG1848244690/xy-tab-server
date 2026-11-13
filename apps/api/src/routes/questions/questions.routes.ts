@@ -143,6 +143,32 @@ export const list = createRoute({
     },
 })
 
+const submissionSchema = z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    type: z.string(),
+    difficulty: z.string(),
+    status: z.string(),
+    reviewScore: z.number().nullable(),
+    createdAt: z.date(),
+})
+
+/**
+ * 我的投稿:只返回本人、且**未过审**的题(draft / pending_review / human_pending / rejected)。
+ * 过审的题已经在公开题库里,不需要在这里重复出现。
+ */
+export const mySubmissions = createRoute({
+    method: 'get',
+    path: '/questions/submissions',
+    tags,
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({ data: z.array(submissionSchema) }),
+            '我的投稿(未过审)',
+        ),
+    },
+})
+
 export const getOne = createRoute({
     method: 'get',
     path: '/questions/{id}',
@@ -165,6 +191,10 @@ export const create = createRoute({
     request: { body: jsonContentRequired(insertQuestionsSchema, '要创建的题目') },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(selectQuestionsSchema, '创建成功'),
+        [HttpStatusCodes.TOO_MANY_REQUESTS]: jsonContent(
+            z.object({ message: z.string(), code: z.string() }),
+            '投稿配额用尽(每日条数 / 待审队列上限)',
+        ),
         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
             createErrorSchema(insertQuestionsSchema),
             '参数校验失败',
@@ -281,6 +311,7 @@ export const getStats = createRoute({
 // ============================================================
 
 export type ListRoute = typeof list
+export type MySubmissionsRoute = typeof mySubmissions
 export type GetOneRoute = typeof getOne
 export type CreateRoute = typeof create
 export type UpdateRoute = typeof update

@@ -65,6 +65,8 @@ const Modal = () => {
   /** AI 自动出题:粘贴的原始知识点 */
   const [aiSource, setAiSource] = useState('')
   const [aiError, setAiError] = useState<string | null>(null)
+  /** 提交失败(含投稿配额 429):直接展示后端 message,别只 console */
+  const [submitError, setSubmitError] = useState<string | null>(null)
   /** 三轮 agent 自查出的"需人工核实"点 */
   const [aiCaveats, setAiCaveats] = useState<string[]>([])
   const [aiMeta, setAiMeta] = useState<{
@@ -187,13 +189,16 @@ const Modal = () => {
       resetAiState()
       // 关闭对话框,并提示"新题去了审核中心"(2026-10-26:题库只显示已过审的题)
       updates({        open: { ...(open as Record<string, unknown>), modal: false, editQuestionId: undefined },
-        notice: `「${data.title}」已提交 AI 审核,通过后才会出现在题库`,
+        notice: `「${data.title}」已提交审核,通过后才会出现在题库`,
       })
       queryClient.invalidateQueries({ queryKey: ['review-queue'] })
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('创建题目失败:', error)
-      // 可以在这里添加错误提示
+      setSubmitError(
+        error?.response?.data?.message ??
+          (error instanceof Error ? error.message : '提交失败,请稍后重试'),
+      )
     },
   })
 
@@ -314,8 +319,10 @@ const Modal = () => {
     }
 
     if (isEditMode) {
+      setSubmitError(null)
       updateMutation.mutate(submitData)
     } else {
+      setSubmitError(null)
       createMutation.mutate(submitData)
     }
   }
@@ -617,6 +624,13 @@ const Modal = () => {
               </code>
               )。
             </p>
+
+            {submitError ? (
+              <p className="flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <CircleAlert className="h-3.5 w-3.5 flex-none" />
+                {submitError}
+              </p>
+            ) : null}
 
             <DialogFooter>
               <Button
