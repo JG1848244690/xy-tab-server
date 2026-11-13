@@ -287,33 +287,10 @@ export default function ArticleEditorPage() {
                 className={cn(
                     'grid min-h-0 flex-1 gap-3',
                     showMeta
-                        ? 'xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_280px]'
-                        : 'xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]',
+                        ? 'xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_280px]'
+                        : 'xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]',
                 )}
             >
-                <div className="flex min-h-0 flex-col">
-                    {form.kind === 'own' && form.contentMd.trimStart().startsWith('# ') ? (
-                        <p className="mb-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
-                            正文开头的 H1 会和页面标题重复,前台渲染时已自动去掉(这里仍然保留原文)。
-                        </p>
-                    ) : null}
-                    <MarkdownField
-                        value={form.kind === 'own' ? form.contentMd : form.comment}
-                        onChange={(v) =>
-                            setForm((f) =>
-                                f.kind === 'own' ? { ...f, contentMd: v } : { ...f, comment: v },
-                            )
-                        }
-                        height="100%"
-                        placeholder={
-                            form.kind === 'own'
-                                ? '正文,支持 Markdown'
-                                : '荐文导读:为什么值得读(2-3 句)'
-                        }
-                        className="h-full"
-                    />
-                </div>
-
                 <div className="min-h-0 overflow-y-auto rounded-lg border border-border bg-card p-5">
                     {form.kind === 'curated' ? (
                         <div className="space-y-3">
@@ -336,8 +313,31 @@ export default function ArticleEditorPage() {
                     ) : form.contentMd.trim() ? (
                         <Markdown>{form.contentMd}</Markdown>
                     ) : (
-                        <p className="text-sm text-muted-foreground">左侧开始写,这里是实时预览。</p>
+                        <p className="text-sm text-muted-foreground">在右侧开始写,这里是实时预览。</p>
                     )}
+                </div>
+
+                <div className="flex min-h-0 flex-col">
+                    {form.kind === 'own' && form.contentMd.trimStart().startsWith('# ') ? (
+                        <p className="mb-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+                            正文开头的 H1 会和页面标题重复,前台渲染时已自动去掉(这里仍然保留原文)。
+                        </p>
+                    ) : null}
+                    <MarkdownField
+                        value={form.kind === 'own' ? form.contentMd : form.comment}
+                        onChange={(v) =>
+                            setForm((f) =>
+                                f.kind === 'own' ? { ...f, contentMd: v } : { ...f, comment: v },
+                            )
+                        }
+                        height="100%"
+                        placeholder={
+                            form.kind === 'own'
+                                ? '正文,支持 Markdown'
+                                : '荐文导读:为什么值得读(2-3 句)'
+                        }
+                        className="h-full"
+                    />
                 </div>
 
                 {showMeta ? (
