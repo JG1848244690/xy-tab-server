@@ -47,6 +47,14 @@ const EnvSchema = z.object({
     MAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
     MAIL_FROM: z.string().default('noreply@example.com'),
     MAIL_FROM_NAME: z.string().default('序言'),
+    /**
+     * 回信地址(Reply-To)。
+     *
+     * 阿里云控制台里填的「回信地址」只对控制台/API 发信生效,
+     * SMTP 发信必须在请求里显式带 reply-to —— 否则用户点「回复」时
+     * 会回到 noreply@,等于收不到。
+     */
+    MAIL_REPLY_TO: z.string().default(''),
     SMTP_HOST: z.string().default(''),
     SMTP_PORT: z.coerce.number().default(465),
     /** 465 = SSL(secure),587 = STARTTLS(secure=false) */

@@ -65,6 +65,8 @@ export async function sendMail(mail: MailOptions): Promise<void> {
         subject: mail.subject,
         text: mail.text,
         html: mail.html,
+        // 控制台里配的「回信地址」管不到 SMTP 发信,这里必须显式带上
+        replyTo: env.MAIL_REPLY_TO || undefined,
     })
 }
 
