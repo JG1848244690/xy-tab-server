@@ -13,20 +13,17 @@ import {
 import { Question } from '@/services/questions-api'
 import { ActionsCell } from './ActionsCell'
 
-import { useNavigate } from 'react-router-dom'
-
-// 提取为独立组件以正确使用 Hooks
-const TitleCell = ({ row }: { row: any }) => {
-  const navigate = useNavigate()
-  return (
-    <div
-      className="text-center font-medium hover:underline cursor-pointer"
-      onClick={() => navigate(`/test-center/practice/${row.original.id}`)}
-    >
-      {row.getValue('title')}
-    </div>
-  )
-}
+/** 标题点开新标签页:返回时题库还停在原来的页码/筛选(2026-11-13) */
+const TitleCell = ({ row }: { row: any }) => (
+  <a
+    href={`/test-center/practice/${row.original.id}`}
+    target="_blank"
+    rel="noreferrer"
+    className="block text-center font-medium hover:underline"
+  >
+    {row.getValue('title')}
+  </a>
+)
 
 /** 可见性列(2026-10-26):独立成列 + 表头可筛选,不再在标题后面挂「私有」小尾巴 */
 const visibilityColumn: ColumnDef<Question> = {
