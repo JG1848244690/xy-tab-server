@@ -51,4 +51,19 @@ describe('rateLimit middleware', () => {
         expect((await app.request('/limit-3', { method: 'POST' })).status).toBe(200)
         expect((await app.request('/limit-3', { method: 'POST' })).status).toBe(429)
     })
+
+    it('两个头都在时以 x-real-ip 为准:换 cf-connecting-ip 绕不过限流(2026-11-13)', async () => {
+        const app = makeApp('/limit-4', 1)
+        const post = (real: string, cf: string) =>
+            app.request('/limit-4', {
+                method: 'POST',
+                headers: { 'x-real-ip': real, 'cf-connecting-ip': cf },
+            })
+
+        expect((await post('1.1.1.1', '9.9.9.1')).status).toBe(200)
+        // 只换伪造的 cf 头 → 仍是同一个桶,照样 429
+        expect((await post('1.1.1.1', '9.9.9.2')).status).toBe(429)
+        // 换真实 x-real-ip → 才是新桶
+        expect((await post('2.2.2.2', '9.9.9.3')).status).toBe(200)
+    })
 })

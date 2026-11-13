@@ -7,17 +7,15 @@
  * 用法:
  *   app.use('/auth/login', rateLimit({ windowMs: 60_000, max: 30 }))
  *
- * 取限流 key 的 IP 规则(B5,配合 docker-compose 只绑 127.0.0.1):
- *   链路:客户端 → Cloudflare → nginx → app
- *   - cf-connecting-ip:CF 边缘强制覆盖,客户端伪造不了,nginx 原样透传 —— 首选。
- *     端口收紧后想裸连 app 伪造这个头,得先拿到服务器本地权限;
- *   - x-real-ip:nginx 写的是 $remote_addr(CF 边缘 IP)。整条 "绕过 CF 直打
- *     服务器" 的路径都会归到这一个桶,可接受(conservative,只会更严不会更松);
+ * 取限流 key 的 IP 规则(B5 + 2026-11-13 加固):
+ *   链路:客户端 → nginx → app(app 只绑 127.0.0.1,外网进不来)
+ *   - x-real-ip:nginx 用 $remote_addr 覆写 —— 首选;
+ *   - cf-connecting-ip:nginx 同样覆写(防客户端自带);仅在没有 nginx 时兜底;
  *   - 都没有:退回 TCP 对端地址(本地 dev 直连 / 本机调试)。
  *
- * 以前无条件取 x-forwarded-for 第一段:绕过 nginx 直连宿主端口时,
- * 每次换个 XFF 就能全新桶,暴力破解限流等于没有;还能伪造受害者 IP
- * 把人顶进限流桶。
+ * 以前优先信 cf-connecting-ip,而 nginx 会原样透传客户端自带的同名头,
+ * 于是「429 之后换一个 CF-Connecting-IP 就恢复 200」——限流等于没有。
+ * 已在 2026-11-13 实测复现并修复:nignx 侧 proxy_set_header 覆盖 + 这里改优先级。
  */
 
 import { createMiddleware } from 'hono/factory'
@@ -50,11 +48,11 @@ let lastSweep = 0
 
 /** 限流 key 里可靠的客户端标识(见文件头规则) */
 function clientKey(c: Parameters<ReturnType<typeof createMiddleware>>[0]): string {
+    const realIp = c.req.header('x-real-ip')
+    if (realIp) return realIp.trim()
+
     const cfIp = c.req.header('cf-connecting-ip')
     if (cfIp) return cfIp.trim()
-
-    const realIp = c.req.header('x-real-ip')
-    if (realIp) return `no-cf:${realIp.trim()}`
 
     // 本地 dev 直连:取 TCP 对端。测试环境(app.request)没有底层连接,抛错兜 'unknown'
     try {
