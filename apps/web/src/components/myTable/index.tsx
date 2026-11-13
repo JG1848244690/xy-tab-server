@@ -97,8 +97,8 @@ export default function MyTable<TData, TValue>({
      */
   return (
     <div>
-      <div className="flex items-center py-4">
-        <div className="relative max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 py-4">
+        <div className="relative max-w-sm flex-1">
           <Input
             placeholder="输入搜索内容"
             value={filter.search ?? ''}
@@ -111,6 +111,38 @@ export default function MyTable<TData, TValue>({
               onClick={() => onFilterChange('search', '')}
             />
           )}
+        </div>
+
+        {/* 做题进度:刷题时最常用的筛选,直接放在工具栏,不用去表头下拉里找 */}
+        <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+          {(
+            [
+              { key: '', label: '全部' },
+              { key: 'incomplete', label: '未完成' },
+              { key: 'completed', label: '已完成' },
+            ] as const
+          ).map((opt) => {
+            const current = filter.status ?? ''
+            const active =
+              opt.key === ''
+                ? current === ''
+                : opt.key === 'incomplete'
+                  ? current === 'incomplete' ||
+                    current === 'not_started' ||
+                    current === 'in_progress'
+                  : current === 'completed'
+            return (
+              <Button
+                key={opt.key || 'all'}
+                size="sm"
+                variant={active ? 'default' : 'ghost'}
+                className="h-7 px-2.5 text-xs"
+                onClick={() => onFilterChange('status', opt.key)}
+              >
+                {opt.label}
+              </Button>
+            )
+          })}
         </div>
       </div>
       <div className="overflow-hidden rounded-md border">

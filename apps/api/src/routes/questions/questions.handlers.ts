@@ -93,21 +93,29 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
     if (stack) conditions.push(eq(questions.techStack, stack))
     if (point) conditions.push(sql`${questions.knowledgePoints} @> ${JSON.stringify([point])}::jsonb`)
 
-    const needsStatsJoin = Boolean(status) || Boolean(ordering?.includes('stats.'))
-
     // 带别名的 question_stats 副本 —— select / orderBy / where 一律引用它。
     // 用原表名 questionStats 会被 PG 判成 42P01(undefined table)
     const stat = alias(questionStats, 'stat')
 
-    // status 过滤需要 join question_stats:not_started 还要包含"完全没有记录"的题
-    if (status === 'not_started' && needsStatsJoin) {
+    /**
+     * 列表永远 join question_stats。
+     *
+     * 之前只在「按状态筛选 / 按 stats 排序」时才 join,导致默认视图里
+     * 每道题都是「未开始 · 0 次」—— 用户根本看不出自己刷到哪了。
+     * LEFT JOIN 命中的是 (user_id, question_id) 主键,代价可以忽略。
+     */
+    if (status === 'incomplete') {
+        // 未完成 = 未开始 + 进行中(没有 stats 行的题算未开始)
         conditions.push(
             or(
                 eq(stat.status, 'not_started'),
+                eq(stat.status, 'in_progress'),
                 isNull(stat.questionId),
             )!,
         )
-    } else if (status && needsStatsJoin) {
+    } else if (status === 'not_started') {
+        conditions.push(or(eq(stat.status, 'not_started'), isNull(stat.questionId))!)
+    } else if (status) {
         conditions.push(eq(stat.status, status))
     }
 
@@ -160,66 +168,40 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
     }
 
     // ---- 分页查询 ----
-    const from = needsStatsJoin
-        ? db
-              .select({
-                  id: questions.id,
-                  title: questions.title,
-                  type: questions.type,
-                  difficulty: questions.difficulty,
-                  tags: questions.tags,
-                  direction: questions.direction,
-                  techStack: questions.techStack,
-                  knowledgePoints: questions.knowledgePoints,
-                  visibility: questions.visibility,
-                  createdAt: questions.createdAt,
-                  updatedAt: questions.updatedAt,
-                  statTotalAttempts: sql<number>`coalesce(${stat.totalAttempts}, 0)`,
-                  statCorrectAttempts: sql<number>`coalesce(${stat.correctAttempts}, 0)`,
-                  statStatus: sql<QuestionStatus | null>`${stat.status}`,
-                  statLastAttemptAt: sql<Date | null>`${stat.lastAttemptAt}`,
-              })
-              .from(questions)
-              .leftJoin(stat, joinOn)
-              .where(where)
-              .orderBy(orderBy)
-              .limit(size)
-              .offset((page - 1) * size)
-        : db
-              .select({
-                  id: questions.id,
-                  title: questions.title,
-                  type: questions.type,
-                  difficulty: questions.difficulty,
-                  tags: questions.tags,
-                  direction: questions.direction,
-                  techStack: questions.techStack,
-                  knowledgePoints: questions.knowledgePoints,
-                  visibility: questions.visibility,
-                  createdAt: questions.createdAt,
-                  updatedAt: questions.updatedAt,
-                  statTotalAttempts: sql<number>`0`,
-                  statCorrectAttempts: sql<number>`0`,
-                  statStatus: sql<QuestionStatus | null>`null`,
-                  statLastAttemptAt: sql<Date | null>`null`,
-              })
-              .from(questions)
-              .where(where)
-              .orderBy(orderBy)
-              .limit(size)
-              .offset((page - 1) * size)
+    const from = db
+        .select({
+            id: questions.id,
+            title: questions.title,
+            type: questions.type,
+            difficulty: questions.difficulty,
+            tags: questions.tags,
+            direction: questions.direction,
+            techStack: questions.techStack,
+            knowledgePoints: questions.knowledgePoints,
+            visibility: questions.visibility,
+            createdAt: questions.createdAt,
+            updatedAt: questions.updatedAt,
+            statTotalAttempts: sql<number>`coalesce(${stat.totalAttempts}, 0)`,
+            statCorrectAttempts: sql<number>`coalesce(${stat.correctAttempts}, 0)`,
+            statStatus: sql<QuestionStatus | null>`${stat.status}`,
+            statLastAttemptAt: sql<Date | null>`${stat.lastAttemptAt}`,
+        })
+        .from(questions)
+        .leftJoin(stat, joinOn)
+        .where(where)
+        .orderBy(orderBy)
+        .limit(size)
+        .offset((page - 1) * size)
 
     const rows = await from
 
     // ---- 总数 ----
-    // 同样要带上 stat join,否则 status 过滤下的 total 会偏大
-    const [{ value: total }] = needsStatsJoin
-        ? await db
-              .select({ value: count() })
-              .from(questions)
-              .leftJoin(stat, joinOn)
-              .where(where)
-        : await db.select({ value: count() }).from(questions).where(where)
+    // 必须带同一个 join,否则 status 过滤下的 total 会偏大
+    const [{ value: total }] = await db
+        .select({ value: count() })
+        .from(questions)
+        .leftJoin(stat, joinOn)
+        .where(where)
 
     return c.json({
         data: rows.map((r) => ({

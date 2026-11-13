@@ -15,7 +15,9 @@ const List = () => {
     ...(filter.ordering && { ordering: filter.ordering }),
     ...(filter.difficulty && { difficulty: filter.difficulty as 'easy' | 'medium' | 'hard' }),
     ...(filter.visibility && { visibility: filter.visibility as 'shared' | 'private' }),
-    ...(filter.status && { status: filter.status as 'not_started' | 'in_progress' | 'completed' }),
+    ...(filter.status && {
+      status: filter.status as 'not_started' | 'in_progress' | 'completed' | 'incomplete',
+    }),
     ...(filter.tag && { tag: filter.tag }),
     ...(filter.direction && { direction: filter.direction }),
     ...(filter.stack && { stack: filter.stack }),

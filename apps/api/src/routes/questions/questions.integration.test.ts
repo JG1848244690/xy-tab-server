@@ -266,6 +266,48 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         expect(attemptRow[0].isCorrect).toBe(false)
     })
 
+    it('列表默认带真实进度;status=incomplete 覆盖未开始+进行中', async () => {
+        const doing = await createQuestion(OWNER, { title: '做了一半' })
+        const done = await createQuestion(OWNER, { title: '做完了' })
+        const untouched = await createQuestion(OWNER, { title: '没动' })
+
+        await req(app, OTHER, `/questions/${doing.id}/submit`, {
+            method: 'POST',
+            body: JSON.stringify({ userAnswer: 'x', timeSpent: 3 }),
+        })
+        const submitted = await req(app, OTHER, `/questions/${done.id}/submit`, {
+            method: 'POST',
+            body: JSON.stringify({ userAnswer: '2', timeSpent: 4 }),
+        })
+        const { attempt } = (await submitted.json()) as { attempt: { id: string } }
+        await req(app, OTHER, `/questions/${done.id}/attempts/${attempt.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ isCorrect: true }),
+        })
+
+        // 默认列表:不再一律 not_started / 0 次
+        const list = (await (await req(app, OTHER, '/questions?size=20')).json()) as {
+            data: { id: string; stats: { status: string; totalAttempts: number } }[]
+        }
+        const byId = Object.fromEntries(list.data.map((r) => [r.id, r.stats]))
+        expect(byId[doing.id]).toMatchObject({ totalAttempts: 1, status: 'in_progress' })
+        expect(byId[done.id]).toMatchObject({ status: 'completed' })
+        expect(byId[untouched.id]).toMatchObject({ totalAttempts: 0, status: 'not_started' })
+
+        // 未完成 = 未开始 + 进行中
+        const inc = (await (await req(app, OTHER, '/questions?status=incomplete&size=20')).json()) as {
+            data: { id: string }[]
+        }
+        const incIds = inc.data.map((r) => r.id)
+        expect(incIds).toEqual(expect.arrayContaining([doing.id, untouched.id]))
+        expect(incIds).not.toContain(done.id)
+
+        const only = (await (await req(app, OTHER, '/questions?status=completed&size=20')).json()) as {
+            data: { id: string }[]
+        }
+        expect(only.data.map((r) => r.id)).toEqual([done.id])
+    })
+
     it('remove:普通用户只能撤回自己未过审的投稿;已过审/他人的一律 403', async () => {
         const pending = await createQuestion(OWNER, { title: '待撤回' })
         // createQuestion 默认落 approved(方便测列表),这里改回待审

@@ -274,6 +274,11 @@ export const columns: ColumnDef<Question>[] = [
                 进行中
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => table.options.meta?.onFilterChange?.('status', 'incomplete')}
+              >
+                未完成(未开始 + 进行中)
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={() => table.options.meta?.onFilterChange?.('status', 'completed')}
               >
                 已完成

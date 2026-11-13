@@ -21,6 +21,8 @@ const IdParamsSchema = z.object({ id: z.string().uuid() })
 
 const difficultySchema = z.enum(['easy', 'medium', 'hard'])
 const statusSchema = z.enum(['not_started', 'in_progress', 'completed'])
+/** 列表筛选额外支持「未完成」= 未开始 + 进行中(前端刷题时最常用的口径) */
+const statusFilterSchema = z.enum(['not_started', 'in_progress', 'completed', 'incomplete'])
 
 /**
  * 题目公共字段直接从表 schema 派生(B14):以前列表/详情的手写 schema 和
@@ -100,7 +102,7 @@ const listQuerySchema = z.object({
     direction: z.string().optional(),
     stack: z.string().optional(),
     point: z.string().optional(),
-    status: statusSchema.optional(),
+    status: statusFilterSchema.optional(),
     page: z.coerce.number().int().positive().default(1),
     size: z.coerce.number().int().positive().max(100).default(20),
     /** 排序字段,`-` 前缀表示倒序。支持 stats. 前缀走 question_stats */

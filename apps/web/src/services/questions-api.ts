@@ -48,7 +48,7 @@ export interface QuestionsListParams {
   direction?: string
   stack?: string
   point?: string
-  status?: 'not_started' | 'in_progress' | 'completed'
+  status?: 'not_started' | 'in_progress' | 'completed' | 'incomplete'
   page?: number
   size?: number
   ordering?: string
