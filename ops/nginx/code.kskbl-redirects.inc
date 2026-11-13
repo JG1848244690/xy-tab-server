@@ -118,3 +118,7 @@ location = /question/q-8070d8a39c86 { return 410; }
 location = /question/q-ab83900714a0 { return 410; }
 location = /question/q-db490722c87e { return 410; }
 location = /question/q-b899d8cbb399 { return 410; }
+
+# 2026-11-13:「荟萃」模块下线,并入文章页的荐文 tab
+location = /digest { return 301 /articles; }
+location ^~ /digest/ { return 301 /articles; }

@@ -8,7 +8,6 @@ const NAV = [
     { href: '/banks', label: '题库' },
     { href: '/tags', label: '标签' },
     { href: '/articles', label: '文章' },
-    { href: '/digest', label: '荟萃' },
 ]
 
 /** 后台 SPA:我要出题跳过去 */

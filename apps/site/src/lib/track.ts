@@ -12,7 +12,6 @@ export type TrackEvent =
     | 'click_contribute'
     | 'search'
     | 'copy_answer'
-    | 'digest_click'
 
 type Payload = Record<string, string | number | boolean | undefined>
 

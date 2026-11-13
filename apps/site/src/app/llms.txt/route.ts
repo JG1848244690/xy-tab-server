@@ -30,7 +30,6 @@ ${tagLines || '- 标签整理中'}
 ## 页面说明
 
 - [题目页](${SITE_URL}/question/[slug]):题干 + 参考答案 + 相关题,已有 QAPage 结构化数据
-- [每周荟萃](${SITE_URL}/digest):每周一期的文章导读
 - 订阅:${SITE_URL}/rss.xml
 `
 
