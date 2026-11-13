@@ -17,6 +17,7 @@ const PracticePage = lazy(() => import('@/pages/test-center/practice/[id]/page')
 const ReviewPage = lazy(() => import('@/pages/review/page'))
 const MediaPage = lazy(() => import('@/pages/media/page'))
 const ArticlesPage = lazy(() => import('@/pages/articles/page'))
+const ArticleEditorPage = lazy(() => import('@/pages/articles/editor'))
 const StatisticsPage = lazy(() => import('@/pages/statistics/page'))
 const SettingsPage = lazy(() => import('@/pages/settings/page'))
 const DrawerPage = lazy(() => import('@/pages/drawer/page'))
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: '/review', element: page(<ReviewPage />) },
       { path: '/media', element: page(<MediaPage />) },
       { path: '/articles', element: page(<ArticlesPage />) },
+      { path: '/articles/:id', element: page(<ArticleEditorPage />) },
       // 合集已并入文章页,旧的直达链接重定向过去
       { path: '/collections', element: <Navigate to="/articles" replace /> },
       { path: '/statistics', element: page(<StatisticsPage />) },

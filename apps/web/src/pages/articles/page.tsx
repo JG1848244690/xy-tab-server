@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { articlesApi, type Article, type ArticleKind, type ArticleStatus } from '@/services/articles-api'
-import { ArticleDialog } from './article-dialog'
 import { CollectionsSection } from './collections-section'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,7 @@ function fmtDate(value: string | null) {
 }
 
 export default function ArticlesPage() {
+    const navigate = useNavigate()
     const queryClient = useQueryClient()
     const [tab, setTab] = useState<Tab>('articles')
     const [collectionsTotal, setCollectionsTotal] = useState<number | null>(null)
@@ -50,8 +51,6 @@ export default function ArticlesPage() {
     const [status, setStatus] = useState<'all' | ArticleStatus>('all')
     const [q, setQ] = useState('')
     const [page, setPage] = useState(1)
-    const [open, setOpen] = useState(false)
-    const [editing, setEditing] = useState<Article | null>(null)
     const [quickUrl, setQuickUrl] = useState('')
     const [quickError, setQuickError] = useState<string | null>(null)
 
@@ -128,12 +127,7 @@ export default function ArticlesPage() {
                     </p>
                 </div>
                 {tab === 'articles' ? (
-                    <Button
-                        onClick={() => {
-                            setEditing(null)
-                            setOpen(true)
-                        }}
-                    >
+                    <Button onClick={() => navigate('/articles/new')}>
                         <Plus className="mr-1 h-4 w-4" />
                         新建文章
                     </Button>
@@ -255,7 +249,13 @@ export default function ArticlesPage() {
                                     rows.map((article) => (
                                         <TableRow key={article.id}>
                                             <TableCell>
-                                                <div className="font-medium">{article.title}</div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/articles/${article.id}`)}
+                                                    className="text-left font-medium transition-colors hover:text-primary"
+                                                >
+                                                    {article.title}
+                                                </button>
                                                 <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                                                     /article/{article.slug}
                                                 </div>
@@ -280,10 +280,7 @@ export default function ArticlesPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            setEditing(article)
-                                                            setOpen(true)
-                                                        }}
+                                                        onClick={() => navigate(`/articles/${article.id}`)}
                                                     >
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
@@ -353,7 +350,6 @@ export default function ArticlesPage() {
                 <CollectionsSection onLoaded={setCollectionsTotal} />
             )}
 
-            <ArticleDialog open={open} onOpenChange={setOpen} article={editing} />
         </div>
     )
 }

@@ -4,6 +4,7 @@ import * as routes from './articles.routes.js'
 
 // cookieAuth + requireAdmin 在 src/app.ts 按路径应用
 const router = createRouter()
+    .openapi(routes.getArticle, handlers.getOne)
     .openapi(routes.listArticles, handlers.list)
     .openapi(routes.createArticle, handlers.create)
     .openapi(routes.updateArticle, handlers.update)

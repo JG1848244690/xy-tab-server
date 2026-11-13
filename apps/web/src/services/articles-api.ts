@@ -32,7 +32,7 @@ export interface ArticleInput {
     externalUrl?: string
     comment?: string
     tags?: string[]
-    status: 'draft' | 'approved'
+    status: ArticleStatus
 }
 
 export interface ArticleListParams {
@@ -49,6 +49,10 @@ export const articlesApi = {
             '/articles',
             { params },
         )
+        return res.data
+    },
+    get: async (id: string) => {
+        const res = await request.get<Article>(`/articles/${id}`)
         return res.data
     },
     create: async (input: ArticleInput) => {

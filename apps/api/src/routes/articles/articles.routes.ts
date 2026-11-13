@@ -82,6 +82,17 @@ const articleUpdateSchema = z.object({
     status: z.enum(['draft', 'approved']).optional(),
 })
 
+export const getArticle = createRoute({
+    method: 'get',
+    path: '/articles/{id}',
+    tags,
+    request: { params: IdParamsSchema },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(articleItemSchema, '文章详情(编辑用,含正文)'),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, '文章不存在'),
+    },
+})
+
 export const listArticles = createRoute({
     method: 'get',
     path: '/articles',
@@ -162,6 +173,7 @@ export const removeArticle = createRoute({
 })
 
 export type ListArticlesRoute = typeof listArticles
+export type GetArticleRoute = typeof getArticle
 export type CreateArticleRoute = typeof createArticle
 export type UpdateArticleRoute = typeof updateArticle
 export type RemoveArticleRoute = typeof removeArticle

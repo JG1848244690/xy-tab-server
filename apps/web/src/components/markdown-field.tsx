@@ -22,8 +22,8 @@ type ViewMode = 'edit' | 'split' | 'preview'
 interface MarkdownFieldProps {
     value: string
     onChange: (value: string) => void
-    /** 编辑区高度,默认 400px */
-    height?: number
+    /** 编辑区高度,数字按 px,字符串原样传给 style */
+    height?: number | string
     placeholder?: string
     className?: string
 }

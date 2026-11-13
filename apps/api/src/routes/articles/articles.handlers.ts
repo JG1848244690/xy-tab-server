@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, count, desc, eq, ilike } from 'drizzle-orm'
 import type {
     CreateArticleRoute,
+    GetArticleRoute,
     ListArticlesRoute,
     RemoveArticleRoute,
     UpdateArticleRoute,
@@ -264,6 +265,13 @@ export const update: AppRouteHandler<UpdateArticleRoute> = async (c) => {
         }
         throw err
     }
+}
+
+export const getOne: AppRouteHandler<GetArticleRoute> = async (c) => {
+    const { id } = c.req.valid('param')
+    const [row] = await db.select().from(articles).where(eq(articles.id, id)).limit(1)
+    if (!row) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
+    return c.json(toItem(row), HttpStatusCodes.OK)
 }
 
 export const remove: AppRouteHandler<RemoveArticleRoute> = async (c) => {
