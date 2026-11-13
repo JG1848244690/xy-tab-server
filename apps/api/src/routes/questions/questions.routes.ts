@@ -182,6 +182,10 @@ export const update = createRoute({
     },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(selectQuestionsSchema, '更新成功'),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            createMessageObjectSchema('只有管理员可以修改题目'),
+            '非管理员',
+        ),
         [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, '题目不存在或无权修改'),
     },
 })
@@ -195,6 +199,10 @@ export const remove = createRoute({
         [HttpStatusCodes.OK]: jsonContent(
             createMessageObjectSchema('success'),
             '删除成功',
+        ),
+        [HttpStatusCodes.FORBIDDEN]: jsonContent(
+            createMessageObjectSchema('只有管理员可以删除题目'),
+            '非管理员',
         ),
         [HttpStatusCodes.NOT_FOUND]: jsonContent(
             createMessageObjectSchema('Question not found'),

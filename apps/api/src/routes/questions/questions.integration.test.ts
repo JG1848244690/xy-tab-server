@@ -33,6 +33,11 @@ const OTHER = {
     email: 'other@test.local',
     username: '做题人',
 }
+const ADMIN = {
+    id: 'c0000000-0000-4000-8000-000000000003',
+    email: 'admin@test.local',
+    username: '管理员',
+}
 
 describe.skipIf(!hasDb)('questions integration (real PG)', () => {
     beforeAll(async () => {
@@ -47,6 +52,7 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
             .values([
                 { ...OWNER, password: hash },
                 { ...OTHER, password: hash },
+                { ...ADMIN, password: hash, role: 'admin' },
             ])
             .onConflictDoNothing()
     })
@@ -260,20 +266,24 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         expect(attemptRow[0].isCorrect).toBe(false)
     })
 
-    it('remove:只有 owner 能删;删除后 stats/attempts 级联清空', async () => {
+    it('remove:只有 admin 能删;普通用户 403;删除后 stats/attempts 级联清空', async () => {
         const shared = await createQuestion(OWNER, { title: '待删题' })
         await req(app, OTHER, `/questions/${shared.id}/submit`, {
             method: 'POST',
             body: JSON.stringify({ userAnswer: '2', timeSpent: 5 }),
         })
 
-        // 非 owner 删 → 404
-        const removeB = await req(app, OTHER, `/questions/${shared.id}`, { method: 'DELETE' })
-        expect(removeB.status).toBe(404)
+        // 普通用户(即便是创建者)删 → 403
+        const removeOwner = await req(app, OWNER, `/questions/${shared.id}`, { method: 'DELETE' })
+        expect(removeOwner.status).toBe(403)
+        const removeOther = await req(app, OTHER, `/questions/${shared.id}`, { method: 'DELETE' })
+        expect(removeOther.status).toBe(403)
+        // 题还在
+        expect(await db.select().from(questions).where(eq(questions.id, shared.id))).toHaveLength(1)
 
-        // owner 删 → 200,级联生效
-        const removeA = await req(app, OWNER, `/questions/${shared.id}`, { method: 'DELETE' })
-        expect(removeA.status).toBe(200)
+        // admin 删别人的题 → 200,级联生效
+        const removeAdmin = await req(app, ADMIN, `/questions/${shared.id}`, { method: 'DELETE' })
+        expect(removeAdmin.status).toBe(200)
         expect(await db.select().from(questionStats).where(eq(questionStats.questionId, shared.id))).toHaveLength(0)
         expect(await db.select().from(questionAttempts).where(eq(questionAttempts.questionId, shared.id))).toHaveLength(0)
     })
@@ -306,17 +316,36 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         })
     })
 
-    it('update:非 owner 修改返回 404,题目未被改动', async () => {
+    it('update:普通用户 403(创建者也不行),admin 可改任意题', async () => {
         const shared = await createQuestion(OWNER, { title: '原标题' })
-        const res = await req(app, OTHER, `/questions/${shared.id}`, {
+
+        // 非 admin → 403,题目未被改动
+        const asOwner = await req(app, OWNER, `/questions/${shared.id}`, {
             method: 'PUT',
             body: JSON.stringify({ title: '被篡改' }),
         })
-        expect(res.status).toBe(404)
-        const row = await db
-            .select()
-            .from(questions)
-            .where(and(eq(questions.id, shared.id), eq(questions.title, '原标题')))
-        expect(row).toHaveLength(1)
+        expect(asOwner.status).toBe(403)
+
+        const asOther = await req(app, OTHER, `/questions/${shared.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ title: '被篡改' }),
+        })
+        expect(asOther.status).toBe(403)
+
+        expect(
+            await db
+                .select()
+                .from(questions)
+                .where(and(eq(questions.id, shared.id), eq(questions.title, '原标题'))),
+        ).toHaveLength(1)
+
+        // admin 改别人创建的题 → 200
+        const asAdmin = await req(app, ADMIN, `/questions/${shared.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ title: '管理员改的标题' }),
+        })
+        expect(asAdmin.status).toBe(200)
+        const [after] = await db.select().from(questions).where(eq(questions.id, shared.id))
+        expect(after.title).toBe('管理员改的标题')
     })
 })

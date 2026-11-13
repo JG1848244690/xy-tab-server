@@ -13,6 +13,7 @@ import { Question } from '@/services/questions-api'
 import { store } from './store'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { questionsApi } from '@/services/questions-api'
+import { useAuthStore } from '@/store/auth-store'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface ActionsCellProps {
@@ -22,8 +23,11 @@ interface ActionsCellProps {
 export function ActionsCell({ question }: ActionsCellProps) {
   const { open, updates } = store()
   const queryClient = useQueryClient()
+  const role = useAuthStore((s) => s.user?.role)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  // 题目内容只允许管理员改/删(后端同样校验,这里只是不给出入口)
+  const isAdmin = role === 'admin'
 
   // 删除题目的 mutation
   const deleteMutation = useMutation({
@@ -70,17 +74,23 @@ export function ActionsCell({ question }: ActionsCellProps) {
             复制题目 ID
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleEdit}>
-            <Pencil className="mr-2 h-4 w-4" />
-            编辑题目
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={handleDelete}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            删除题目
-          </DropdownMenuItem>
+          {isAdmin ? (
+            <>
+              <DropdownMenuItem onClick={handleEdit}>
+                <Pencil className="mr-2 h-4 w-4" />
+                编辑题目
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                删除题目
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <DropdownMenuItem disabled>题目内容仅管理员可编辑</DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

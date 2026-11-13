@@ -23,6 +23,7 @@ import {
     selectQuestionsSchema,
 } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
+import { errorBody } from '../../lib/errors.js'
 import { runReview, isReviewing } from '../review/agent.js'
 import { consumeQuota } from '../review/quota.js'
 import { classifyQuestion } from './taxonomy.js'
@@ -386,14 +387,28 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
 
 export const update: AppRouteHandler<UpdateRoute> = async (c) => {
     const { id } = c.req.valid('param')
-    const userId = c.get('userId')!
     const body = c.req.valid('json')
 
-    // 只有创建者能改 —— 旧代码的 findOne({id, createdBy: userId}) 隐含了这个约束
+    /**
+     * 权限边界(2026-11-13):题目内容只允许管理员修改。
+     *
+     * 之前是「创建者可以改自己的题」,问题在于题一旦过审进入公开题库,
+     * 创建者仍能改标题/答案 —— 等于普通用户可以直接改写线上内容,
+     * 绕过审核。现在普通用户只有「查看 + 练习」,投稿走人工审核。
+     */
+    const isAdmin = c.get('userRole') === 'admin'
+    if (!isAdmin) {
+        return c.json(
+            errorBody('只有管理员可以修改题目', 'FORBIDDEN'),
+            HttpStatusCodes.FORBIDDEN,
+        )
+    }
+
+    // 管理员可以改任何题(编辑工作台的性质),不再限于「自己创建的」
     const [updated] = await db
         .update(questions)
         .set(body)
-        .where(and(eq(questions.id, id), eq(questions.createdBy, userId)))
+        .where(eq(questions.id, id))
         .returning()
     if (!updated) return c.json({ message: 'Not Found' }, HttpStatusCodes.NOT_FOUND)
 
@@ -426,22 +441,22 @@ export const update: AppRouteHandler<UpdateRoute> = async (c) => {
 
 export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
     const { id } = c.req.valid('param')
-    const userId = c.get('userId')!
+
+    // 同 update:删除也是管理员专属。普通用户删掉已过审的题,
+    // 会让公开题库出现「有链接但空白」的死链。
+    if (c.get('userRole') !== 'admin') {
+        return c.json(
+            errorBody('只有管理员可以删除题目', 'FORBIDDEN'),
+            HttpStatusCodes.FORBIDDEN,
+        )
+    }
 
     const [row] = await db
-        .select({ createdBy: questions.createdBy })
+        .select({ id: questions.id })
         .from(questions)
         .where(eq(questions.id, id))
         .limit(1)
     if (!row) return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
-
-    // 只有创建者能删(created_by 已 NOT NULL,旧"无主人人可删"分支不复存在)
-    if (row.createdBy !== userId) {
-        return c.json(
-            { message: 'You can only delete questions you created' },
-            HttpStatusCodes.NOT_FOUND,
-        )
-    }
 
     // question_stats / question_attempts 由 FK ON DELETE CASCADE 清理,
     // 不再手工两连删
