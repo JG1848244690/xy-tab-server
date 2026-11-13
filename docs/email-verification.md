@@ -264,7 +264,7 @@ docker compose logs -f app | grep -i mail
 
 ---
 
-## 8. 学习用:这个流程可以复用到哪
+## 9. 学习用:这个流程可以复用到哪
 
 同一套「无状态签名 token」可以支撑:
 
