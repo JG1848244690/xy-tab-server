@@ -94,23 +94,21 @@ ssh 控制台(VNC)登录 → rm /etc/ssh/sshd_config.d/99-hardening.conf
 22/tcp    ALLOW  Anywhere          # SSH(仅密钥)
 80/tcp    ALLOW  Anywhere          # 仅用于 301 跳转
 443/tcp   ALLOW  Anywhere
-10667/tcp ALLOW  39.180.175.138    # 宝塔面板,仅本人出口 IP
+10667/tcp ALLOW  Anywhere          # 宝塔面板(密码 + SSL + 安全入口)
 ```
 
 其余全部删除。3002 仍在本机监听,但只经 `doc.kskbl.com.cn`(nginx 反代 127.0.0.1:3002)访问。
+
+> 10667 曾一度限制为「仅站长出口 IP」,因宽带 IP 经常变化、且面板本身有密码 + SSL + 安全入口,
+> 2026-11-13 当天恢复为公网可访问,避免自己把自己锁在门外。
 
 **外部验证**(check-host.net 多节点):
 
 ```
 3002   Connection timed out   ← 已关闭
-10667  Connection timed out   ← 已关闭(非本人 IP)
+10667  OPEN                   ← 面板保留(有密码 + SSL)
 443    OPEN
 ```
-
-> 面板 IP 变了怎么办:用 SSH 隧道,不受防火墙限制
-> `ssh -L 10667:127.0.0.1:10667 root@47.94.85.91`
-> 然后浏览器打开 `https://127.0.0.1:10667`(证书告警可忽略)。
-> 或者临时执行 `ufw allow from <新IP> to any port 10667 proto tcp`。
 
 ---
 
