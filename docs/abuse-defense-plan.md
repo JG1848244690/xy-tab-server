@@ -106,3 +106,23 @@ NAT/校园网/公司网出口一堆真人;只限"注册动作"频次+人数,误�
 1. CF Dashboard → Turnstile → Add Site:域名填 `hls.kskbl.com.cn`(注册页所在),
    拿 **Site Key**(进 web 的 VITE_ 变量)和 **Secret Key**(进服务器 .env)
 2. 顺手可开:Security → Bots → Bot Fight Mode(免费,打一遍全站机器人)
+
+---
+
+## 6. 投稿配额与题目权限(2026-11-13 补充)
+
+普通用户投稿会进 `human_pending` 人工队列,所以要防「一个人刷几百条垃圾题灌满队列」。
+
+| 限制 | 值 | 实现 |
+|---|---|---|
+| 每日投稿数 | 5 条/天/人 | `question_quota` 表,SQL 侧条件自增(删题不重置) |
+| 待审队列上限 | 10 条/人 | `count(status in draft/pending_review/human_pending)` |
+| 超限响应 | `429` + `SUBMIT_QUOTA_EXCEEDED` / `PENDING_LIMIT` | handler 前置判断,admin 豁免 |
+
+权限边界(同一批改动):
+
+- **普通用户**:看已过审题、练习、提交投稿、撤回**自己未过审**的投稿
+- **管理员**:编辑/删除任意题、审核裁决、应用 AI 改进版
+
+要点:计数必须独立成表。若用「count(questions where createdAt > now-24h)」,
+用户删题后行就没了,「提交 → 撤回 → 再提交」可以无限刷。
