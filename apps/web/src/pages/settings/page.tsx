@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
 import {
   BadgeCheck,
   Check,
   Copy,
+  ExternalLink,
   LogOut,
   Mail,
   Moon,
@@ -294,7 +295,7 @@ export default function SettingsPage() {
 
               <div>
                 <SectionLabel>主题色</SectionLabel>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 grid grid-cols-7 gap-1.5">
                   {THEME_COLORS.map((t) => {
                     const active = mounted && colorTheme === t.value
                     return (
@@ -306,12 +307,12 @@ export default function SettingsPage() {
                         aria-pressed={active}
                         onClick={() => setColorTheme(t.value)}
                         className={cn(
-                          'flex h-8 w-8 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-all',
+                          'mx-auto flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-all',
                           active ? 'ring-2 ring-foreground/60' : 'opacity-80 hover:opacity-100',
                         )}
                         style={{ backgroundColor: t.color }}
                       >
-                        {active ? <Check className="h-4 w-4 text-white" strokeWidth={3} /> : null}
+                        {active ? <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} /> : null}
                       </button>
                     )
                   })}
@@ -320,6 +321,40 @@ export default function SettingsPage() {
                   当前:{THEME_COLORS.find((t) => t.value === colorTheme)?.name ?? '朱砂'}
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-[16px]">快捷入口</CardTitle>
+              <CardDescription>日常维护最常用的几个页面</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-1.5">
+              {[
+                { to: '/test-center', label: '题库', hint: '出题与练习' },
+                ...(user.role === 'admin'
+                  ? [{ to: '/review', label: '审核', hint: '人工裁决' }]
+                  : []),
+                { to: '/articles', label: '文章', hint: '原创与合集' },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+                >
+                  <span className="text-[13px]">{item.label}</span>
+                  <span className="text-[11px] text-muted-foreground">{item.hint}</span>
+                </Link>
+              ))}
+              <a
+                href="https://code.kskbl.com.cn"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+              >
+                <span className="text-[13px]">前台站点</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
             </CardContent>
           </Card>
 
