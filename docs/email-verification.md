@@ -229,7 +229,29 @@ docker compose logs -f app | grep -i mail
 
 ---
 
-## 7. 已知限制(刻意留的,不是漏)
+## 7. 上线时踩过的三个坑(2026-11-13)
+
+**1. 401 全局跳转误伤公开页(已修 `a8a3ce0`)**
+
+`request.ts` 的拦截器遇到 401 就 `location.href = '/login'`,只排除了 `/login`。
+页面加载时 `AuthBootstrap` 会请求 `/auth/me`,未登录必然 401 →
+**在未登录的浏览器里点邮件链接,会先跳登录页,验证页根本不显示**。
+现在改成 `PUBLIC_PATHS` 白名单(`/login`、`/register`、`/verify-email`)。
+
+**2. `docker-compose.yml` 的 environment 是白名单**
+
+只写进 `.env` 不够 —— `MAIL_*` / `SMTP_*` 不在 compose 的 `environment:` 里,
+容器根本收不到,mailer 会静默回落到 `log` 模式,邮件链接还会是 `localhost:3000`。
+新加环境变量时,`.env` 和 `docker-compose.yml` 两处都要改。
+
+**3. 阿里云「发信地址未认证」不影响 SMTP 发信**
+
+控制台显示「未认证 / 状态异常」,点「验证发信地址」要求收验证码,
+但邮件推送不提供收信服务,`noreply@` 永远收不到。
+实测**未认证状态下 SMTP 仍可发信**(`235 Authentication successful` → `250 Data Ok`),
+所以不必卡在这一步。
+
+## 8. 已知限制(刻意留的,不是漏)
 
 1. **`resend` 的 60 秒冷却是进程内 `Map`** —— 单实例够用,多副本会各算各的。
    要上多副本时换 Redis 或数据库计数。
