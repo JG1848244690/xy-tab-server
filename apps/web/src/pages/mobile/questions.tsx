@@ -104,8 +104,8 @@ export default function MobileQuestions() {
             className={cn(
               'rounded px-2 py-1.5 text-[12.5px] transition-colors',
               status === f.key
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/30'
+                : 'text-muted-foreground active:bg-muted',
             )}
           >
             {f.label}

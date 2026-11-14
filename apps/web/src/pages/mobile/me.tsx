@@ -85,7 +85,7 @@ export default function MobileMe() {
                 className={cn(
                   'flex items-center justify-center gap-1 rounded px-2 py-2 text-[12px] transition-colors',
                   active
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/30'
                     : 'text-muted-foreground active:bg-muted',
                 )}
               >
