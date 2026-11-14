@@ -143,7 +143,7 @@ export default async function HomePage() {
                 <section className="mt-12">
                     <div className="flex items-baseline justify-between border-b border-foreground/80 pb-2">
                         <h2 className="font-serif text-[15px] tracking-[0.04em]">编辑精选</h2>
-                        <span className="text-[12px] text-muted-foreground">十道值得先读的题</span>
+                        <span className="text-[12px] text-muted-foreground">按阅读顺序 · 从浏览器到工程</span>
                     </div>
                     <div className="mt-1 grid gap-x-10 sm:grid-cols-2">
                         {featuredPool.map((q, i) => (
