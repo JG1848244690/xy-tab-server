@@ -24,7 +24,9 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     onSuccess: async () => {
       const user = await authService.me()
       setUser(user)
-      navigate('/home')
+      // 手机上直接进移动端题库,不先渲染桌面壳再跳转
+      const mobile = window.matchMedia('(max-width: 767px)').matches
+      navigate(mobile ? '/m/questions' : '/home')
     },
     onError: (err: any) => {
       console.error(err)

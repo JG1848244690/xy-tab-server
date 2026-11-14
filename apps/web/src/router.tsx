@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import DashboardLayout from '@/layouts/dashboard-layout'
 import { RequireAuth } from '@/components/require-auth'
+import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useAuthStore } from '@/store/auth-store'
 
 /**
@@ -23,9 +24,35 @@ const StatisticsPage = lazy(() => import('@/pages/statistics/page'))
 const SettingsPage = lazy(() => import('@/pages/settings/page'))
 const DrawerPage = lazy(() => import('@/pages/drawer/page'))
 
+// 移动端是独立的一套 UI(单列 + 底部 tab),和桌面的侧栏工作台互不影响
+const MobileLayout = lazy(() => import('@/pages/mobile/layout'))
+const MobileQuestions = lazy(() => import('@/pages/mobile/questions'))
+const MobilePractice = lazy(() => import('@/pages/mobile/practice'))
+const MobileMe = lazy(() => import('@/pages/mobile/me'))
+
+const MOBILE_QUERY = '(max-width: 767px)'
+
+function isMobileViewport() {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
+}
+
 function RootRedirect() {
   const user = useAuthStore((s) => s.user)
-  return <Navigate to={user ? '/home' : '/login'} replace />
+  if (!user) return <Navigate to="/login" replace />
+  // 手机上直接进移动端首页,不再先渲染一次桌面壳
+  return <Navigate to={isMobileViewport() ? '/m/questions' : '/home'} replace />
+}
+
+/** 桌面页面的补位:手机误入 /test-center 时转到移动端题库 */
+function MobileAware({
+  mobileTo,
+  children,
+}: {
+  mobileTo: string
+  children: React.ReactNode
+}) {
+  const mobile = useIsMobile()
+  return mobile ? <Navigate to={mobileTo} replace /> : <>{children}</>
 }
 
 function PageLoading() {
@@ -47,16 +74,30 @@ export const router = createBrowserRouter([
   { path: '/verify-email', element: page(<VerifyEmailPage />) },
   { path: '/register', element: <Navigate to="/login" replace /> },
   {
+    path: '/m',
+    element: (
+      <RequireAuth>
+        {page(<MobileLayout />)}
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/m/questions" replace /> },
+      { path: 'questions', element: page(<MobileQuestions />) },
+      { path: 'practice/:id', element: page(<MobilePractice />) },
+      { path: 'me', element: page(<MobileMe />) },
+    ],
+  },
+  {
     element: (
       <RequireAuth>
         <DashboardLayout />
       </RequireAuth>
     ),
     children: [
-      { path: '/home', element: page(<HomePage />) },
+      { path: '/home', element: page(<MobileAware mobileTo="/m/questions"><HomePage /></MobileAware>) },
       { path: '/todos', element: page(<TodosPage />) },
-      { path: '/test-center', element: page(<TestCenterPage />) },
-      { path: '/test-center/practice/:id', element: page(<PracticePage />) },
+      { path: '/test-center', element: page(<MobileAware mobileTo="/m/questions"><TestCenterPage /></MobileAware>) },
+      { path: '/test-center/practice/:id', element: page(<MobileAware mobileTo="/m/questions"><PracticePage /></MobileAware>) },
       { path: '/review', element: page(<ReviewPage />) },
       { path: '/media', element: page(<MediaPage />) },
       { path: '/articles', element: page(<ArticlesPage />) },
