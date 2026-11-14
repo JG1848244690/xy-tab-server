@@ -33,7 +33,7 @@ export async function GET() {
   <channel>
     <title>${SITE_NAME}</title>
     <link>${SITE_URL}</link>
-    <description>每周精选面试题与文章导读</description>
+    <description>每周精选知识点与文章导读</description>
 ${items}
   </channel>
 </rss>`

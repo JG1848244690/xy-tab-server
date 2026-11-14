@@ -136,12 +136,6 @@ export default function MobileMe() {
         退出登录
       </Button>
 
-      <p className="mt-6 text-center text-[11px] leading-5 text-muted-foreground">
-        手机上只保留「看题 + 刷题 + 账号」。
-        <br />
-        出题、审核、绘图请用电脑打开。
-      </p>
-
       <AlertDialog open={confirmLogout} onOpenChange={setConfirmLogout}>
         <AlertDialogContent>
           <AlertDialogHeader>

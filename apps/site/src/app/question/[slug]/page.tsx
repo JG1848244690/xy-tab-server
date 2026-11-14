@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!q) return { title: '题目' }
     return {
         title: q.title,
-        description: q.summary ?? `「${q.title}」的面试考察点、参考答案与记忆口诀。`,
+        description: q.summary ?? `「${q.title}」的知识点解析、参考答案与记忆口诀。`,
         alternates: { canonical: `/question/${slug}` },
         openGraph: { url: absoluteUrl(`/question/${slug}`), title: q.title },
     }

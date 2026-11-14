@@ -47,7 +47,7 @@ export function Submissions() {
   if (!data?.length) {
     return (
       <div className="rounded-md border border-border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
-        还没有投稿。点右上角「添加题目」提交,审核通过后会进题库。
+        还没有投稿
       </div>
     )
   }

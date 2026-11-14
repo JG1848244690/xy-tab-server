@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 // 2026-10-28: 语雀题库批量导入(322 题)后触发静态重建
 // 2026-10-28: 题库归类完成后再次重建
 // 2026-10-29: 走查后内容修复(假题干/空标签/残缺标题)触发重建
@@ -12,10 +12,10 @@ import './globals.css'
 export const metadata: Metadata = {
     metadataBase: new URL(SITE_URL),
     title: {
-        default: '序言-免费的web开发面试题站点',
+        default: '序言 · Web 开发知识点汇总',
         template: '%s | 序言',
     },
-    description: '序言 · 免费的 Web 开发面试题库:AI + 人工双审,每题带分层答案与记忆口诀。',
+    description: '序言 · 免费开放的 Web 开发知识库:AI + 人工双审,每个知识点带分层解析与记忆口诀。',
     openGraph: {
         siteName: SITE_NAME,
         type: 'website',

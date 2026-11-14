@@ -89,15 +89,6 @@ export default function DashboardLayout() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
             <DashboardNav expanded={expanded} />
           </div>
-
-          {/* 底部:未固定时提示 */}
-          <div
-            className={`border-t border-sidebar-border px-3 py-2.5 font-mono text-[10px] text-muted-foreground transition-opacity duration-150 ${
-              expanded ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {pinned ? '已固定 · 点击图钉取消' : '悬停展开 · 点击图钉固定'}
-          </div>
         </aside>
       </div>
 

@@ -23,10 +23,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const tag = tags.data.find((t) => t.slug === slug)
     if (!tag) return { title: '标签' }
     return {
-        title: `${tag.name} 面试题`,
+        title: `${tag.name} 知识点`,
         description:
             tag.description?.slice(0, 150) ??
-            `关于 ${tag.name} 的面试题合集,共 ${tag.questionCount} 题。`,
+            `关于 ${tag.name} 的知识点合集,共 ${tag.questionCount} 题。`,
         alternates: { canonical: `/tag/${slug}` },
         // 防薄内容惩罚:没有 ≥240 字介绍的聚合页 noindex(plan §8 风险 2)
         robots: tag.hasIntro ? undefined : { index: false, follow: true },
@@ -47,7 +47,7 @@ export default async function TagPage({ params }: Props) {
     return (
         <>
             <h1 className="text-balance font-serif text-[32px] leading-tight tracking-[-0.025em]">
-                {tag.name} 面试题
+                {tag.name} 知识点
             </h1>
             {tag.description ? (
                 <p className="mt-2 mb-7 max-w-[65ch] text-[14px] leading-6 text-muted-foreground">

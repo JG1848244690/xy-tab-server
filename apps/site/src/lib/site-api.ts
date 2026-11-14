@@ -1,5 +1,5 @@
 /**
- * 构建期数据获取(面试站 SSG)。
+ * 构建期数据获取(静态站 SSG)。
  *
  * 所有页面在 next build 时把数据拉死进 HTML;运行时没有 Node、没有服务端
  * fetch。拉取失败直接 fail build —— 宁可部署失败也不上线半残的静态站。
@@ -16,7 +16,7 @@ export const GITHUB_REPO_URL = 'https://github.com/JG1848244690/xy-tab-server'
  * 内容库最后整理时间。题库/标签数据变了但代码没变时,靠它触发静态重建,
  * 同时给 sitemap 里没有独立更新时间的条目兜底。
  */
-export const CONTENT_UPDATED_AT = '2026-10-30'
+export const CONTENT_UPDATED_AT = '2026-11-14'
 
 async function get<T>(path: string): Promise<T> {
     // 重试 + 30s 超时:构建期要打几十上百个请求,链路(尤其过 CF)偶发抖动

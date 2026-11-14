@@ -4,7 +4,7 @@ import { sortBanks } from '@/lib/bank-order'
 
 export const metadata: Metadata = {
     title: '全部题库',
-    description: '按专题组织的面试题库合集,覆盖前端、算法与工程实践。',
+    description: '按专题组织的知识点合集,覆盖前端、算法与工程实践。',
     alternates: { canonical: '/banks' },
 }
 

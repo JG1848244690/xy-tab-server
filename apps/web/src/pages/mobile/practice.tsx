@@ -129,7 +129,6 @@ export default function MobilePractice() {
       <section className="mt-5 px-4">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-[12px] font-medium tracking-wide text-muted-foreground">我的作答</h2>
-          <span className="text-[11px] text-muted-foreground">{answer.length} 字</span>
         </div>
         <textarea
           value={answer}

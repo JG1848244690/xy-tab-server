@@ -63,10 +63,10 @@ export default async function HomePage() {
 
                 <div>
                     <p className="text-[11px] tracking-[0.18em] text-muted-foreground">
-                        免费 · Web 开发面试题库
+                        免费 · Web 开发知识点汇总
                     </p>
                     <h1 className="mt-4 text-balance font-serif text-[40px] leading-[1.14] tracking-[-0.03em] sm:text-[56px]">
-                        面试题,
+                        知识点,
                         <br />
                         按原理分层讲透
                     </h1>
@@ -125,7 +125,7 @@ export default async function HomePage() {
             <section className="flex flex-col gap-3 border-y border-border py-5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-[62ch] text-[13.5px] leading-6 text-muted-foreground">
                     <span className="font-serif text-[15px] text-foreground">众人拾柴火焰高。</span>
-                    分享一道你真实遇到的面试题,或补充、纠正现有答案。
+                    分享一个你真实遇到的难点,或补充、纠正现有答案。
                 </p>
                 <a
                     href={`${WEB_URL}/test-center`}

@@ -116,9 +116,6 @@ export default function SettingsPage() {
         <h1 className="mt-2 font-serif text-[26px] leading-tight tracking-tight sm:text-[28px]">
           个人设置
         </h1>
-        <p className="mt-2 text-[13px] leading-6 text-muted-foreground">
-          账户信息、外观偏好,以及怎么联系作者。
-        </p>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -127,7 +124,6 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-[16px]">账号</CardTitle>
-              <CardDescription>后台登录身份,由管理员分配</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex items-center gap-4">
@@ -183,16 +179,12 @@ export default function SettingsPage() {
                 </MetaRow>
               </div>
 
-              <p className="text-[11.5px] leading-5 text-muted-foreground">
-                用户名、邮箱与角色由管理员在后台维护,这里只读。需要修改请通过下方邮箱联系。
-              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-[16px]">关于与联系</CardTitle>
-              <CardDescription>遇到题目错误、想投稿,或者只是想说句话</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-md border border-border bg-muted/20 px-3.5 py-3">
@@ -240,7 +232,7 @@ export default function SettingsPage() {
                 <MetaRow label="站点">
                   <span className="font-serif">序言</span>
                   <span className="ml-2 text-[11.5px] text-muted-foreground">
-                    免费开放的 Web 面试题库
+                    免费开放的 Web 知识库
                   </span>
                 </MetaRow>
                 <MetaRow label="后台版本">
@@ -261,7 +253,6 @@ export default function SettingsPage() {
                 <Palette className="h-4 w-4 text-primary" />
                 外观
               </CardTitle>
-              <CardDescription>只影响当前浏览器</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div>
@@ -317,9 +308,6 @@ export default function SettingsPage() {
                     )
                   })}
                 </div>
-                <p className="mt-2 text-[11.5px] leading-5 text-muted-foreground">
-                  当前:{THEME_COLORS.find((t) => t.value === colorTheme)?.name ?? '朱砂'}
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -327,7 +315,6 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-[16px]">快捷入口</CardTitle>
-              <CardDescription>日常维护最常用的几个页面</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-1.5">
               {[
@@ -361,7 +348,6 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-[16px]">会话</CardTitle>
-              <CardDescription>退出后需要重新输入邮箱密码</CardDescription>
             </CardHeader>
             <CardContent>
               <Button

@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         const bank = await siteApi.bank(slug)
         return {
             title: bank.title,
-            description: bank.description ?? `${bank.title},共 ${bank.questionCount} 道面试题。`,
+            description: bank.description ?? `${bank.title},共 ${bank.questionCount} 个知识点。`,
             alternates: { canonical: `/bank/${slug}` },
         }
     } catch {

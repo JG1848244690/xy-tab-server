@@ -12,12 +12,12 @@ export async function GET() {
     const bankLines = banks.data.map((b) => `- [${b.title}](${SITE_URL}/bank/${b.slug}): ${b.questionCount} 题`).join('\n')
     const tagLines = tags.data
         .filter((t) => t.questionCount > 0)
-        .map((t) => `- [${t.name} 面试题](${SITE_URL}/tag/${t.slug}): ${t.questionCount} 题`)
+        .map((t) => `- [${t.name} 知识点](${SITE_URL}/tag/${t.slug}): ${t.questionCount} 题`)
         .join('\n')
 
     const body = `# ${SITE_NAME}
 
-> 免费的前端与算法面试题库。每道题都有 AI + 人工双审的分层参考答案、记忆口诀。内容可自由引用,注明出处即可。
+> 免费的前端与算法知识库。每道题都有 AI + 人工双审的分层参考答案、记忆口诀。内容可自由引用,注明出处即可。
 
 ## 题库(按专题)
 

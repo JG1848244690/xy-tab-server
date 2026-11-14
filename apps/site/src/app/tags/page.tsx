@@ -5,7 +5,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
 export const metadata: Metadata = {
     title: '全部标签',
-    description: '按方向、技术栈、知识点浏览面试题,覆盖前端、后端、算法与 Agent。',
+    description: '按方向、技术栈、知识点浏览,覆盖前端、后端、算法与 Agent。',
     alternates: { canonical: '/tags' },
 }
 

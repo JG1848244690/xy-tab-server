@@ -70,9 +70,7 @@ export default function MobileQuestions() {
     <div className="mx-auto w-full max-w-xl px-4 pb-6 pt-4">
       <div className="mb-3">
         <h1 className="font-serif text-[22px] leading-tight tracking-tight">题库</h1>
-        <p className="mt-1 text-[12px] text-muted-foreground">
-          共 {total} 题 · 点开即可作答
-        </p>
+        <p className="mt-1 text-[12px] text-muted-foreground">共 {total} 题</p>
       </div>
 
       <div className="relative">
@@ -157,8 +155,6 @@ export default function MobileQuestions() {
           {query.isFetchingNextPage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           加载更多
         </Button>
-      ) : items.length > 0 ? (
-        <p className="mt-6 text-center text-[11px] text-muted-foreground">已经到底了</p>
       ) : null}
     </div>
   )

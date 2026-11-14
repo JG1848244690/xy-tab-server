@@ -20,9 +20,6 @@ export default function MobileLayout() {
         <div className="flex items-center gap-2">
           <img src="/icon-96.png" alt="序言" className="h-6 w-6 rounded-[4px] object-cover" />
           <span className="font-serif text-[15px] leading-none tracking-tight">序言</span>
-          <span className="mt-0.5 font-mono text-[9px] tracking-[0.16em] text-muted-foreground">
-            MOBILE
-          </span>
         </div>
       </header>
 
