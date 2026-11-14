@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAuthStore } from '@/store/auth-store'
 import { authService } from '@/services/auth-service'
+import { assetUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 
 const CONTACT_EMAIL = 'dxy1848244690@gmail.com'
@@ -53,7 +54,15 @@ export default function MobileMe() {
     <div className="mx-auto w-full max-w-xl px-4 pb-6 pt-4">
       <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
-          <span className="font-serif text-lg text-muted-foreground">{initial}</span>
+          {user.avatarPath ? (
+            <img
+              src={assetUrl(user.avatarPath)}
+              alt={user.name ?? '头像'}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="font-serif text-lg text-muted-foreground">{initial}</span>
+          )}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
