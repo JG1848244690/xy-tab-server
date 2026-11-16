@@ -136,6 +136,10 @@ function Privacy() {
           不包含你的密码。
         </li>
         <li>
+          <strong>Google Analytics 4</strong>:统计访问量、来源与页面停留。会写入 `_ga` 系列 Cookie,
+          IP 已做匿名化处理,数据存在 Google 服务器上。
+        </li>
+        <li>
           <strong>Cloudflare</strong>:部分域名的 CDN 与安全防护,会处理请求元数据(IP、UA)。
         </li>
         <li>
@@ -146,7 +150,11 @@ function Privacy() {
       <h2>四、Cookie 与本地存储</h2>
       <p>
         本站不使用广告或追踪 Cookie。浏览器本地会保存少量偏好(如深浅色主题、侧栏是否固定)
-        和登录凭证。清除浏览器数据即可删除这些信息。
+        和登录凭证。Google Analytics 会写入 `_ga` Cookie 用于区分访客,可用浏览器设置或
+        <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="nofollow noopener">
+          官方停用插件
+        </a>
+        关闭。清除浏览器数据即可删除这些信息。
       </p>
 
       <h2>五、数据保留</h2>
