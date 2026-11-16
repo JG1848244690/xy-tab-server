@@ -20,6 +20,12 @@ export const metadata: Metadata = {
         siteName: SITE_NAME,
         type: 'website',
     },
+    verification: {
+        // 百度站长平台 HTML 标签验证(必须是首页 head 里的 meta)
+        other: {
+            'baidu-site-verification': ['codeva-ckyZyKwlNS'],
+        },
+    },
 }
 
 /** 防主题闪烁:首帧前定明暗,localStorage 优先,其次系统偏好 */
@@ -57,6 +63,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         strategy="afterInteractive"
                     />
                 ) : null}
+                {/* 百度自动推送:被访问的页面自动进收录队列,登录后无 token 也可用 */}
+                <Script id="baidu-auto-push" strategy="lazyOnload">
+                    {`(function(){try{var bp=document.createElement('script');bp.src='//push.zhanzhang.baidu.com/push.js';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(bp,s);}catch(e){}})()`}
+                </Script>
             </body>
         </html>
     )
