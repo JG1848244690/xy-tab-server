@@ -38,6 +38,16 @@ export default function LoginPage() {
             和
             <button className="mx-1 text-primary underline-offset-2 hover:underline">隐私政策</button>
           </p>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="nofollow noopener"
+              className="transition-colors hover:text-foreground"
+            >
+              晋ICP备2026005328号
+            </a>
+          </p>
         </div>
       </div>
 

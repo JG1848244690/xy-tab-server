@@ -25,6 +25,16 @@ export default function MobileLayout() {
 
       <main className="min-h-0 flex-1 pb-[calc(56px+env(safe-area-inset-bottom))]">
         <Outlet />
+        <footer className="px-4 pb-6 pt-10 text-center text-[10px] text-muted-foreground">
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="nofollow noopener"
+            className="transition-colors hover:text-foreground"
+          >
+            晋ICP备2026005328号
+          </a>
+        </footer>
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">

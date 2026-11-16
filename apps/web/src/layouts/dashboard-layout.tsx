@@ -157,6 +157,16 @@ export default function DashboardLayout() {
           <EmailVerificationBanner />
           <Outlet />
         </main>
+        <footer className="flex-none border-t border-border px-6 py-2 text-center text-[11px] text-muted-foreground">
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="nofollow noopener"
+            className="transition-colors hover:text-foreground"
+          >
+            晋ICP备2026005328号
+          </a>
+        </footer>
       </div>
     </div>
   )
