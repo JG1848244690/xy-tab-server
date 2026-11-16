@@ -11,8 +11,7 @@ const NAV = [
 ]
 
 /** 后台 SPA:我要出题跳过去 */
-const WEB_APP_URL =
-    process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn/test-center'
+const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
 /**
  * 页头:桌面 = 品牌 | 右侧导航+主题切换(ml-auto 撑开,正确分布);
@@ -72,13 +71,27 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                         </a>
                     ))}
                     <a
-                        href={WEB_APP_URL}
-                        className="nav-link ml-1 flex min-h-11 items-center px-3 text-foreground transition-colors hover:text-seal sm:min-h-0"
+                        href={`${WEB_BASE}/test-center`}
                         rel="nofollow noopener noreferrer"
                         target="_blank"
                         onClick={() => setOpen(false)}
+                        className={[
+                            'group ml-2 inline-flex items-center gap-2 rounded-[3px] border border-seal/70 text-[13px] text-seal',
+                            'transition-colors hover:bg-seal hover:text-white',
+                            // 桌面:紧凑按钮;移动抽屉:整行大按钮
+                            open
+                                ? 'min-h-11 justify-center px-4 py-2.5'
+                                : 'hidden sm:inline-flex sm:min-h-9 sm:px-3 sm:py-1.5',
+                        ].join(' ')}
                     >
+                        <span aria-hidden className="relative flex size-1.5">
+                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-seal/50 group-hover:bg-white/50" />
+                            <span className="relative inline-flex size-1.5 rounded-full bg-seal group-hover:bg-white" />
+                        </span>
                         贡献题目
+                        <span aria-hidden className="transition-transform duration-150 group-hover:translate-x-0.5">
+                            ↗
+                        </span>
                     </a>
                 </nav>
 

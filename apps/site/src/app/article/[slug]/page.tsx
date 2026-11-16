@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Markdown } from '@/lib/markdown'
 import { siteApi, absoluteUrl } from '@/lib/site-api'
+import { ContributeBand } from '@/components/contribute-cta'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -113,6 +114,8 @@ export default async function ArticlePage({ params }: Props) {
                     。本文仅作推荐,版权归原作者所有。
                 </p>
             ) : null}
+
+            <ContributeBand topic={a.title} />
 
             {series ? (
                 <nav className="mt-12 border-t border-foreground/80 pt-5">

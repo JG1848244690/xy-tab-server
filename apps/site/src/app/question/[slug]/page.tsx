@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { DiffBadge } from '@/components/rows'
 import { CopyButton } from '@/components/copy-button'
 import { ReadingProgress } from '@/components/reading-progress'
+import { ContributeBand } from '@/components/contribute-cta'
 import { Markdown } from '@/lib/markdown'
 import { siteApi, absoluteUrl, GITHUB_REPO_URL } from '@/lib/site-api'
 
@@ -235,6 +236,7 @@ export default async function QuestionPage({ params }: Props) {
                             ,或过几天再来。
                         </div>
                     )}
+                    <ContributeBand topic={q.title} />
                 </div>
 
                 {/* 页边注:桌面 sticky,移动端落到正文后 */}

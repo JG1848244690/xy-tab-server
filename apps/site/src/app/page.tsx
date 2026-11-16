@@ -3,6 +3,7 @@ import { QuestionRow, DiffBadge } from '@/components/rows'
 import { siteApi } from '@/lib/site-api'
 import { FEATURED_SLUGS, FEATURED_BLURBS } from '@/lib/featured'
 import { sortBanks } from '@/lib/bank-order'
+import { ContributeSection } from '@/components/contribute-cta'
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
@@ -311,6 +312,8 @@ export default async function HomePage() {
                     ))}
                 </div>
             </section>
+
+            <ContributeSection total={p1.total} />
         </>
     )
 }
