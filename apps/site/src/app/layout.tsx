@@ -6,6 +6,7 @@ import Script from 'next/script'
 import { SiteFooter } from '@/components/site-chrome'
 import { SiteChrome } from '@/components/site-header'
 import { SentryInit } from '@/components/sentry-init'
+import { GoogleAnalytics } from '@/components/google-analytics'
 import { SITE_NAME, SITE_URL } from '@/lib/site-api'
 import './globals.css'
 
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="zh-CN" suppressHydrationWarning>
             <body>
                 <SentryInit />
+                <GoogleAnalytics />
                 <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
                 <SiteChrome
                     brand={
