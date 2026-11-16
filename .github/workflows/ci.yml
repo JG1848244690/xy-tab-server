@@ -19,14 +19,11 @@ on:
       - '.github/workflows/web.yml'
   pull_request:
     branches: [master, main, hls-api]
-    paths-ignore:
-      - 'apps/web/**'
-      - 'apps/site/**'
-      - 'docs/**'
-      - 'deploy/**'
-      - '**.md'
-      - '.github/workflows/site.yml'
-      - '.github/workflows/web.yml'
+    # 注意:这里**不能**加 paths-ignore。
+    # hls-api 开了分支保护,合并前必须等 CI 这个必需检查通过;
+    # 如果 PR 只改 apps/site 或 apps/web 而 CI 被 paths-ignore 跳过,
+    # 必需的检查永远不会出现,PR 会一直卡在 "Expected — waiting"。
+    # 所以 push 时照旧跳过,PR 上一律跑一遍(成本 5 分钟,换合并不被卡死)。
 
 jobs:
   ci:
