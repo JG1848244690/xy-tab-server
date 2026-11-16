@@ -17,7 +17,8 @@ export default function robots(): MetadataRoute.Robots {
             { userAgent: 'ClaudeBot', allow: '/' },
             { userAgent: 'Google-Extended', allow: '/' },
         ],
-        sitemap: `${SITE_URL}/sitemap.xml`,
+        // 索引和单文件都声明:索引是对 GSC 的第二个提交入口
+        sitemap: [`${SITE_URL}/sitemap_index.xml`, `${SITE_URL}/sitemap.xml`],
         host: SITE_URL,
     }
 }
