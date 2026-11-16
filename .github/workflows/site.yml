@@ -29,6 +29,7 @@ jobs:
 
     env:
       DEPLOY_DIR: /opt/hls-site
+      BAIDU_TOKEN: ${{ secrets.BAIDU_TOKEN }}
 
     defaults:
       run:
@@ -113,3 +114,10 @@ jobs:
         env:
           DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
           REL: ${{ steps.release.outputs.name }}
+
+      # 发版后把新增 URL 主动推给百度(配额 10 条/天,脚本按优先级截断)。
+      # 定时重建不跑,避免重复推同一批 URL 把配额烧掉。
+      - name: Push new URLs to Baidu
+        if: ${{ github.event_name == 'push' && env.BAIDU_TOKEN != '' }}
+        working-directory: .
+        run: node scripts/baidu-push.mjs apps/site/out/sitemap.xml
