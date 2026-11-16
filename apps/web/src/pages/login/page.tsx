@@ -34,9 +34,12 @@ export default function LoginPage() {
 
           <p className="mt-12 border-t border-border pt-5 text-[11.5px] leading-5 text-muted-foreground">
             {mode === 'login' ? '登录' : '注册'}即表示同意
-            <button className="mx-1 text-primary underline-offset-2 hover:underline">服务条款</button>
+            <Link to="/terms" className="mx-1 text-primary underline-offset-2 hover:underline">服务条款</Link>
             和
-            <button className="mx-1 text-primary underline-offset-2 hover:underline">隐私政策</button>
+            <Link to="/privacy" className="mx-1 text-primary underline-offset-2 hover:underline">隐私政策</Link>
+          </p>
+          <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+            个人学习与技术交流用途,内容仅供学习参考。
           </p>
           <p className="mt-3 text-[11px] text-muted-foreground">
             <a

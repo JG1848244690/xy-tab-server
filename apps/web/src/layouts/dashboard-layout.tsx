@@ -158,14 +158,19 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
         <footer className="flex-none border-t border-border px-6 py-2 text-center text-[11px] text-muted-foreground">
-          <a
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="nofollow noopener"
-            className="transition-colors hover:text-foreground"
-          >
-            晋ICP备2026005328号
-          </a>
+          <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <span>个人学习与技术交流用途 · 内容仅供学习参考</span>
+            <Link to="/terms" className="transition-colors hover:text-foreground">服务条款</Link>
+            <Link to="/privacy" className="transition-colors hover:text-foreground">隐私政策</Link>
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="nofollow noopener"
+              className="transition-colors hover:text-foreground"
+            >
+              晋ICP备2026005328号
+            </a>
+          </span>
         </footer>
       </div>
     </div>

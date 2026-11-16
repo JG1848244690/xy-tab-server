@@ -22,6 +22,7 @@ const ArticlesPage = lazy(() => import('@/pages/articles/page'))
 const ArticleEditorPage = lazy(() => import('@/pages/articles/editor'))
 const StatisticsPage = lazy(() => import('@/pages/statistics/page'))
 const SettingsPage = lazy(() => import('@/pages/settings/page'))
+const LegalPage = lazy(() => import('@/pages/legal/page'))
 const DrawerPage = lazy(() => import('@/pages/drawer/page'))
 
 // 移动端是独立的一套 UI(单列 + 底部 tab),和桌面的侧栏工作台互不影响
@@ -72,6 +73,9 @@ export const router = createBrowserRouter([
   { path: '/login', element: page(<LoginPage />) },
   // 邮件里的验证链接落地页:公开路由,不需要登录(可能在另一台设备上点开)
   { path: '/verify-email', element: page(<VerifyEmailPage />) },
+  // 法律页:公开路由,登录前也要能打开
+  { path: '/terms', element: page(<LegalPage />) },
+  { path: '/privacy', element: page(<LegalPage />) },
   { path: '/register', element: <Navigate to="/login" replace /> },
   {
     path: '/m',

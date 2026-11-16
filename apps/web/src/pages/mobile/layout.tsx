@@ -1,5 +1,5 @@
 import { BookOpen, User as UserIcon } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 /**
@@ -25,15 +25,22 @@ export default function MobileLayout() {
 
       <main className="min-h-0 flex-1 pb-[calc(56px+env(safe-area-inset-bottom))]">
         <Outlet />
-        <footer className="px-4 pb-6 pt-10 text-center text-[10px] text-muted-foreground">
-          <a
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="nofollow noopener"
-            className="transition-colors hover:text-foreground"
-          >
-            晋ICP备2026005328号
-          </a>
+        <footer className="px-4 pb-6 pt-10 text-center text-[10px] leading-5 text-muted-foreground">
+          <p>个人学习与技术交流用途,内容仅供学习参考</p>
+          <p className="mt-1">
+            <Link to="/terms" className="transition-colors hover:text-foreground">服务条款</Link>
+            <span className="mx-1.5">·</span>
+            <Link to="/privacy" className="transition-colors hover:text-foreground">隐私政策</Link>
+            <span className="mx-1.5">·</span>
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="nofollow noopener"
+              className="transition-colors hover:text-foreground"
+            >
+              晋ICP备2026005328号
+            </a>
+          </p>
         </footer>
       </main>
 
