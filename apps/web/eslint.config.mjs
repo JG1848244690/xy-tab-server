@@ -63,6 +63,7 @@ export default [
         HTMLElement: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
+        HTMLFormElement: 'readonly',
         HTMLVideoElement: 'readonly',
         Element: 'readonly',
         Node: 'readonly',
