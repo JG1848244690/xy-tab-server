@@ -12,36 +12,37 @@ import CalendarEventForm, { type CalendarEventFormFieldType } from './calendar-e
 import CalendarHeader, { type HandleMoveArg, type ViewType } from './calendar-header'
 import { generateEventId } from './event-utils'
 import { todosApi, type Todo } from '@/services/todos-api'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-const DefaultEventInitValue: CalendarEventFormFieldType = {
-  id: generateEventId(),
-  title: '',
-  description: '',
-  allDay: false,
-  start: dayjs(),
-  end: dayjs(),
-  color: '#00a76f',
+const DEFAULT_COLOR = '#00a76f'
+const DATE_FORMAT = 'YYYY-MM-DD'
+
+function newTodo(startDate: string): CalendarEventFormFieldType {
+  return {
+    id: generateEventId(),
+    title: '',
+    description: '',
+    allDay: true,
+    startDate,
+    endDate: startDate,
+    startTime: '09:00',
+    endTime: '10:00',
+    color: DEFAULT_COLOR,
+  }
 }
 
-// 将 Todo 转换为 FullCalendar Event
 function todoToEvent(todo: Todo): EventInput {
-  // 处理后端返回的日期字段（统一转换为 YYYY-MM-DD 格式）
-  // 后端可能返回 ISO 字符串 "2026-02-04T00:00:00.000Z" 或简单字符串 "2026-02-04"
-  const startDateStr = dayjs(todo.startDate).format('YYYY-MM-DD')
-  const endDateStr = dayjs(todo.endDate).format('YYYY-MM-DD')
-
-  // 支持跨天事件
-  const startDateTime = `${startDateStr}T${todo.startTime}`
-  const endDateTime = `${endDateStr}T${todo.endTime}`
+  const startDate = todo.startDate.slice(0, 10)
+  const endDate = todo.endDate.slice(0, 10)
 
   return {
     id: todo.id,
     title: todo.content,
-    start: startDateTime,
-    end: endDateTime,
+    start: todo.allDay ? startDate : startDate + 'T' + todo.startTime,
+    // The API stores the last included date. FullCalendar expects the following day.
+    end: todo.allDay ? dayjs(endDate).add(1, 'day').format(DATE_FORMAT) : endDate + 'T' + todo.endTime,
     allDay: todo.allDay,
-    color: todo.color || '#00a76f',
+    color: todo.color || DEFAULT_COLOR,
     extendedProps: {
       completed: todo.completed,
       description: todo.description || todo.content,
@@ -49,26 +50,16 @@ function todoToEvent(todo: Todo): EventInput {
   }
 }
 
-// 将 FullCalendar Event 转换为 Todo 数据
 function eventToTodo(event: CalendarEventFormFieldType) {
-  const startDate = event.start || dayjs()
-  const endDate = event.end || dayjs()
-
-  // 支持跨天事件：分别保存开始日期和结束日期
-  const startDateStr = startDate.format('YYYY-MM-DD')
-  const endDateStr = endDate.format('YYYY-MM-DD')
-  const startTime = startDate.format('HH:mm')
-  const endTime = endDate.format('HH:mm')
-
   return {
-    startDate: startDateStr,
-    endDate: endDateStr,
-    startTime,
-    endTime,
-    content: event.title || '',
-    color: event.color || '#00a76f',
+    content: event.title,
     description: event.description,
-    allDay: event.allDay || false,
+    color: event.color,
+    allDay: event.allDay,
+    startDate: event.startDate,
+    endDate: event.endDate,
+    startTime: event.allDay ? '00:00' : event.startTime,
+    endTime: event.allDay ? '23:59:59' : event.endTime,
   }
 }
 
@@ -79,7 +70,7 @@ export default function Calendar() {
   const [date, setDate] = useState(new Date())
   const [open, setOpen] = useState(false)
   const [eventInitValue, setEventInitValue] =
-    useState<CalendarEventFormFieldType>(DefaultEventInitValue)
+    useState<CalendarEventFormFieldType | null>(null)
   const [eventFormType, setEventFormType] = useState<'add' | 'edit'>('add')
 
   // 获取当前月份的所有 todos
@@ -130,7 +121,7 @@ export default function Calendar() {
 
   // 更新 todo
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => todosApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: ReturnType<typeof eventToTodo> }) => todosApi.update(id, data),
     onSuccess: (updatedTodo) => {
       queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
       setAllTodos((prev) => prev.map((t) => (t.id === updatedTodo.id ? updatedTodo : t)))
@@ -183,94 +174,54 @@ export default function Calendar() {
   /**
    * calendar grid events
    */
-  // select date range
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    const calendarApi = selectInfo.view.calendar
-    calendarApi.unselect() // clear date selection
-    setOpen(true)
-    setEventFormType('add')
-    let startDate: dayjs.Dayjs
-    let endDate: dayjs.Dayjs
-    if (selectInfo.allDay) {
-      const dateStr = selectInfo.startStr
-      startDate = dayjs(dateStr).hour(9).minute(0).second(0)
-      endDate = dayjs(dateStr).hour(10).minute(0).second(0)
+  const handleDateSelect = (selection: DateSelectArg) => {
+    selection.view.calendar.unselect()
+    const draft = newTodo(dayjs(selection.start).format(DATE_FORMAT))
+    if (selection.allDay) {
+      draft.endDate = dayjs(selection.end).subtract(1, 'day').format(DATE_FORMAT)
     } else {
-      startDate = dayjs(selectInfo.start)
-      endDate = dayjs(selectInfo.end)
+      const start = dayjs(selection.start)
+      const end = dayjs(selection.end)
+      draft.allDay = false
+      draft.startTime = start.format('HH:mm')
+      draft.endDate = end.format(DATE_FORMAT)
+      draft.endTime = end.format('HH:mm')
     }
-
-    setEventInitValue({
-      id: generateEventId(),
-      title: '',
-      description: '',
-      start: startDate,
-      end: endDate,
-      allDay: selectInfo.allDay,
-      color: '#00a76f',
-    })
+    setEventInitValue(draft)
+    setEventFormType('add')
+    setOpen(true)
   }
 
-  /**
-   * calendar event events
-   */
-  // click event and open modal
   const handleEventClick = (arg: EventClickArg) => {
+    const todo = allTodos.find((item) => item.id === arg.event.id)
+    if (!todo) return
     arg.jsEvent.stopPropagation()
 
-    const { title, extendedProps, allDay, start, end, backgroundColor, id } = arg.event
-
-    setTimeout(() => {
-      const popovers = document.querySelectorAll('.fc-popover')
-      popovers.forEach((popover) => {
-        const htmlElement = popover as HTMLElement
-        htmlElement.style.display = 'none'
-        setTimeout(() => popover.remove(), 100)
-      })
-    }, 0)
-
-    setOpen(true)
+    setEventInitValue({
+      id: todo.id,
+      title: todo.content,
+      description: todo.description ?? '',
+      allDay: todo.allDay,
+      color: todo.color || DEFAULT_COLOR,
+      startDate: todo.startDate.slice(0, 10),
+      endDate: todo.endDate.slice(0, 10),
+      startTime: todo.allDay ? '09:00' : todo.startTime.slice(0, 5),
+      endTime: todo.allDay ? '10:00' : todo.endTime.slice(0, 5),
+    })
     setEventFormType('edit')
-    const newEventValue: CalendarEventFormFieldType = {
-      id,
-      title,
-      allDay,
-      color: backgroundColor,
-      description: extendedProps.description,
-    }
-    if (start) {
-      newEventValue.start = dayjs(start)
-    }
-
-    if (end) {
-      newEventValue.end = dayjs(end)
-    }
-    setEventInitValue(newEventValue)
+    setOpen(true)
   }
 
   const handleCancel = () => {
-    setEventInitValue(DefaultEventInitValue)
+    setEventInitValue(null)
     setOpen(false)
   }
 
-  // edit event - 现在支持编辑功能
-  const handleEdit = async (values: CalendarEventFormFieldType) => {
-    const todoData = eventToTodo(values)
-    updateMutation.mutate({ id: values.id, data: todoData })
-    handleCancel()
-  }
-
-  // create event
-  const handleCreate = async (values: CalendarEventFormFieldType) => {
-    const todoData = eventToTodo(values)
-    createMutation.mutate(todoData)
-    handleCancel()
-  }
-
-  // delete event
-  const handleDelete = async (id: string) => {
-    deleteMutation.mutate(id)
-    handleCancel()
+  const handleSave = (values: CalendarEventFormFieldType) => {
+    const data = eventToTodo(values)
+    return eventFormType === 'edit'
+      ? updateMutation.mutateAsync({ id: values.id, data })
+      : createMutation.mutateAsync(data)
   }
 
   return (
@@ -485,7 +436,7 @@ export default function Calendar() {
               onMove={handleMove}
               onCreate={() => {
                 setEventFormType('add')
-                setEventInitValue(DefaultEventInitValue)
+                setEventInitValue(newTodo(dayjs(date).format(DATE_FORMAT)))
                 setOpen(true)
               }}
               onViewTypeChange={handleViewTypeChange}
@@ -517,15 +468,15 @@ export default function Calendar() {
           </div>
         </CardContent>
       </Card>
-      <CalendarEventForm
-        open={open}
-        type={eventFormType}
-        initValues={eventInitValue}
-        onCancel={handleCancel}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
-        onEdit={handleEdit}
-      />
+      {open && eventInitValue && (
+        <CalendarEventForm
+          type={eventFormType}
+          initValues={eventInitValue}
+          onCancel={handleCancel}
+          onDelete={deleteMutation.mutateAsync}
+          onSave={handleSave}
+        />
+      )}
     </>
   )
 }
