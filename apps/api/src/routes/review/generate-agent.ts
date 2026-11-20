@@ -102,12 +102,12 @@ export interface GenerateAgentResult {
     }
 }
 
-/** DeepSeek thinking 档位:默认关闭;auto = 不下发(兼容不认该参数的网关) */
+/** thinking 档位:OpenCode Go 网关按 OpenAI 协议透传;auto = 不下发 */
 function providerOptionsForThinking(): ProviderOptions | undefined {
-    const mode = (process.env.LLM_THINKING ?? 'disabled').toLowerCase()
+    const mode = (process.env.LLM_THINKING ?? 'auto').toLowerCase()
     if (mode === 'auto') return undefined
     return {
-        deepseek: {
+        'opencode-go': {
             thinking: { type: mode === 'enabled' ? 'enabled' : 'disabled' },
         },
     }
@@ -119,9 +119,14 @@ function buildModel(): { model: LanguageModel; modelId: string } {
         throw new LlmError('LLM 未配置')
     }
     const provider = createOpenAICompatible({
-        name: 'deepseek',
+        name: 'opencode-go',
         baseURL: cfg.baseUrl,
         apiKey: cfg.apiKey,
+        // Go 网关必带(缺了 400 MissingSessionID);固定值利于 prompt 缓存复用
+        headers: {
+            'x-opencode-session': 'ses_hls_generate',
+            'User-Agent': 'hls-api/1.0',
+        },
     })
     return { model: provider(cfg.model), modelId: cfg.model }
 }
