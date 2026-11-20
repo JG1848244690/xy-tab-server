@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { siteApi, type CollectionListItem } from '@/lib/site-api'
 import { ArticlesTabs } from '@/components/articles-tabs'
+import { projectNotes } from '@/lib/projects'
 
 export const metadata: Metadata = {
     title: '文章',
@@ -30,6 +31,12 @@ export default async function ArticlesPage() {
                 curated={curated.data}
                 collections={collections.data}
             />
+            <section className="mt-10 border-y border-border py-5" aria-labelledby="project-notes">
+                <h2 id="project-notes" className="text-2xl">小工具开发手记</h2>
+                <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+                    {projectNotes.map((note) => <li key={note.slug}><a className="text-accent hover:underline" href={`/projects/notes/${note.slug}`}>{note.title}</a></li>)}
+                </ul>
+            </section>
         </>
     )
 }

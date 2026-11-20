@@ -8,8 +8,7 @@ const NAV = [
     { href: '/banks', label: '题库' },
     { href: '/tags', label: '标签' },
     { href: '/articles', label: '文章' },
-    { href: 'https://static.kskbl.com.cn/newtab/zh.html', label: '序言插件' },
-    { href: 'https://static.kskbl.com.cn/pi-fish/', label: 'pi-fish' },
+    { href: '/projects', label: '小工具' },
 ]
 
 /** 后台 SPA:我要出题跳过去 */

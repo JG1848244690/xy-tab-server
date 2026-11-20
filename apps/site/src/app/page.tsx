@@ -313,6 +313,13 @@ export default async function HomePage() {
                 </div>
             </section>
 
+            <a href="/projects" className="mt-10 flex flex-wrap items-center justify-between gap-3 border-y border-border py-5 hover:text-seal">
+                <div>
+                    <p className="font-mono text-xs text-accent">Find some interesting tools</p>
+                    <p className="mt-1 font-serif text-xl">看看序言作者做的小工具</p>
+                </div>
+                <span aria-hidden="true" className="text-lg">→</span>
+            </a>
             <ContributeSection total={p1.total} />
         </>
     )
