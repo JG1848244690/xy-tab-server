@@ -72,6 +72,7 @@ export const todosApi = {
       color?: string
       description?: string
       allDay?: boolean
+      completed?: boolean
     }
   ): Promise<Todo> => {
     const res = await request.patch(`/todos/${id}`, data)

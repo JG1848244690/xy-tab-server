@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import dayjs from 'dayjs'
@@ -23,6 +24,7 @@ export type CalendarEventFormFieldType = {
   startTime: string
   endTime: string
   color: string
+  completed: boolean
 }
 
 type Props = {
@@ -117,6 +119,21 @@ export default function CalendarEventForm({ type, onCancel, initValues, onSave, 
               <Input id={id + '-title'} name="title" required value={draft.title} {...fieldError('title')}
                 onChange={(event) => change('title', event.target.value)} placeholder="输入待办标题" />
             </div>
+
+            {!isNew && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="min-w-0">
+                  <Label htmlFor={id + '-completed'} className="cursor-pointer">已完成</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">勾选后日历上会显示删除线</p>
+                </div>
+                <Switch
+                  id={id + '-completed'}
+                  name="completed"
+                  checked={draft.completed}
+                  onCheckedChange={(checked) => change('completed', checked)}
+                />
+              </div>
+            )}
 
             <fieldset className="space-y-3 rounded-lg border p-3">
               <legend className="px-1 text-sm font-medium">安排时间</legend>

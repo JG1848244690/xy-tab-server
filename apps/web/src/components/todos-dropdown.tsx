@@ -21,12 +21,13 @@ export function TodosDropdown() {
   const today = new Date().toISOString().split('T')[0]
 
   // 获取今日 todos
-  // enabled: open 表示只在打开时发起新的请求
-  // 但如果缓存中已有数据（比如从 todos 页面获取过），会直接使用缓存数据
+  // 常驻获取:徽标在任何页面都要显示未完成数,不能等点开才有数据。
+  // 本地操作(切换/编辑/新建/删除)通过 invalidate(['todos']) 触发刷新;
+  // staleTime 减少页面切换时的重复请求。
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ['todos', today],
     queryFn: () => todosApi.getTodosByDate(today),
-    enabled: open, // 只在打开时获取数据（但会使用缓存）
+    staleTime: 30_000,
   })
 
   // 切换完成状态

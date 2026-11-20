@@ -28,6 +28,7 @@ function newTodo(startDate: string): CalendarEventFormFieldType {
     startTime: '09:00',
     endTime: '10:00',
     color: DEFAULT_COLOR,
+    completed: false,
   }
 }
 
@@ -60,6 +61,7 @@ function eventToTodo(event: CalendarEventFormFieldType) {
     endDate: event.endDate,
     startTime: event.allDay ? '00:00' : event.startTime,
     endTime: event.allDay ? '23:59:59' : event.endTime,
+    completed: event.completed,
   }
 }
 
@@ -115,6 +117,7 @@ export default function Calendar() {
     mutationFn: todosApi.create,
     onSuccess: (newTodo) => {
       queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
       setAllTodos((prev) => [...prev, newTodo])
     },
   })
@@ -124,6 +127,7 @@ export default function Calendar() {
     mutationFn: ({ id, data }: { id: string; data: ReturnType<typeof eventToTodo> }) => todosApi.update(id, data),
     onSuccess: (updatedTodo) => {
       queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
       setAllTodos((prev) => prev.map((t) => (t.id === updatedTodo.id ? updatedTodo : t)))
     },
   })
@@ -133,6 +137,7 @@ export default function Calendar() {
     mutationFn: todosApi.delete,
     onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
       setAllTodos((prev) => prev.filter((t) => t.id !== deletedId))
     },
   })
@@ -207,6 +212,7 @@ export default function Calendar() {
       endDate: todo.endDate.slice(0, 10),
       startTime: todo.allDay ? '09:00' : todo.startTime.slice(0, 5),
       endTime: todo.allDay ? '10:00' : todo.endTime.slice(0, 5),
+      completed: todo.completed,
     })
     setEventFormType('edit')
     setOpen(true)
