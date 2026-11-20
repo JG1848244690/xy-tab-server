@@ -155,13 +155,12 @@ function extractJson(text: string): unknown {
 }
 
 /**
- * thinking 档位(2026-10-26):DeepSeek V4.1 默认会思考 —— 实测同一道题
- * thinking 开启时 reasoning_tokens≈2200、耗时 15s,关闭后 7.7s、输出量 1/3,
- * 且 JSON 契约更稳定。默认关闭省成本;需要更强推理时用 LLM_THINKING=enabled,
- * 接别的网关不认该参数时用 LLM_THINKING=auto(不下发)。
+ * thinking 档位:OpenCode Go 网关按 OpenAI 协议透传;auto = 不下发。
+ * glm-5.3-flash 自行决定是否思考(实测简单输入 0 reasoning),
+ * 之下发反而不可控;LLM_THINKING 仍可显式覆盖。
  */
 function thinkingParam(): Record<string, unknown> {
-    const mode = (process.env.LLM_THINKING ?? 'disabled').toLowerCase()
+    const mode = (process.env.LLM_THINKING ?? 'auto').toLowerCase()
     if (mode === 'auto') return {}
     return { thinking: { type: mode === 'enabled' ? 'enabled' : 'disabled' } }
 }
@@ -180,6 +179,9 @@ export async function chatJson<T>(
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${cfg.apiKey}`,
+            // OpenCode Go 网关必带(缺了 400 MissingSessionID);固定值
+            // 让审核共用的 system prompt 命中网关侧缓存(cache_read)
+            'x-opencode-session': 'ses_hls_review',
         },
         body: JSON.stringify({
             model: cfg.model,
