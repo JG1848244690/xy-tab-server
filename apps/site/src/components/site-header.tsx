@@ -8,6 +8,8 @@ const NAV = [
     { href: '/banks', label: '题库' },
     { href: '/tags', label: '标签' },
     { href: '/articles', label: '文章' },
+    { href: 'https://static.kskbl.com.cn/newtab/zh.html', label: '序言插件' },
+    { href: 'https://static.kskbl.com.cn/pi-fish/', label: 'pi-fish' },
 ]
 
 /** 后台 SPA:我要出题跳过去 */
@@ -44,19 +46,22 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                 </a>
 
                 <button
-                    className="ml-auto grid size-9 place-items-center rounded-[3px] border border-border bg-card text-foreground/80 sm:hidden"
+                    className="ml-auto grid size-9 place-items-center rounded-[3px] border border-border bg-card text-foreground/80 md:hidden"
                     aria-expanded={open}
                     aria-label={open ? '收起菜单' : '打开菜单'}
+                    aria-controls="site-navigation"
                     onClick={() => setOpen((v) => !v)}
                 >
                     {open ? <X className="size-4" /> : <Menu className="size-4" />}
                 </button>
 
                 <nav
+                    id="site-navigation"
+                    aria-label="主导航"
                     className={[
-                        'gap-1 text-[13.5px] sm:ml-auto sm:flex',
+                        'gap-1 text-[13.5px] md:ml-auto md:flex',
                         open
-                            ? 'absolute top-16 left-0 right-0 flex-col items-stretch border-b border-border bg-card p-3 sm:static sm:flex-row sm:border-0 sm:bg-transparent sm:p-0'
+                            ? 'absolute top-16 left-0 right-0 flex-col items-stretch border-b border-border bg-card p-3 md:static md:flex-row md:border-0 md:bg-transparent md:p-0'
                             : 'hidden',
                     ].join(' ')}
                 >
@@ -64,7 +69,7 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                         <a
                             key={n.href}
                             href={n.href}
-                            className="nav-link flex min-h-11 items-center px-3 text-muted-foreground transition-colors hover:text-foreground sm:min-h-0"
+                            className="nav-link flex min-h-11 items-center px-3 text-muted-foreground transition-colors hover:text-foreground md:min-h-0"
                             onClick={() => setOpen(false)}
                         >
                             {n.label}
@@ -81,7 +86,7 @@ export function SiteChrome({ brand }: { brand: React.ReactNode }) {
                             // 桌面:紧凑按钮;移动抽屉:整行大按钮
                             open
                                 ? 'min-h-11 justify-center px-4 py-2.5'
-                                : 'hidden sm:inline-flex sm:min-h-9 sm:px-3 sm:py-1.5',
+                                : 'hidden md:inline-flex md:min-h-9 md:px-3 md:py-1.5',
                         ].join(' ')}
                     >
                         <span aria-hidden className="relative flex size-1.5">
