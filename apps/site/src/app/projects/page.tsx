@@ -33,6 +33,9 @@ export default function ProjectsPage() {
                             <p className="mt-2 text-sm leading-7 text-muted-foreground">{project.description}</p>
                             <a href={project.href} className="mt-3 inline-flex border border-seal px-3 py-2 text-sm text-seal hover:bg-seal hover:text-white">查看介绍与教程 <span aria-hidden="true" className="ml-2">↗</span></a>
                             <ul className="mt-5 divide-y divide-border border-y border-border text-sm">
+                                {project.id === 'newtab' && (
+                                    <li><a href="/en/projects/newtab" lang="en" className="block py-2.5 text-accent hover:underline">Live Wallpaper Chrome Extension</a></li>
+                                )}
                                 {project.id === 'newtab' && wallpaperGuides.map((guide) => (
                                     <li key={guide.slug} className="flex items-baseline justify-between gap-3 py-2.5">
                                         <a href={wallpaperGuidePath(guide.slug, 'zh')} className="text-accent hover:underline">{guide.zh.title}</a>

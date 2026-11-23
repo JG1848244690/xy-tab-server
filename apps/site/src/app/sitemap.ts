@@ -25,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         entry('/', data.questions[0]?.updatedAt ?? new Date().toISOString(), 1.0),
         { url: absoluteUrl('/projects') },
         ...projectNotes.map((note) => ({ url: absoluteUrl(`/projects/notes/${note.slug}`) })),
+        { url: absoluteUrl('/en/projects/newtab') },
         ...wallpaperGuides.flatMap(({ slug }) => (['zh', 'en'] as const).map((language) => ({
             url: absoluteUrl(wallpaperGuidePath(slug, language)),
         }))),

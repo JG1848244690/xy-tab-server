@@ -8,6 +8,8 @@ import { ContributeSection } from '@/components/contribute-cta'
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://hls.kskbl.com.cn'
 
 export const metadata: Metadata = {
+    title: '前端面试题库与 Web 开发知识点',
+    description: '按专题练习 JavaScript、TypeScript、CSS、React 和前端工程面试题。每道题附参考答案，讲清原理和适用边界。',
     alternates: { canonical: '/' },
 }
 
@@ -64,10 +66,10 @@ export default async function HomePage() {
 
                 <div>
                     <p className="text-[11px] tracking-[0.18em] text-muted-foreground">
-                        免费 · Web 开发知识点汇总
+                        免费 · Web 开发题库
                     </p>
                     <h1 className="mt-4 text-balance font-serif text-[40px] leading-[1.14] tracking-[-0.03em] sm:text-[56px]">
-                        知识点,
+                        前端面试题，
                         <br />
                         按原理分层讲透
                     </h1>

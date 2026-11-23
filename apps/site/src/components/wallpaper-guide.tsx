@@ -54,6 +54,7 @@ export async function WallpaperGuide({ params, language }: WallpaperGuideProps &
                     {wallpaperGuides.filter((entry) => entry.slug !== slug).map((entry) => (
                         <li key={entry.slug}><a href={wallpaperGuidePath(entry.slug, language)} className="hover:underline">{entry[language].title}</a></li>
                     ))}
+                    {english && <li><a href="/en/projects/newtab" className="hover:underline">NewTab by Xuyan for Chrome</a></li>}
                     <li><a href={english ? englishGuide : projects[0].href} className="hover:underline">
                         {english ? 'NewTab by Xuyan user guide' : '序言新标签页介绍与使用手册'} ↗
                     </a></li>
