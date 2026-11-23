@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notesFor, projects } from '@/lib/projects'
+import { wallpaperGuides, wallpaperGuidePath } from '@/lib/wallpaper-guides'
 
 export const metadata: Metadata = {
     title: '小工具',
@@ -32,6 +33,12 @@ export default function ProjectsPage() {
                             <p className="mt-2 text-sm leading-7 text-muted-foreground">{project.description}</p>
                             <a href={project.href} className="mt-3 inline-flex border border-seal px-3 py-2 text-sm text-seal hover:bg-seal hover:text-white">查看介绍与教程 <span aria-hidden="true" className="ml-2">↗</span></a>
                             <ul className="mt-5 divide-y divide-border border-y border-border text-sm">
+                                {project.id === 'newtab' && wallpaperGuides.map((guide) => (
+                                    <li key={guide.slug} className="flex items-baseline justify-between gap-3 py-2.5">
+                                        <a href={wallpaperGuidePath(guide.slug, 'zh')} className="text-accent hover:underline">{guide.zh.title}</a>
+                                        <a href={wallpaperGuidePath(guide.slug, 'en')} lang="en" aria-label={guide.en.title} className="shrink-0 text-accent hover:underline">English</a>
+                                    </li>
+                                ))}
                                 {notesFor(project.id).map((note) => <li key={note.slug}><a href={`/projects/notes/${note.slug}`} className="block py-2.5 text-accent hover:underline">{note.title}</a></li>)}
                             </ul>
                         </div>
