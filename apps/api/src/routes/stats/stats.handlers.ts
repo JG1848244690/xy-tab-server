@@ -54,6 +54,9 @@ type QuestionStatus = 'not_started' | 'in_progress' | 'completed'
 const visibleBank = (userId: string) =>
     or(eq(questions.visibility, 'shared'), eq(questions.createdBy, userId))!
 
+const approvedBank = (userId: string) =>
+    and(visibleBank(userId), eq(questions.status, 'approved'))!
+
 // ============================================================
 // dashboard
 // ============================================================
@@ -81,7 +84,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
         weekTodos,
     ] = await Promise.all([
         // 最近添加的题目(近 7 天)—— 视频表没了,对应项移除
-        // 口径 = 可见题库(shared + 自己的题),他人的私有题不出现在任何统计里
+        // 与练习题库保持一致：只展示对当前用户可见且已通过审核的题目。
         db
             .select({
                 id: questions.id,
@@ -91,7 +94,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
             })
             .from(questions)
             .where(
-                and(gte(questions.createdAt, sevenDaysAgo), visibleBank(userId)),
+                and(gte(questions.createdAt, sevenDaysAgo), approvedBank(userId)),
             )
             .orderBy(desc(questions.createdAt))
             .limit(5),
@@ -122,7 +125,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
         db
             .select({ value: count() })
             .from(questions)
-            .where(and(gte(questions.createdAt, weekStart), visibleBank(userId))),
+            .where(and(gte(questions.createdAt, weekStart), approvedBank(userId))),
 
         db
             .select({ value: count() })
@@ -406,7 +409,7 @@ export const recentAddedQuestions: AppRouteHandler<RecentAddedQuestionsRoute> = 
             createdAt: questions.createdAt,
         })
         .from(questions)
-        .where(visibleBank(userId))
+        .where(approvedBank(userId))
         .orderBy(desc(questions.createdAt))
         .limit(size)
         .offset((page - 1) * size)
@@ -414,7 +417,7 @@ export const recentAddedQuestions: AppRouteHandler<RecentAddedQuestionsRoute> = 
     const [{ value: total }] = await db
         .select({ value: count() })
         .from(questions)
-        .where(visibleBank(userId))
+        .where(approvedBank(userId))
     const totalCount = Number(total)
 
     return c.json(

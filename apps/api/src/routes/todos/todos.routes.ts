@@ -68,6 +68,19 @@ export const getByMonth = createRoute({
     },
 })
 
+export const getActivity = createRoute({
+    method: 'get',
+    path: '/todos/activity',
+    tags,
+    request: { query: z.object({ year: z.coerce.number().int().min(1970).max(9999) }) },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.array(z.object({ date: z.string(), count: z.number().int().positive() })),
+            '当前用户按开始日期汇总的年度计划数',
+        ),
+    },
+})
+
 export const create = createRoute({
     method: 'post',
     path: '/todos',
@@ -128,6 +141,7 @@ export const toggle = createRoute({
 export type GetMonthStatusRoute = typeof getMonthStatus
 export type GetByDateRoute = typeof getByDate
 export type GetByMonthRoute = typeof getByMonth
+export type GetActivityRoute = typeof getActivity
 export type CreateRoute = typeof create
 export type UpdateRoute = typeof update
 export type RemoveRoute = typeof remove

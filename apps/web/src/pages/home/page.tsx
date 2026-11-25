@@ -4,6 +4,7 @@ import { statsApi } from '@/services/stats-api'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { TodoActivity } from './todo-activity'
 
 const DIFFICULTY: Record<string, { label: string; className: string }> = {
   easy: { label: '简单', className: 'text-emerald-700 dark:text-emerald-400' },
@@ -14,7 +15,7 @@ const DIFFICULTY: Record<string, { label: string; className: string }> = {
 export default function HomePage() {
   const navigate = useNavigate()
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => statsApi.getDashboardStats(),
   })
@@ -30,7 +31,13 @@ export default function HomePage() {
     )
   }
 
-  if (!stats) return null
+  if (!stats) {
+    return (
+      <div className="py-16 text-center text-sm text-muted-foreground">
+        首页数据加载失败。<button type="button" onClick={() => void refetch()} className="ml-2 underline">重试</button>
+      </div>
+    )
+  }
 
   const { questions, todos } = stats
   const metrics = [
@@ -57,13 +64,10 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="flex flex-col gap-9">
+    <div className="flex min-w-0 flex-col gap-7">
       {/* 页头 */}
       <header className="border-b border-foreground/70 pb-5">
-        <p className="font-mono text-[10.5px] tracking-[0.18em] text-muted-foreground">
-          DASHBOARD · {new Date().toISOString().slice(0, 7).replace('-', '.')}
-        </p>
-        <h1 className="mt-2 font-serif text-[28px] leading-tight tracking-tight">概览</h1>
+        <h1 className="font-serif text-[28px] leading-tight tracking-tight">首页</h1>
         <p className="mt-2 text-[13px] text-muted-foreground">
           今天的进度、最近的题目,和你正在维护的内容。
         </p>
@@ -84,6 +88,8 @@ export default function HomePage() {
           </div>
         ))}
       </dl>
+
+      <TodoActivity />
 
       {/* 最近添加 */}
       <section>

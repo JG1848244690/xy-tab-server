@@ -94,6 +94,23 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         return created
     }
 
+    it('首页和统计页的最近添加只列出对当前用户可见的已审核题', async () => {
+        const shared = await createQuestion(OWNER, { title: '已通过' })
+        await createQuestion(OWNER, { title: '他人私有题', visibility: 'private' })
+        const waiting = await createQuestion(OWNER, { title: '等人工审核' })
+        const rejected = await createQuestion(OWNER, { title: '人工拒绝' })
+        await db.update(questions).set({ status: 'human_pending' }).where(eq(questions.id, waiting.id))
+        await db.update(questions).set({ status: 'rejected' }).where(eq(questions.id, rejected.id))
+
+        const dashboard = await req(app, OTHER, '/stats/dashboard')
+        expect(dashboard.status).toBe(200)
+        expect((await dashboard.json()).questions.recentAdded.map((row: { id: string }) => row.id)).toEqual([shared.id])
+
+        const list = await req(app, OTHER, '/stats/recent-added-questions?page=1&size=10')
+        expect(list.status).toBe(200)
+        expect(await list.json()).toMatchObject({ total: 1, data: [{ id: shared.id }] })
+    })
+
     it('private 题对非 owner 隔离:列表不含、详情 404、提交 404、且不泄露存在性', async () => {
         const shared = await createQuestion(OWNER, { title: '共享题' })
         const priv = await createQuestion(OWNER, { title: '私有题', visibility: 'private' })

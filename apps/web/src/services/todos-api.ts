@@ -21,6 +21,9 @@ export interface MonthStatus {
 }
 
 export const todosApi = {
+  getActivity: async (year: number): Promise<Array<{ date: string; count: number }>> =>
+    (await request.get('/todos/activity', { params: { year } })).data,
+
   // 获取月度状态
   getMonthStatus: async (year: number, month: number): Promise<MonthStatus> => {
     const res = await request.get('/todos/month-status', {

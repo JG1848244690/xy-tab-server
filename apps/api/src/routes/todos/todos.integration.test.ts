@@ -55,6 +55,23 @@ describe.skipIf(!hasDb)('todos integration (real PG)', () => {
 
     const NO_ID = '00000000-0000-4000-8000-0000000000ff'
 
+    it('年度热力图按开始日合计自己的计划，跨天与完成状态不影响计数', async () => {
+        const plans = [
+            { userId: U1.id, startDate: '2026-01-01', endDate: '2026-01-03', completed: true },
+            { userId: U1.id, startDate: '2026-01-01', endDate: '2026-01-01', completed: false },
+            { userId: U1.id, startDate: '2026-12-31', endDate: '2027-01-02', completed: false },
+            { userId: U1.id, startDate: '2025-12-31', endDate: '2026-01-02', completed: true },
+            { userId: U2.id, startDate: '2026-01-01', endDate: '2026-01-01', completed: true },
+        ]
+        await db.insert(todos).values(plans.map((plan) => ({ content: '测试计划', ...plan })))
+        const response = await req(app, U1, '/todos/activity?year=2026')
+        expect(response.status).toBe(200)
+        expect(await response.json()).toEqual([
+            { date: '2026-01-01', count: 2 },
+            { date: '2026-12-31', count: 1 },
+        ])
+    })
+
     it('create → toggle → toggle:打卡状态来回切换,只动自己的行', async () => {
         const created = await req(app, U1, '/todos', {
             method: 'POST',

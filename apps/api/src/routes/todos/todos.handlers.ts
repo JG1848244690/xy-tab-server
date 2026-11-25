@@ -1,8 +1,9 @@
-import { and, asc, eq, gte, lte, or } from 'drizzle-orm'
+import { and, asc, count, eq, gte, lte, or } from 'drizzle-orm'
 import type {
     GetMonthStatusRoute,
     GetByDateRoute,
     GetByMonthRoute,
+    GetActivityRoute,
     CreateRoute,
     UpdateRoute,
     RemoveRoute,
@@ -97,6 +98,21 @@ export const getByMonth: AppRouteHandler<GetByMonthRoute> = async (c) => {
         .orderBy(asc(todos.startDate), asc(todos.startTime))
 
     return c.json(rows)
+}
+
+export const getActivity: AppRouteHandler<GetActivityRoute> = async (c) => {
+    const { year } = c.req.valid('query')
+    const rows = await db
+        .select({ date: todos.startDate, count: count() })
+        .from(todos)
+        .where(and(
+            eq(todos.userId, c.get('userId')!),
+            gte(todos.startDate, ymd(year, 1, 1)),
+            lte(todos.startDate, ymd(year, 12, 31)),
+        ))
+        .groupBy(todos.startDate)
+        .orderBy(asc(todos.startDate))
+    return c.json(rows, HttpStatusCodes.OK)
 }
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
