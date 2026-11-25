@@ -17,6 +17,7 @@ const TodosPage = lazy(() => import('@/pages/todos/page'))
 const TestCenterPage = lazy(() => import('@/pages/test-center/page'))
 const PracticePage = lazy(() => import('@/pages/test-center/practice/[id]/page'))
 const ReviewPage = lazy(() => import('@/pages/review/page'))
+const MonitorPage = lazy(() => import('@/pages/monitor/page'))
 const MediaPage = lazy(() => import('@/pages/media/page'))
 const ArticlesPage = lazy(() => import('@/pages/articles/page'))
 const ArticleEditorPage = lazy(() => import('@/pages/articles/editor'))
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
       { path: '/test-center', element: page(<MobileAware mobileTo="/m/questions"><TestCenterPage /></MobileAware>) },
       { path: '/test-center/practice/:id', element: page(<MobileAware mobileTo="/m/questions"><PracticePage /></MobileAware>) },
       { path: '/review', element: page(<ReviewPage />) },
+      { path: '/system-monitor', element: page(<MonitorPage />) },
       { path: '/media', element: page(<MediaPage />) },
       { path: '/articles', element: page(<ArticlesPage />) },
       { path: '/articles/:id', element: page(<ArticleEditorPage />) },

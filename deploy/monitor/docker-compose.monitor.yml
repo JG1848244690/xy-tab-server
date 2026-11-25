@@ -1,0 +1,11 @@
+services:
+  app:
+    environment:
+      SYSTEM_MONITOR_SNAPSHOT: /run/hls-monitor/snapshot.json
+    volumes:
+      - type: bind
+        source: /var/lib/hls-monitor
+        target: /run/hls-monitor
+        read_only: true
+        bind:
+          create_host_path: false

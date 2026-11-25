@@ -85,6 +85,13 @@
       "when": 1795594027552,
       "tag": "0011_learning_check_in",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795600576635,
+      "tag": "0012_system_monitor",
+      "breakpoints": true
     }
   ]
 }

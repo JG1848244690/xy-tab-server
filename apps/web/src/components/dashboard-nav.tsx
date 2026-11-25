@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -48,6 +48,12 @@ export const navItems: NavItem[] = [
     title: '审核',
     href: '/review',
     icon: ShieldCheck,
+    adminOnly: true,
+  },
+  {
+    title: '系统监控',
+    href: '/system-monitor',
+    icon: Activity,
     adminOnly: true,
   },
   {

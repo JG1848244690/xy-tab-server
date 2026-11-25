@@ -10,7 +10,8 @@ export function pinoLogger() {
             },
             env.NODE_ENV === 'production' ? undefined : pretty()),
         http: {
-            reqId: () => crypto.randomUUID(),
+            onReqBindings: (c) => ({ req: { url: c.req.path, method: c.req.method } }),
+            onResBindings: (c) => ({ res: { status: c.res.status } }),
         }
     });
 }

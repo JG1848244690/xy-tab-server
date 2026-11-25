@@ -22,6 +22,11 @@ export default function createApp() {
 
     app.use(serveEmojiFavicon("🔥"))
 
+    app.use(async (c, next) => {
+        c.set('requestId', crypto.randomUUID())
+        c.header('X-Request-Id', c.get('requestId')!)
+        await next()
+    })
     app.use(pinoLogger())
     app.use(prettyJSON())
     // 同源 SPA 已不需要跨域;留 CORS 只为兼容开发期前端 dev server。

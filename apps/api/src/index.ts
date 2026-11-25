@@ -3,6 +3,7 @@ import app from './app.js'
 import env from './env.js'
 import db, { client } from './db/index.js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { startAuditRetention } from './lib/system-audit.js'
 import { MIGRATIONS_FOLDER, MIGRATIONS_SCHEMA, MIGRATIONS_TABLE } from './db/migrations-table.js'
 
 const port = env.PORT
@@ -22,6 +23,7 @@ async function main() {
     migrationsSchema: MIGRATIONS_SCHEMA,
   })
   console.log('Migrations applied.')
+  startAuditRetention()
 
   const server = serve(
     {

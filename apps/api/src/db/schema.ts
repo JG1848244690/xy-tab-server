@@ -98,6 +98,21 @@ export const users = pgTable(
 );
 
 export const selectUsersSchema = createSelectSchema(users);
+
+export const systemEvents = pgTable('system_events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorId: uuid('actor_id'),
+    targetId: uuid('target_id'),
+    action: varchar('action', { length: 32 }).notNull(),
+    status: integer('status').notNull(),
+    source: varchar('source', { length: 16 }),
+    requestId: varchar('request_id', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, (t) => [
+    index('system_events_date_idx').on(t.createdAt, t.id),
+    index('system_events_actor_date_idx').on(t.actorId, t.createdAt),
+    index('system_events_action_date_idx').on(t.action, t.createdAt),
+]);
 // 密码哈希绝不能进响应体,这里直接 omit
 export const selectUserSchema = selectUsersSchema.omit({ password: true });
 export const insertUsersSchema = createInsertSchema(users).omit({

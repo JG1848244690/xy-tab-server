@@ -13,11 +13,14 @@ import media from './routes/media/media.index.js'
 import articles from './routes/articles/articles.index.js'
 import collections from './routes/collections/collections.index.js'
 import publicRoutes from './routes/public/public.index.js'
+import monitor from './routes/monitor/monitor.index.js'
+import { systemAudit } from './lib/system-audit.js'
 import { cookieAuth } from './middlewares/auth.js'
 import { requireAdmin } from './middlewares/admin.js'
 import { rateLimit } from './middlewares/rate-limit.js'
 
 const app = createApp()
+app.use('*', systemAudit)
 
 /**
  * 本地上传文件的静态托管(2026-10-26)
@@ -96,6 +99,10 @@ app.use('/articles/*', cookieAuth(), requireAdmin())
 // 文章合集(专题):同样仅 admin
 app.use('/collections', cookieAuth(), requireAdmin())
 app.use('/collections/*', cookieAuth(), requireAdmin())
+app.use('/admin/monitor/*', cookieAuth(), requireAdmin(), async (c, next) => {
+    c.header('Cache-Control', 'private, no-store')
+    await next()
+})
 
 const routes = [
     index,
@@ -108,6 +115,7 @@ const routes = [
     articles,
     collections,
     publicRoutes,
+    monitor,
 ] as const
 
 routes.forEach((route) => {

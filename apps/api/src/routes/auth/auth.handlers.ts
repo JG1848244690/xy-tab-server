@@ -70,6 +70,7 @@ export const login: AppRouteHandler<LoginRoute> = async (c) => {
 
     const token = await signToken(user.id, user.email)
     setAuthCookie(c, token)
+    c.set('userId', user.id)
 
     return c.json({ user: toUserResponse(user) }, HttpStatusCodes.OK)
 }
