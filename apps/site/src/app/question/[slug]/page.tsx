@@ -113,35 +113,6 @@ export default async function QuestionPage({ params }: Props) {
     const normalize = (s: string) => s.replace(/\s+/g, '')
     const showStem = q.content.trim().length > 0 && normalize(q.content) !== normalize(q.title)
 
-    // QAPage 结构化数据:题目富摘要 / AEO 引用的核心信号
-    // 2026-10-27:补 author / datePublished / upvoteCount(GSC 的 6 个改进项)
-    const datePublished = q.publishedAt ?? q.updatedAt
-    const author = {
-        '@type': 'Organization',
-        name: '序言',
-        url: absoluteUrl('/'),
-    }
-    const qaJsonLd = {
-        '@context': 'https://schema.org',
-        '@type': 'QAPage',
-        mainEntity: {
-            '@type': 'Question',
-            name: q.title,
-            // 题干为空是历史脏数据;兜底到标题,避免 text 再被判缺失
-            text: q.content || q.title,
-            author,
-            datePublished,
-            answerCount: 1,
-            acceptedAnswer: {
-                '@type': 'Answer',
-                text: q.answer,
-                url: absoluteUrl(`/question/${slug}`),
-                author,
-                datePublished,
-                upvoteCount: 0,
-            },
-        },
-    }
     const breadcrumbJsonLd = {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
@@ -178,7 +149,6 @@ export default async function QuestionPage({ params }: Props) {
     return (
         <>
             <ReadingProgress />
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(qaJsonLd) }} />
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbJsonLd) }}

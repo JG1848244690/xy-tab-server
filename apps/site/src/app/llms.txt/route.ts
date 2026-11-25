@@ -11,7 +11,7 @@ export async function GET() {
 
     const bankLines = banks.data.map((b) => `- [${b.title}](${SITE_URL}/bank/${b.slug}): ${b.questionCount} 题`).join('\n')
     const tagLines = tags.data
-        .filter((t) => t.questionCount > 0)
+        .filter((t) => t.questionCount > 0 && t.kind !== 'legacy')
         .map((t) => `- [${t.name} 知识点](${SITE_URL}/tag/${t.slug}): ${t.questionCount} 题`)
         .join('\n')
 
@@ -29,7 +29,7 @@ ${tagLines || '- 标签整理中'}
 
 ## 页面说明
 
-- [题目页](${SITE_URL}/question/[slug]):题干 + 参考答案 + 相关题,已有 QAPage 结构化数据
+- [题库入口](${SITE_URL}/banks)：进入各专题，查看题目、参考答案和相关题。
 - 订阅:${SITE_URL}/rss.xml
 `
 

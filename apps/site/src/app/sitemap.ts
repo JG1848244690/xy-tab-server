@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { siteApi, absoluteUrl, CONTENT_UPDATED_AT } from '@/lib/site-api'
+import { siteApi, absoluteUrl } from '@/lib/site-api'
 import { projectNotes } from '@/lib/projects'
 import { wallpaperGuides, wallpaperGuidePath } from '@/lib/wallpaper-guides'
 
@@ -14,30 +14,25 @@ export const dynamic = 'force-static'
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [data, tags] = await Promise.all([siteApi.sitemapData(), siteApi.tags()])
-    const entry = (path: string, updatedAt: string, priority: number) => ({
+    const entry = (path: string, updatedAt?: string) => ({
         url: absoluteUrl(path),
-        lastModified: new Date(updatedAt),
-        changeFrequency: 'weekly' as const,
-        priority,
+        ...(updatedAt ? { lastModified: new Date(updatedAt) } : {}),
     })
 
     return [
-        entry('/', data.questions[0]?.updatedAt ?? new Date().toISOString(), 1.0),
-        { url: absoluteUrl('/projects') },
+        ...['/', '/banks', '/articles', '/collections', '/tags', '/projects'].map((path) => entry(path)),
         ...projectNotes.map((note) => ({ url: absoluteUrl(`/projects/notes/${note.slug}`) })),
         { url: absoluteUrl('/en/projects/newtab') },
         ...wallpaperGuides.flatMap(({ slug }) => (['zh', 'en'] as const).map((language) => ({
             url: absoluteUrl(wallpaperGuidePath(slug, language)),
         }))),
-        ...data.banks.map((b) => entry(`/bank/${b.slug}`, b.updatedAt, 0.9)),
+        ...data.banks.map((b) => entry(`/bank/${b.slug}`, b.updatedAt)),
         // 无 slug 的题(未清洗)没有公开 URL,不进 sitemap
-        ...data.questions.filter((q) => q.slug).map((q) => entry(`/question/${q.slug!}`, q.updatedAt, 0.8)),
-        ...data.articles.map((a) => entry(`/article/${a.slug}`, a.updatedAt, 0.6)),
-        ...(data.collections ?? []).map((c) => entry(`/collection/${c.slug}`, c.updatedAt, 0.7)),
-        ...data.tags
-            .filter((t) =>
-                tags.data.some((x) => x.slug === t.slug && x.questionCount > 0 && x.kind !== 'legacy'),
-            )
-            .map((t) => entry(`/tag/${t.slug}`, `${CONTENT_UPDATED_AT}T00:00:00.000Z`, 0.5)),
+        ...data.questions.filter((q) => q.slug).map((q) => entry(`/question/${q.slug!}`, q.updatedAt)),
+        ...data.articles.map((a) => entry(`/article/${a.slug}`, a.updatedAt)),
+        ...(data.collections ?? []).map((c) => entry(`/collection/${c.slug}`, c.updatedAt)),
+        ...tags.data
+            .filter((tag) => tag.questionCount > 0 && tag.kind !== 'legacy' && tag.hasIntro)
+            .map((tag) => entry(`/tag/${tag.slug}`)),
     ]
 }
