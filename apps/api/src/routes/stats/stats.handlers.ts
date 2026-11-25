@@ -78,6 +78,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
         recentAttempted,
         totalAttempts,
         totalCorrect,
+        totalCompleted,
         thisWeekAddedQuestions,
         thisWeekAttemptedQuestions,
         todayTodos,
@@ -121,6 +122,9 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
             .select({ value: count() })
             .from(questionAttempts)
             .where(and(eq(questionAttempts.userId, userId), eq(questionAttempts.isCorrect, true))),
+
+        db.select({ value: count() }).from(questionStats)
+            .where(and(eq(questionStats.userId, userId), eq(questionStats.status, 'completed'))),
 
         db
             .select({ value: count() })
@@ -174,6 +178,7 @@ export const dashboard: AppRouteHandler<DashboardRoute> = async (c) => {
                 recentAttempted,
                 totalAttempts: totalAttemptsCount,
                 totalCorrect: totalCorrectCount,
+                totalCompleted: n(totalCompleted),
                 accuracy: Number(accuracy.toFixed(1)),
                 thisWeekAdded,
                 thisWeekAttempted,
@@ -436,20 +441,20 @@ export const recentCompletedQuestions: AppRouteHandler<RecentCompletedQuestionsR
     const userId = c.get('userId')!
     const { page, size } = c.req.valid('query')
 
-    // 直接 JOIN,旧版是「先查 stats 再按 id 批量查 question 再在 JS 里拼」
+    const completedAt = sql<Date>`coalesce(${questionStats.completedAt}, ${questionStats.firstCorrectAt})`
     const rows = await db
         .select({
             id: questions.id,
             title: questions.title,
             difficulty: questions.difficulty,
             tags: questions.tags,
-            firstCorrectAt: questionStats.firstCorrectAt,
+            completedAt: completedAt.mapWith(questionStats.completedAt),
             totalAttempts: questionStats.totalAttempts,
         })
         .from(questionStats)
         .innerJoin(questions, eq(questions.id, questionStats.questionId))
         .where(and(eq(questionStats.userId, userId), eq(questionStats.status, 'completed')))
-        .orderBy(desc(questionStats.firstCorrectAt))
+        .orderBy(sql`${completedAt} desc nulls last`, desc(questions.id))
         .limit(size)
         .offset((page - 1) * size)
 
@@ -466,7 +471,7 @@ export const recentCompletedQuestions: AppRouteHandler<RecentCompletedQuestionsR
                 title: r.title,
                 difficulty: r.difficulty,
                 tags: r.tags,
-                completedAt: r.firstCorrectAt,
+                completedAt: r.completedAt,
                 totalAttempts: r.totalAttempts,
             })),
             total: totalCount,

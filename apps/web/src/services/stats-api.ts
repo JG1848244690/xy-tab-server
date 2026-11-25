@@ -11,7 +11,6 @@ export interface RecentAttempt {
   id: string
   questionId: string
   questionTitle: string
-  isCorrect: number
   createdAt: string
 }
 
@@ -35,8 +34,7 @@ export interface DashboardStats {
     recentAdded: RecentQuestion[]
     recentAttempted: RecentAttempt[]
     totalAttempts: number
-    totalCorrect: number
-    accuracy: number
+    totalCompleted: number
     thisWeekAdded: number
     thisWeekAttempted: number
   }
@@ -127,7 +125,34 @@ export interface CompletedQuestionsResponse {
   hasMore: boolean
 }
 
+interface LearningRank {
+  alias: string
+  rank: number
+  days: number
+  isMe: boolean
+}
+
+export interface LearningOverview {
+  today: string
+  week: { date: string; completed: boolean }[]
+  streak: number
+  enabled: boolean
+  canJoin: boolean
+  myRank: LearningRank | null
+  leaderboard: LearningRank[]
+  hasMore: boolean
+}
+
 export const statsApi = {
+  getLearning: async (page: number): Promise<LearningOverview> => {
+    const res = await request.get('/stats/learning', { params: { page } })
+    return res.data
+  },
+
+  setLearningLeaderboard: async (enabled: boolean) => {
+    await request.put('/stats/learning/leaderboard', { enabled })
+  },
+
   getDashboardStats: async (): Promise<DashboardStats> => {
     const res = await request.get('/stats/dashboard')
     return res.data

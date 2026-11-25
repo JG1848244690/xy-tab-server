@@ -122,6 +122,11 @@ const statsResponseSchema = z.object({
 const submitBodySchema = z.object({
     userAnswer: z.string().nullable().optional(),
     timeSpent: z.number().nullable().optional(),
+    completed: z.literal(true).optional(),
+}).superRefine(({ completed, userAnswer }, context) => {
+    if (completed && !userAnswer?.trim()) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['userAnswer'], message: '请输入答案' })
+    }
 })
 
 const markCorrectBodySchema = z.object({ isCorrect: z.boolean() })
@@ -263,10 +268,12 @@ export const submit = createRoute({
                 }),
                 answer: z.string(),
                 question: z.object({ title: z.string(), content: z.string() }),
+                checkIn: z.object({ streak: z.number() }).optional(),
             }),
             '记录一次作答,并返回参考答案',
         ),
         [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, '题目不存在'),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(createErrorSchema(submitBodySchema), '提交参数校验失败'),
     },
 })
 

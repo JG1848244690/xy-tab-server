@@ -57,6 +57,7 @@ const dashboardSchema = z.object({
         })),
         totalAttempts: z.number(),
         totalCorrect: z.number(),
+        totalCompleted: z.number(),
         accuracy: z.number(),
         thisWeekAdded: z.number(),
         thisWeekAttempted: z.number(),

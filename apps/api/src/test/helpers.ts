@@ -38,5 +38,5 @@ export function req(
  *  question_quota 也要清:它是「每用户每天」的计数,不清的话同一测试文件里
  *  创建超过 5 道题就会被投稿配额拦住 */
 export async function truncateBusinessTables(db: typeof dbType): Promise<void> {
-    await db.execute(sql`truncate table questions, todos, question_quota restart identity cascade`)
+    await db.execute(sql`truncate table questions, todos, question_quota, learning_days, learning_leaderboard_members restart identity cascade`)
 }

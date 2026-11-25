@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, FileQuestion, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { statsApi } from '@/services/stats-api'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { TodoActivity } from './todo-activity'
+import { LearningOverview } from './learning-overview'
 
 const DIFFICULTY: Record<string, { label: string; className: string }> = {
   easy: { label: '简单', className: 'text-emerald-700 dark:text-emerald-400' },
@@ -44,22 +45,22 @@ export default function HomePage() {
     {
       label: '累计练习',
       value: questions.totalAttempts,
-      hint: `正确 ${questions.totalCorrect} 题`,
+      hint: `本周练习 ${questions.thisWeekAttempted} 次`,
     },
     {
-      label: '正确率',
-      value: `${questions.accuracy}%`,
+      label: '已完成题目',
+      value: questions.totalCompleted,
       hint: `本周新增 ${questions.thisWeekAdded} 题`,
     },
     {
-      label: '今日打卡',
+      label: '今日待办',
       value: `${todos.todayCompleted}/${todos.todayTotal}`,
       hint: '当天待办完成情况',
     },
     {
-      label: '本周完成率',
+      label: '本周待办完成率',
       value: `${todos.completionRate}%`,
-      hint: `本周答题 ${questions.thisWeekAttempted} 次`,
+      hint: `完成 ${todos.thisWeekCompleted}/${todos.thisWeekTotal} 项`,
     },
   ]
 
@@ -89,6 +90,7 @@ export default function HomePage() {
         ))}
       </dl>
 
+      <LearningOverview />
       <TodoActivity />
 
       {/* 最近添加 */}
@@ -158,24 +160,8 @@ export default function HomePage() {
                   <span className="w-6 flex-none font-mono text-[11px] text-muted-foreground">
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className="flex-none">
-                    {attempt.isCorrect === 1 ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <FileQuestion className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-                    )}
-                  </span>
                   <span className="min-w-0 flex-1 truncate font-serif text-[15px] leading-snug transition-colors group-hover:text-primary">
                     {attempt.questionTitle}
-                  </span>
-                  <span
-                    className={`flex-none font-mono text-[10.5px] ${
-                      attempt.isCorrect === 1
-                        ? 'text-emerald-700 dark:text-emerald-400'
-                        : 'text-red-700 dark:text-red-400'
-                    }`}
-                  >
-                    {attempt.isCorrect === 1 ? '正确' : '错误'}
                   </span>
                   <span className="hidden w-28 flex-none text-right font-mono text-[10.5px] text-muted-foreground sm:block">
                     {formatTime(attempt.createdAt)}

@@ -22,6 +22,10 @@ export interface QuestionStats {
   lastAttemptAt: string | null
 }
 
+export interface PracticeCompletion {
+  checkIn?: { streak: number }
+}
+
 export interface Question {
   id: string
   type: 'markdown' | 'text'
@@ -109,15 +113,8 @@ export const questionsApi = {
     await request.delete(`/questions/${id}`)
   },
 
-  // 提交答案
-  submitAnswer: async (id: string, data: { userAnswer: string; timeSpent: number }) => {
-    const res = await request.post(`/questions/${id}/submit`, data)
-    return res.data
-  },
-
-  // 标记答案对错
-  markCorrect: async (questionId: string, attemptId: string, isCorrect: boolean) => {
-    const res = await request.patch(`/questions/${questionId}/attempts/${attemptId}`, { isCorrect })
+  completePractice: async (id: string, data: { userAnswer: string; timeSpent: number }) => {
+    const res = await request.post<PracticeCompletion>(`/questions/${id}/submit`, { ...data, completed: true })
     return res.data
   },
 

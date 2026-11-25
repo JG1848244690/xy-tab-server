@@ -16,8 +16,10 @@ import type { AppRouteHandler } from '../../lib/types.js'
 import db from '../../db/index.js'
 import { detectQuestionType } from '../../lib/question-type.js'
 import { resolveBankId } from '../../lib/question-bank.js'
+import { learningStreak } from '../../lib/learning-days.js'
 import { aiReviewDisabled } from '../review/llm.js'
 import {
+    learningDays,
     questionAttempts,
     questionStats,
     questions,
@@ -528,17 +530,24 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
 export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
     const { id } = c.req.valid('param')
     const userId = c.get('userId')!
-    const { userAnswer, timeSpent } = c.req.valid('json')
-
-    const [question] = await db.select().from(questions).where(eq(questions.id, id)).limit(1)
-    // private 题非 owner 不可练,与 getOne 同口径
-    if (!question || (question.visibility === 'private' && question.createdBy !== userId)) {
-        return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
-    }
+    const { userAnswer, timeSpent, completed } = c.req.valid('json')
 
     // attempt 流水和 stats 汇总必须同生共死(B1):以前两步裸奔,中途失败
     // (进程被杀/约束冲突)两边永久失配,统计口径再也对不回来
-    const { attempt } = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
+        const [question] = await tx.select({
+            title: questions.title,
+            content: questions.content,
+            answer: questions.answer,
+            visibility: questions.visibility,
+        }).from(questions).where(and(
+            eq(questions.id, id),
+            completed ? approvedBank(userId) : visibleBank(userId),
+        )).limit(1)
+        if (!question) return null
+
+        const status = completed ? 'completed' : 'in_progress'
+        const completedAt = completed ? sql`now()` : null
         // SQL 侧自增:两个会话并发作答时,各自读旧值再互相覆盖会丢计数。
         // lastAttemptAt 用 now() 而不是 attempt.createdAt —— 此刻 attempt
         // 还没插入,两者语义等价(都是"这次提交的时刻")
@@ -552,14 +561,16 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
                 lastAttemptAt: sql`now()`,
                 firstCorrectAt: null,
                 bestTime: null,
-                status: 'in_progress',
+                completedAt,
+                status,
             })
             .onConflictDoUpdate({
                 target: [questionStats.userId, questionStats.questionId],
                 set: {
                     totalAttempts: sql`${questionStats.totalAttempts} + 1`,
                     lastAttemptAt: sql`now()`,
-                    status: 'in_progress',
+                    completedAt: completed ? sql`coalesce(${questionStats.completedAt}, ${questionStats.firstCorrectAt}, now())` : undefined,
+                    status: completed ? 'completed' : sql`case when ${questionStats.completedAt} is not null then 'completed'::question_status else 'in_progress'::question_status end`,
                 },
             })
             .returning()
@@ -576,8 +587,20 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
             })
             .returning()
 
-        return { attempt, stat }
+        let checkIn: { streak: number } | undefined
+        if (completed && question.visibility === 'shared') {
+            const [inserted] = await tx.insert(learningDays).values({
+                userId,
+                day: sql`timezone('Asia/Shanghai', now())::date`,
+            })
+                .onConflictDoNothing().returning({ day: learningDays.day })
+            if (inserted) checkIn = { streak: await learningStreak(tx, userId, inserted.day) }
+        }
+
+        return { attempt, question, checkIn }
     })
+    if (!result) return c.json({ message: 'Question not found' }, HttpStatusCodes.NOT_FOUND)
+    const { attempt, question, checkIn } = result
 
     return c.json(
         {
@@ -590,6 +613,7 @@ export const submit: AppRouteHandler<SubmitRoute> = async (c) => {
             },
             answer: question.answer,
             question: { title: question.title, content: question.content },
+            checkIn,
         },
         HttpStatusCodes.OK,
     )

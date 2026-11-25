@@ -8,8 +8,9 @@ import {
     MIGRATIONS_SCHEMA,
     MIGRATIONS_TABLE,
 } from '../../db/migrations-table.js'
-import { questionAttempts, questionStats, questions, users } from '../../db/schema.js'
+import { learningDays, questionAttempts, questionStats, questions, users } from '../../db/schema.js'
 import { hashPassword } from '../../lib/auth.js'
+import { learningDate, shiftLearningDate, startLearningWeek } from '../../lib/learning-days.js'
 import { truncateBusinessTables, req } from '../../test/helpers.js'
 
 /**
@@ -109,6 +110,69 @@ describe.skipIf(!hasDb)('questions integration (real PG)', () => {
         const list = await req(app, OTHER, '/stats/recent-added-questions?page=1&size=10')
         expect(list.status).toBe(200)
         expect(await list.json()).toMatchObject({ total: 1, data: [{ id: shared.id }] })
+    })
+
+    it('完成练习自动打卡，周榜匿名自愿加入，退出后隐藏', async () => {
+        await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, OWNER.id))
+        await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, ADMIN.id))
+        await db.update(users).set({ emailVerifiedAt: null }).where(eq(users.id, OTHER.id))
+        const shared = await createQuestion(OWNER)
+        const privateQuestion = await createQuestion(OWNER, { visibility: 'private' })
+        const pending = await createQuestion(OWNER)
+        await db.update(questions).set({ status: 'human_pending' }).where(eq(questions.id, pending.id))
+        const today = learningDate()
+        await db.insert(learningDays).values({ userId: OWNER.id, day: shiftLearningDate(today, -1) })
+
+        const complete = (user: typeof OWNER, id: string, userAnswer = '我的解法') => req(app, user, `/questions/${id}/submit`, {
+            method: 'POST', body: JSON.stringify({ userAnswer, completed: true }),
+        })
+        const optIn = (user: typeof OWNER, enabled: boolean) => req(app, user, '/stats/learning/leaderboard', {
+            method: 'PUT', body: JSON.stringify({ enabled }),
+        })
+        const overview = async (user: typeof OWNER) => (await req(app, user, '/stats/learning')).json()
+
+        expect((await complete(OWNER, shared.id, ' \n ')).status).toBe(422)
+        expect((await complete(OTHER, pending.id)).status).toBe(404)
+        const privateResult = await complete(OWNER, privateQuestion.id)
+        expect(privateResult.status).toBe(200)
+        expect(await privateResult.json()).not.toHaveProperty('checkIn')
+        expect(await overview(OWNER)).toMatchObject({ enabled: false, myRank: null, streak: 1 })
+        expect((await optIn(OTHER, true)).status).toBe(403)
+
+        const repeats = await Promise.all([complete(OWNER, shared.id), complete(OWNER, shared.id)])
+        expect(repeats.map((res) => res.status)).toEqual([200, 200])
+        const responseBodies = await Promise.all(repeats.map((res) => res.json()))
+        expect(responseBodies.flatMap((res) => res.checkIn ?? [])).toEqual([{ streak: 2 }])
+        expect(await db.select().from(learningDays).where(eq(learningDays.userId, OWNER.id))).toHaveLength(2)
+        const stats = await (await req(app, OWNER, '/stats/recent-completed-questions')).json()
+        expect(stats).toMatchObject({ total: 2, data: expect.arrayContaining([
+            expect.objectContaining({ id: shared.id, completedAt: expect.any(String), totalAttempts: 2 }),
+        ]) })
+        expect((await overview(OTHER)).leaderboard).toEqual([])
+
+        if (startLearningWeek(today) !== today) {
+            await db.insert(learningDays).values({ userId: ADMIN.id, day: shiftLearningDate(today, -1) })
+        }
+        expect((await complete(ADMIN, shared.id)).status).toBe(200)
+        expect((await optIn(OWNER, true)).status).toBe(200)
+        expect((await optIn(ADMIN, true)).status).toBe(200)
+        const joined = await overview(OWNER)
+        expect(joined).toMatchObject({ enabled: true, myRank: { rank: 1, isMe: true } })
+        expect(joined.leaderboard.map((entry: { rank: number }) => entry.rank)).toEqual([1, 1])
+        expect(joined.leaderboard.every((entry: object) => Object.keys(entry).sort().join(',') === 'alias,days,isMe,rank')).toBe(true)
+
+        expect((await optIn(OWNER, false)).status).toBe(200)
+        expect(await overview(OWNER)).toMatchObject({ enabled: false, myRank: null, streak: 2 })
+        expect((await overview(OTHER)).leaderboard.map((entry: { alias: string }) => entry.alias)).not.toContain(joined.myRank.alias)
+        expect((await optIn(OWNER, true)).status).toBe(200)
+        expect((await overview(OWNER)).myRank.alias).toBe(joined.myRank.alias)
+    })
+
+    it('学习日和周榜在北京时间周一零点结算', () => {
+        const sunday = learningDate(new Date('2026-11-22T15:59:59Z'))
+        const monday = learningDate(new Date('2026-11-22T16:00:00Z'))
+        expect([sunday, monday]).toEqual(['2026-11-22', '2026-11-23'])
+        expect([startLearningWeek(sunday), startLearningWeek(monday)]).toEqual(['2026-11-16', '2026-11-23'])
     })
 
     it('private 题对非 owner 隔离:列表不含、详情 404、提交 404、且不泄露存在性', async () => {

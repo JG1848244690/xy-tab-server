@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { History, Clock, Check, X, RotateCcw } from 'lucide-react'
+import { History, Clock, RotateCcw } from 'lucide-react'
 import type { Attempt } from '../types'
 
 interface HistoryDialogProps {
@@ -78,21 +78,6 @@ export function HistoryDialog({
                         )}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {attempt.isCorrect === 1 ? (
-                      <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                        <Check className="h-3 w-3 mr-1" />
-                        正确
-                      </Badge>
-                    ) : attempt.isCorrect === 0 ? (
-                      <Badge variant="destructive">
-                        <X className="h-3 w-3 mr-1" />
-                        错误
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">未标记</Badge>
-                    )}
                   </div>
                 </div>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Check, X, Loader2, RotateCcw, Eye, Pencil } from 'lucide-react'
+import { Check, Loader2, RotateCcw, Eye, Pencil } from 'lucide-react'
 import { Markdown } from '@/components/markdown'
 
 interface MarkdownEditorProps {
@@ -8,8 +8,7 @@ interface MarkdownEditorProps {
   onAnswerChange: (value: string) => void
   isSubmitted: boolean
   isSubmitting: boolean
-  onSubmitCorrect: () => void
-  onSubmitWrong: () => void
+  onSubmit: () => void
   onRestart: () => void
 }
 
@@ -23,8 +22,7 @@ export function MarkdownEditor({
   onAnswerChange,
   isSubmitted,
   isSubmitting,
-  onSubmitCorrect,
-  onSubmitWrong,
+  onSubmit,
   onRestart,
 }: MarkdownEditorProps) {
   const [preview, setPreview] = useState(false)
@@ -60,36 +58,10 @@ export function MarkdownEditor({
 
         <div className="flex items-center gap-2">
           {!isSubmitted ? (
-            <>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={onSubmitCorrect}
-                disabled={isSubmitting || !userAnswer.trim()}
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4 mr-1" />
-                )}
-                正确
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={onSubmitWrong}
-                disabled={isSubmitting || !userAnswer.trim()}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <X className="h-4 w-4 mr-1" />
-                )}
-                错误
-              </Button>
-            </>
+            <Button size="sm" onClick={onSubmit} disabled={isSubmitting || !userAnswer.trim()}>
+              {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              完成本题
+            </Button>
           ) : (
             <Button variant="outline" size="sm" onClick={onRestart}>
               <RotateCcw className="h-4 w-4 mr-1" />
@@ -111,10 +83,8 @@ export function MarkdownEditor({
         ) : (
           <textarea
             value={userAnswer}
-            onChange={(e) => {
-              if (!isSubmitted) onAnswerChange(e.target.value)
-            }}
-            readOnly={isSubmitted}
+            onChange={(e) => onAnswerChange(e.target.value)}
+            readOnly={isSubmitted || isSubmitting}
             spellCheck={false}
             placeholder="支持 Markdown。先写结论,再补原理和边界。"
             className="h-full w-full resize-none border-0 bg-transparent p-4 font-mono text-[13px] leading-7 outline-none placeholder:text-muted-foreground/70"

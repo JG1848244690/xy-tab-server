@@ -279,6 +279,7 @@ export const questionStats = pgTable(
         correctAttempts: integer('correct_attempts').default(0).notNull(),
         lastAttemptAt: timestamp('last_attempt_at', { mode: 'date' }),
         firstCorrectAt: timestamp('first_correct_at', { mode: 'date' }),
+        completedAt: timestamp('completed_at', { mode: 'date' }),
         // 历史最快用时(秒),null = 还没答对过
         bestTime: integer('best_time'),
         status: questionStatusEnum('status').default('not_started').notNull(),
@@ -293,6 +294,20 @@ export const questionStats = pgTable(
 );
 
 export const selectQuestionStatsSchema = createSelectSchema(questionStats);
+
+export const learningDays = pgTable('learning_days', {
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day').notNull(),
+}, (t) => [
+    primaryKey({ columns: [t.userId, t.day] }),
+    index('learning_days_day_user_idx').on(t.day, t.userId),
+]);
+
+export const learningLeaderboardMembers = pgTable('learning_leaderboard_members', {
+    userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+    aliasId: uuid('alias_id').defaultRandom().notNull(),
+    enabled: boolean('enabled').notNull(),
+});
 
 // ============================================================
 // question_attempts —— 每次答题的明细流水

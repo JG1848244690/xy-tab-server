@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
 import { questionsApi, type Question } from '@/services/questions-api'
 import { cn } from '@/lib/utils'
+import { useCompletePractice } from '@/hooks/use-complete-practice'
+import { PracticeCompletionFeedback } from '@/components/practice-completion-feedback'
 
 const DIFFICULTY_TEXT: Record<string, string> = {
   easy: '简单',
@@ -16,7 +18,6 @@ const DIFFICULTY_TEXT: Record<string, string> = {
 export default function MobilePractice() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   const { data: question, isPending } = useQuery<Question>({
     queryKey: ['question', id],
@@ -27,7 +28,8 @@ export default function MobilePractice() {
   const [answer, setAnswer] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
-  const [result, setResult] = useState<null | boolean>(null)
+  const submit = useCompletePractice(id)
+  const completed = submit.isSuccess
 
   /** 存量导入的题里 content 只是标题,直接展开参考答案 */
   const contentIsStub = useMemo(
@@ -35,39 +37,21 @@ export default function MobilePractice() {
     [question?.content],
   )
 
+  const hasReference = Boolean(question?.answer)
   useEffect(() => {
-    if (!question) return
-    setShowAnswer(contentIsStub && Boolean(question.answer))
-  }, [question, contentIsStub])
+    setShowAnswer(contentIsStub && hasReference)
+  }, [id, contentIsStub, hasReference])
 
   useEffect(() => {
-    if (result !== null) return
+    if (completed) return
     const t = window.setInterval(() => setSeconds((s) => s + 1), 1000)
     return () => window.clearInterval(t)
-  }, [result])
-
-  const submit = useMutation({
-    mutationFn: async (isCorrect: boolean) => {
-      const res = await questionsApi.submitAnswer(id, {
-        userAnswer: answer.trim(),
-        timeSpent: seconds,
-      })
-      await questionsApi.markCorrect(id, res.attempt.id, isCorrect)
-      return isCorrect
-    },
-    onSuccess: (isCorrect) => {
-      setResult(isCorrect)
-      setShowAnswer(true)
-      queryClient.invalidateQueries({ queryKey: ['question', id] })
-      queryClient.invalidateQueries({ queryKey: ['m-questions'] })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    },
-  })
+  }, [completed])
 
   const restart = () => {
     setAnswer('')
     setSeconds(0)
-    setResult(null)
+    submit.reset()
     setShowAnswer(false)
   }
 
@@ -133,51 +117,32 @@ export default function MobilePractice() {
         <textarea
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          disabled={result !== null || submit.isPending}
+          disabled={completed || submit.isPending}
           placeholder={question.type === 'markdown' ? '写下思路或代码' : '写下你的答案'}
           rows={question.type === 'markdown' ? 10 : 6}
           className={cn(
             'w-full resize-y rounded-lg border border-border bg-card px-3 py-2.5 text-[13.5px] leading-relaxed',
             'placeholder:text-muted-foreground/70 focus:border-primary/50 focus:outline-none',
             question.type === 'markdown' && 'font-mono text-[12.5px]',
-            (result !== null || submit.isPending) && 'opacity-70',
+            (completed || submit.isPending) && 'opacity-70',
           )}
         />
 
-        {result === null ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3">
+          {completed ? <PracticeCompletionFeedback checkIn={submit.data?.checkIn} /> : (
             <Button
-              variant="outline"
-              className="h-11"
+              className="h-11 w-full"
               disabled={!answer.trim() || submit.isPending}
-              onClick={() => submit.mutate(false)}
+              onClick={() => submit.mutate({ userAnswer: answer.trim(), timeSpent: seconds }, {
+                onSuccess: () => setShowAnswer(true),
+              })}
             >
-              {submit.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : (
-                <X className="mr-1.5 h-4 w-4" />
-              )}
-              没答上来
+              {submit.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              完成本题
             </Button>
-            <Button
-              className="h-11"
-              disabled={!answer.trim() || submit.isPending}
-              onClick={() => submit.mutate(true)}
-            >
-              <Check className="mr-1.5 h-4 w-4" />
-              答对了
-            </Button>
-          </div>
-        ) : (
-          <div
-            className={cn(
-              'mt-3 rounded-lg border px-3 py-2.5 text-[12.5px]',
-              result
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-            )}
-          >
-            {result ? '已记为完成 · 继续保持' : '已记录 · 看一遍参考答案再试一次'}
-          </div>
-        )}
+          )}
+          {submit.isError && <p role="alert" className="mt-2 text-sm text-destructive">提交失败，请重试。答案仍可编辑。</p>}
+        </div>
       </section>
 
       {/* 参考答案 */}
@@ -205,7 +170,7 @@ export default function MobilePractice() {
         ) : null}
       </section>
 
-      {result !== null ? (
+      {completed ? (
         <div className="mt-5 grid grid-cols-2 gap-2 px-4">
           <Button variant="outline" className="h-11" onClick={restart}>
             再做一次

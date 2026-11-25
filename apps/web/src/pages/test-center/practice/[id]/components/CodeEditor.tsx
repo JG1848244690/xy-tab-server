@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Check, X, Loader2, RotateCcw, Play } from 'lucide-react'
+import { Check, Loader2, RotateCcw, Play } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 // monaco 本地化:别再走 jsDelivr CDN(F2),必须在 Editor 挂载前执行
 import '@/lib/monaco-setup'
@@ -12,8 +12,7 @@ interface CodeEditorProps {
   monacoTheme: 'paper-dark' | 'paper-light'
   isSubmitted: boolean
   isSubmitting: boolean
-  onSubmitCorrect: () => void
-  onSubmitWrong: () => void
+  onSubmit: () => void
   onRestart: () => void
 }
 
@@ -23,8 +22,7 @@ export function CodeEditor({
   monacoTheme,
   isSubmitted,
   isSubmitting,
-  onSubmitCorrect,
-  onSubmitWrong,
+  onSubmit,
   onRestart,
 }: CodeEditorProps) {
   const [codeOutput, setCodeOutput] = useState<string>('')
@@ -144,33 +142,9 @@ export function CodeEditor({
                   )}
                   运行
                 </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={onSubmitCorrect}
-                  disabled={isSubmitting || !userAnswer.trim()}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-1" />
-                  )}
-                  正确
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={onSubmitWrong}
-                  disabled={isSubmitting || !userAnswer.trim()}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <X className="h-4 w-4 mr-1" />
-                  )}
-                  错误
+                <Button size="sm" onClick={onSubmit} disabled={isSubmitting || !userAnswer.trim()}>
+                  {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                  完成本题
                 </Button>
               </>
             ) : (
@@ -192,7 +166,7 @@ export function CodeEditor({
               value={userAnswer}
               onChange={(value) => !isSubmitted && onAnswerChange(value || '')}
               options={{
-                readOnly: isSubmitted,
+                readOnly: isSubmitted || isSubmitting,
                 minimap: { enabled: true },
                 fontSize: 14,
                 lineNumbers: 'on',
