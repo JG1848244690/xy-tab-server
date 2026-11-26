@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "hlsedu": {
+        "type": "remote",
+        "url": "https://hls.kskbl.com.cn/api-hls/mcp",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:HLSEDU_MCP_KEY}"
+        }
+      }
+    }
+  }
+}
