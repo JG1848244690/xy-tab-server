@@ -89,10 +89,8 @@ export const getByMonth: AppRouteHandler<GetByMonthRoute> = async (c) => {
         .where(
             and(
                 eq(todos.userId, userId),
-                or(
-                    and(gte(todos.startDate, start), lte(todos.startDate, end)),
-                    and(gte(todos.endDate, start), lte(todos.endDate, end)),
-                ),
+                lte(todos.startDate, end),
+                gte(todos.endDate, start),
             ),
         )
         .orderBy(asc(todos.startDate), asc(todos.startTime))

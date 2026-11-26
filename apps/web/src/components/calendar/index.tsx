@@ -1,21 +1,33 @@
 import { Card, CardContent } from '@/components/ui/card'
-import type { DateSelectArg, EventClickArg, EventInput } from '@fullcalendar/core'
+import type { DatesSetArg, DateSelectArg, EventChangeArg, EventClickArg, EventInput } from '@fullcalendar/core'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import listPlugin from '@fullcalendar/list'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import dayjs from 'dayjs'
-import { useLayoutEffect, useRef, useState, useEffect } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react'
 import CalendarEvent from './calendar-event'
 import CalendarEventForm, { type CalendarEventFormFieldType } from './calendar-event-form'
 import CalendarHeader, { type HandleMoveArg, type ViewType } from './calendar-header'
 import { generateEventId } from './event-utils'
-import { todosApi, type Todo } from '@/services/todos-api'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { todosApi, type Todo, type TodoUpdate } from '@/services/todos-api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CalendarDragGuide } from './calendar-drag-guide'
+import { useAuthStore } from '@/store/auth-store'
 
 const DEFAULT_COLOR = '#00a76f'
 const DATE_FORMAT = 'YYYY-MM-DD'
+const EMPTY_TODOS: Todo[] = []
+
+async function getCalendarTodos(firstMonth: string, lastMonth: string) {
+  const months = []
+  for (let month = dayjs(firstMonth); month.format('YYYY-MM') <= lastMonth; month = month.add(1, 'month')) {
+    months.push(todosApi.getTodosByMonth(month.year(), month.month() + 1))
+  }
+  const todos = (await Promise.all(months)).flat()
+  return [...new Map(todos.map((todo) => [todo.id, todo])).values()]
+}
 
 function newTodo(startDate: string): CalendarEventFormFieldType {
   return {
@@ -67,38 +79,36 @@ function eventToTodo(event: CalendarEventFormFieldType) {
 
 export default function Calendar() {
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.user?.id ?? '')
   const fullCalendarRef = useRef<FullCalendar>(null)
+  const movingEvents = useRef(new Set<string>())
   const [view, setView] = useState<ViewType>('dayGridMonth')
   const [date, setDate] = useState(new Date())
+  const [visibleMonths, setVisibleMonths] = useState<[string, string] | null>(null)
+  const [moveFeedback, setMoveFeedback] = useState<'saved' | 'error' | null>(null)
   const [open, setOpen] = useState(false)
   const [eventInitValue, setEventInitValue] =
     useState<CalendarEventFormFieldType | null>(null)
   const [eventFormType, setEventFormType] = useState<'add' | 'edit'>('add')
 
-  // 获取当前月份的所有 todos
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1
+  const { data: allTodos = EMPTY_TODOS } = useQuery({
+    queryKey: ['todos', 'calendar', userId, visibleMonths],
+    enabled: Boolean(userId && visibleMonths),
+    queryFn: () => getCalendarTodos(...visibleMonths!),
+  })
+  const events = useMemo(() => allTodos.map(todoToEvent), [allTodos])
 
-  // 获取当前月份的所有日期的 todos
-  const [allTodos, setAllTodos] = useState<Todo[]>([])
+  const handleDatesSet = ({ start, end }: DatesSetArg) => {
+    const first = dayjs(start).format('YYYY-MM')
+    const last = dayjs(end).subtract(1, 'day').format('YYYY-MM')
+    setVisibleMonths((previous) => previous?.[0] === first && previous[1] === last ? previous : [first, last])
+  }
 
-  // 使用批量接口获取月度 todos（替代 30+ 次单独请求）
   useEffect(() => {
-    const fetchMonthTodos = async () => {
-      try {
-        const todos = await todosApi.getTodosByMonth(year, month)
-        setAllTodos(todos)
-      } catch (error) {
-        console.error('Failed to fetch month todos:', error)
-        setAllTodos([])
-      }
-    }
-
-    fetchMonthTodos()
-  }, [year, month])
-
-  // 将 todos 转换为 events
-  const events: EventInput[] = allTodos.map(todoToEvent)
+    if (moveFeedback !== 'saved') return
+    const timer = window.setTimeout(() => setMoveFeedback(null), 2500)
+    return () => window.clearTimeout(timer)
+  }, [moveFeedback])
 
   // 当对话框打开时，关闭所有 popover
   useEffect(() => {
@@ -112,35 +122,59 @@ export default function Calendar() {
     }
   }, [open])
 
-  // 创建 todo
+  const refreshTodos = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['monthStatus'] }),
+    queryClient.invalidateQueries({ queryKey: ['todos'] }),
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }),
+  ])
+
   const createMutation = useMutation({
     mutationFn: todosApi.create,
-    onSuccess: (newTodo) => {
-      queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-      setAllTodos((prev) => [...prev, newTodo])
-    },
+    onSuccess: refreshTodos,
   })
 
   // 更新 todo
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ReturnType<typeof eventToTodo> }) => todosApi.update(id, data),
-    onSuccess: (updatedTodo) => {
-      queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-      setAllTodos((prev) => prev.map((t) => (t.id === updatedTodo.id ? updatedTodo : t)))
-    },
+    mutationFn: ({ id, data }: { id: string; data: TodoUpdate }) => todosApi.update(id, data),
+    onSuccess: refreshTodos,
   })
 
   // 删除 todo
   const deleteMutation = useMutation({
     mutationFn: todosApi.delete,
-    onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ['monthStatus'] })
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-      setAllTodos((prev) => prev.filter((t) => t.id !== deletedId))
-    },
+    onSuccess: refreshTodos,
   })
+
+  const handleEventReschedule = async ({ event, revert }: EventChangeArg) => {
+    if (!event.start || !event.end || movingEvents.current.has(event.id)) {
+      revert()
+      return
+    }
+    const { id, allDay } = event
+    const start = dayjs(event.start)
+    const end = dayjs(event.end)
+    const endDate = allDay ? end.subtract(1, 'day') : end
+    movingEvents.current.add(id)
+    setMoveFeedback(null)
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        data: {
+          allDay,
+          startDate: start.format(DATE_FORMAT),
+          endDate: endDate.format(DATE_FORMAT),
+          startTime: allDay ? '00:00' : start.format('HH:mm:ss'),
+          endTime: allDay ? '23:59:59' : end.format('HH:mm:ss'),
+        },
+      })
+      setMoveFeedback('saved')
+    } catch {
+      revert()
+      setMoveFeedback('error')
+    } finally {
+      movingEvents.current.delete(id)
+    }
+  }
 
   /**
    * calendar header events
@@ -171,9 +205,10 @@ export default function Calendar() {
   useLayoutEffect(() => {
     const calendarApi = fullCalendarRef.current?.getApi()
     if (!calendarApi) return
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       calendarApi.changeView(view)
     })
+    return () => clearTimeout(timer)
   }, [view])
 
   /**
@@ -199,7 +234,7 @@ export default function Calendar() {
 
   const handleEventClick = (arg: EventClickArg) => {
     const todo = allTodos.find((item) => item.id === arg.event.id)
-    if (!todo) return
+    if (!todo || movingEvents.current.has(arg.event.id)) return
     arg.jsEvent.stopPropagation()
 
     setEventInitValue({
@@ -436,17 +471,19 @@ export default function Calendar() {
       <Card className="h-full w-full">
         <CardContent className="h-full w-full p-4">
           <div className="calendar-wrapper">
-            <CalendarHeader
-              now={date}
-              view={view}
-              onMove={handleMove}
-              onCreate={() => {
-                setEventFormType('add')
-                setEventInitValue(newTodo(dayjs(date).format(DATE_FORMAT)))
-                setOpen(true)
-              }}
-              onViewTypeChange={handleViewTypeChange}
-            />
+            <CalendarDragGuide key={userId} userId={userId}>
+              <CalendarHeader
+                now={date}
+                view={view}
+                onMove={handleMove}
+                onCreate={() => {
+                  setEventFormType('add')
+                  setEventInitValue(newTodo(dayjs(date).format(DATE_FORMAT)))
+                  setOpen(true)
+                }}
+                onViewTypeChange={handleViewTypeChange}
+              />
+            </CalendarDragGuide>
             <FullCalendar
               ref={fullCalendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
@@ -455,6 +492,11 @@ export default function Calendar() {
               events={events}
               eventContent={CalendarEvent}
               editable
+              forceEventDuration
+              datesSet={handleDatesSet}
+              eventAllow={(_, event) => Boolean(event && !movingEvents.current.has(event.id))}
+              eventDrop={(arg) => void handleEventReschedule(arg)}
+              eventResize={(arg) => void handleEventReschedule(arg)}
               selectable
               selectMirror
               dayMaxEvents
@@ -474,6 +516,11 @@ export default function Calendar() {
           </div>
         </CardContent>
       </Card>
+      {moveFeedback && (
+        <p role={moveFeedback === 'error' ? 'alert' : 'status'} className="fixed right-4 bottom-4 z-40 rounded-md border border-border bg-popover px-4 py-2 text-sm shadow-md text-popover-foreground">
+          {moveFeedback === 'saved' ? '待办时间已保存' : '保存失败，待办已恢复到原时间。'}
+        </p>
+      )}
       {open && eventInitValue && (
         <CalendarEventForm
           type={eventFormType}

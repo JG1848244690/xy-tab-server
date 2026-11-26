@@ -51,7 +51,7 @@ export const navItems: NavItem[] = [
     adminOnly: true,
   },
   {
-    title: '系统监控',
+    title: '监控',
     href: '/system-monitor',
     icon: Activity,
     adminOnly: true,

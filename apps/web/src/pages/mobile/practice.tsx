@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ const DIFFICULTY_TEXT: Record<string, string> = {
 export default function MobilePractice() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const { state: listState } = useLocation()
 
   const { data: question, isPending } = useQuery<Question>({
     queryKey: ['question', id],
@@ -67,7 +68,7 @@ export default function MobilePractice() {
     return (
       <div className="px-4 py-16 text-center">
         <p className="text-[14px] text-muted-foreground">题目不存在或没有权限</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate('/m/questions')}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate('/m/questions', { state: listState, replace: true })}>
           返回题库
         </Button>
       </div>
@@ -83,6 +84,8 @@ export default function MobilePractice() {
       <div className="sticky top-12 z-10 flex items-center justify-between border-b border-border bg-background/92 px-4 py-2 backdrop-blur-md">
         <Link
           to="/m/questions"
+          state={listState}
+          replace
           className="flex items-center gap-1 text-[13px] text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -175,7 +178,7 @@ export default function MobilePractice() {
           <Button variant="outline" className="h-11" onClick={restart}>
             再做一次
           </Button>
-          <Button className="h-11" onClick={() => navigate('/m/questions')}>
+          <Button className="h-11" onClick={() => navigate('/m/questions', { state: listState, replace: true })}>
             下一题
           </Button>
         </div>

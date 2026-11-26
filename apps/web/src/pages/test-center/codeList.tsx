@@ -15,7 +15,7 @@ const List = () => {
 
   // 当防抖后的搜索值变化时，更新 filter
   useEffect(() => {
-    if (debouncedSearch !== filter.search) {
+    if (debouncedSearch !== (filter.search ?? '')) {
       const data = { ...filter }
       if (debouncedSearch) {
         data.search = debouncedSearch

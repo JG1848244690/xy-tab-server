@@ -20,6 +20,10 @@ export interface MonthStatus {
   incomplete: string[]
 }
 
+export type TodoUpdate = Partial<Pick<Todo,
+  'startDate' | 'endDate' | 'startTime' | 'endTime' | 'content' | 'color' | 'description' | 'allDay' | 'completed'
+>>
+
 export const todosApi = {
   getActivity: async (year: number): Promise<Array<{ date: string; count: number }>> =>
     (await request.get('/todos/activity', { params: { year } })).data,
@@ -64,20 +68,7 @@ export const todosApi = {
   },
 
   // 更新 todo
-  update: async (
-    id: string,
-    data: {
-      startDate: string
-      endDate: string
-      startTime: string
-      endTime: string
-      content: string
-      color?: string
-      description?: string
-      allDay?: boolean
-      completed?: boolean
-    }
-  ): Promise<Todo> => {
+  update: async (id: string, data: TodoUpdate): Promise<Todo> => {
     const res = await request.patch(`/todos/${id}`, data)
     return res.data
   },

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { questionsApi } from '@/services/questions-api'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -17,9 +17,12 @@ import {
   PracticeHeader,
 } from './components'
 import type { Question, Attempt } from './types'
+import { store, type QuestionListSnapshot } from '../../store'
 
 export default function PracticePage() {
   const params = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const questionId = params.id as string
   const { resolvedTheme } = useTheme()
   const editorTheme = (resolvedTheme === 'dark' ? 'dark' : 'light') as 'dark' | 'light'
@@ -77,6 +80,20 @@ export default function PracticePage() {
     setHistoryDialogOpen(false)
   }
 
+  const handleBack = () => {
+    const previous = (location.state as { questionList?: QuestionListSnapshot } | null)?.questionList
+    if (previous) store.getState().updates(previous)
+    if (window.history.state?.idx > 0) {
+      navigate(-1)
+      return
+    }
+    if (!previous) store.getState().updates({
+      tab: question?.type === 'text' ? 'password' : 'account',
+      filter: { page: 1, size: 20 },
+    })
+    navigate('/test-center', { replace: true })
+  }
+
   // 加载状态
   if (isLoadingQuestion) {
     return (
@@ -92,7 +109,7 @@ export default function PracticePage() {
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-lg mb-4">题目不存在</p>
-          <Button onClick={() => window.history.back()}>返回</Button>
+          <Button onClick={handleBack}>返回</Button>
         </div>
       </div>
     )
@@ -102,7 +119,7 @@ export default function PracticePage() {
     <MobileGate>
       <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
         {/* 顶部:题目标题 / 难度 / 计时 */}
-        <PracticeHeader question={question} timeSpent={timeSpent} />
+        <PracticeHeader question={question} timeSpent={timeSpent} onBack={handleBack} />
         {isSubmitted && <PracticeCompletionFeedback checkIn={submit.data?.checkIn} />}
         {submit.isError && <p role="alert" className="text-sm text-destructive">提交失败，请重试。答案仍可编辑。</p>}
 

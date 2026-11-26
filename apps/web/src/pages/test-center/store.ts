@@ -26,10 +26,18 @@ export type FilterType = {
   search?: string
 }
 
+export type QuestionListTab = 'account' | 'password' | 'submissions'
+
+export interface QuestionListSnapshot {
+  tab: QuestionListTab
+  filter: FilterType
+}
+
 type StoreState = {
   payments: Payment[]
   totalCount: number
   filter: FilterType
+  tab: QuestionListTab
   open: Record<string, unknown>
   loading: Record<string, unknown>
   errMsg: Record<string, unknown>
@@ -45,6 +53,7 @@ export const store = create<StoreState>((set, get) => ({
   totalCount: 0,
   // 列表默认每页 20 条(2026-10-26 UX 调整)
   filter: { page: 1, size: 20 },
+  tab: 'account',
   open: { modal: false },
   loading: {},
   errMsg: {},
@@ -99,6 +108,7 @@ export const store = create<StoreState>((set, get) => ({
   clearStore: () => {
     set({
       filter: { page: 1, size: 20 },
+      tab: 'account',
       payments: [],
       totalCount: 0,
       open: {},

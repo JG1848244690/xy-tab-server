@@ -6,10 +6,10 @@ import CodeList from './codeList'
 import StrList from './strList'
 import { Submissions } from './submissions'
 import Modal from './addtest'
-import { store } from './store'
+import { store, type QuestionListTab } from './store'
 import { useAuthStore } from '@/store/auth-store'
 const TestCenter = () => {
-  const { updates, notice } = store()
+  const { updates, notice, tab } = store()
   const role = useAuthStore((s) => s.user?.role)
   return (
     <div className="w-full h-full  relative">
@@ -41,7 +41,7 @@ const TestCenter = () => {
           </div>
         </div>
       )}
-      <Tabs defaultValue="account">
+      <Tabs value={tab} onValueChange={(value) => updates({ tab: value as QuestionListTab })}>
         <TabsList>
           <TabsTrigger value="account">代码测试</TabsTrigger>
           <TabsTrigger value="password">理论测试</TabsTrigger>

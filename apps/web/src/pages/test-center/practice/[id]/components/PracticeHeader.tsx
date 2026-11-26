@@ -1,16 +1,15 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Clock } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import type { Question } from '../types'
 
 interface PracticeHeaderProps {
   question: Question
   timeSpent: number
+  onBack: () => void
 }
 
-export function PracticeHeader({ question, timeSpent }: PracticeHeaderProps) {
-  const navigate = useNavigate()
+export function PracticeHeader({ question, timeSpent, onBack }: PracticeHeaderProps) {
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -31,7 +30,7 @@ export function PracticeHeader({ question, timeSpent }: PracticeHeaderProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={onBack}
           className="h-8 flex-none text-muted-foreground"
         >
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />

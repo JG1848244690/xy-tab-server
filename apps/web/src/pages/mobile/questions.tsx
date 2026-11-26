@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Loader2, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,8 @@ const STATUS_FILTERS = [
   { key: 'incomplete', label: '未完成' },
   { key: 'completed', label: '已完成' },
 ] as const
+
+type MobileQuestionList = { status: typeof STATUS_FILTERS[number]['key']; searchInput: string }
 
 const STATUS_TONE: Record<string, string> = {
   not_started: 'text-muted-foreground',
@@ -35,8 +37,9 @@ const DIFFICULTY_TEXT: Record<string, string> = {
 }
 
 export default function MobileQuestions() {
-  const [status, setStatus] = useState<'' | 'incomplete' | 'completed'>('')
-  const [searchInput, setSearchInput] = useState('')
+  const previous = (useLocation().state as { mobileQuestionList?: MobileQuestionList } | null)?.mobileQuestionList
+  const [status, setStatus] = useState(previous?.status ?? '')
+  const [searchInput, setSearchInput] = useState(previous?.searchInput ?? '')
   const search = useDebounce(searchInput, { wait: 400 })
 
   const query = useInfiniteQuery({
@@ -127,6 +130,7 @@ export default function MobileQuestions() {
             <Link
               key={q.id}
               to={`/m/practice/${q.id}`}
+              state={{ mobileQuestionList: { status, searchInput } }}
               className="block rounded-lg border border-border bg-card px-3.5 py-3 transition-colors active:bg-muted/50"
             >
               <p className="line-clamp-2 font-serif text-[14.5px] leading-snug text-foreground">

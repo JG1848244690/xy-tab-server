@@ -156,4 +156,31 @@ describe.skipIf(!hasDb)('todos integration (real PG)', () => {
         const byMonth = await (await req(app, U1, '/todos/by-month?year=2026&month=10')).json()
         expect(byMonth).toHaveLength(1)
     })
+
+    it('拖动跨月计划后，新日历月份读取得到保存位置与原内容', async () => {
+        const [plan] = await db.insert(todos).values({
+            userId: U1.id, content: '跨月移动', allDay: true, completed: true,
+            startDate: '2026-10-30', endDate: '2026-11-02',
+        }).returning({ id: todos.id })
+        const changed = await req(app, U1, `/todos/${plan!.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                startDate: '2026-11-30', endDate: '2026-12-03',
+                startTime: '00:00', endTime: '23:59:59', allDay: true,
+            }),
+        })
+        expect(changed.status).toBe(200)
+        expect(await changed.json()).toMatchObject({ content: '跨月移动', completed: true, endDate: '2026-12-03' })
+        expect(await (await req(app, U1, '/todos/by-month?year=2026&month=10')).json()).toEqual([])
+        expect(await (await req(app, U1, '/todos/by-month?year=2026&month=12')).json())
+            .toMatchObject([{ id: plan!.id, startDate: '2026-11-30', endDate: '2026-12-03' }])
+    })
+
+    it('by-month:读到覆盖整个月的计划', async () => {
+        const [plan] = await db.insert(todos).values({
+            userId: U1.id, content: '长期安排', startDate: '2026-09-28', endDate: '2026-11-02',
+        }).returning({ id: todos.id })
+        expect(await (await req(app, U1, '/todos/by-month?year=2026&month=10')).json()).toMatchObject([{ id: plan!.id }])
+        expect(await (await req(app, U2, '/todos/by-month?year=2026&month=10')).json()).toEqual([])
+    })
 })
