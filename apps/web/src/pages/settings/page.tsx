@@ -32,6 +32,7 @@ import { THEME_COLORS } from '@/lib/theme-colors'
 import { assetUrl } from '@/lib/env'
 import { authService } from '@/services/auth-service'
 import { cn } from '@/lib/utils'
+import McpKeysCard from './mcp-keys-card'
 
 const CONTACT_EMAIL = 'dxy1848244690@gmail.com'
 const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? ''
@@ -120,7 +121,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* 左列:账号 + 关于 */}
-        <div className="space-y-5 lg:col-span-2">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-[16px]">账号</CardTitle>
@@ -181,6 +182,8 @@ export default function SettingsPage() {
 
             </CardContent>
           </Card>
+
+          <McpKeysCard key={user.id} userId={user.id} />
 
           <Card>
             <CardHeader>
@@ -246,7 +249,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 右列:外观 + 会话 */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-serif text-[16px]">

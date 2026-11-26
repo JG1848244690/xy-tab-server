@@ -14,6 +14,8 @@ import articles from './routes/articles/articles.index.js'
 import collections from './routes/collections/collections.index.js'
 import publicRoutes from './routes/public/public.index.js'
 import monitor from './routes/monitor/monitor.index.js'
+import mcp from './routes/mcp/mcp.index.js'
+import mcpKeys from './routes/mcp/mcp-keys.index.js'
 import { systemAudit } from './lib/system-audit.js'
 import { cookieAuth } from './middlewares/auth.js'
 import { requireAdmin } from './middlewares/admin.js'
@@ -116,6 +118,8 @@ const routes = [
     collections,
     publicRoutes,
     monitor,
+    mcp,
+    mcpKeys,
 ] as const
 
 routes.forEach((route) => {

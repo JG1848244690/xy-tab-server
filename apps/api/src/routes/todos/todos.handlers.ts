@@ -14,6 +14,7 @@ import db from '../../db/index.js'
 import { selectTodosSchema, todos } from '../../db/schema.js'
 import { HttpStatusCodes } from '../../lib/openapi.js'
 import { errorBody } from '../../lib/errors.js'
+import { createTodo, updateTodo } from './todos.service.js'
 
 /** 构造 YYYY-MM-DD,避免依赖 Date 的本地时区行为 */
 const ymd = (y: number, m: number, d: number) =>
@@ -117,7 +118,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
 
-    const [created] = await db.insert(todos).values({ ...body, userId }).returning()
+    const created = await createTodo(userId, body)
     return c.json(selectTodosSchema.parse(created), HttpStatusCodes.OK)
 }
 
@@ -126,12 +127,7 @@ export const update: AppRouteHandler<UpdateRoute> = async (c) => {
     const userId = c.get('userId')!
     const body = c.req.valid('json')
 
-    // user_id 一起带上条件,防止改到别人的 todo
-    const [updated] = await db
-        .update(todos)
-        .set(body)
-        .where(and(eq(todos.id, id), eq(todos.userId, userId)))
-        .returning()
+    const updated = await updateTodo(userId, id, body)
     if (!updated) return c.json(errorBody('Todo not found', 'NOT_FOUND'), HttpStatusCodes.NOT_FOUND)
 
     return c.json(selectTodosSchema.parse(updated), HttpStatusCodes.OK)

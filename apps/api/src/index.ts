@@ -4,6 +4,7 @@ import env from './env.js'
 import db, { client } from './db/index.js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { startAuditRetention } from './lib/system-audit.js'
+import { startMcpRequestRetention } from './routes/mcp/mcp-todos.js'
 import { MIGRATIONS_FOLDER, MIGRATIONS_SCHEMA, MIGRATIONS_TABLE } from './db/migrations-table.js'
 
 const port = env.PORT
@@ -24,6 +25,7 @@ async function main() {
   })
   console.log('Migrations applied.')
   startAuditRetention()
+  startMcpRequestRetention()
 
   const server = serve(
     {

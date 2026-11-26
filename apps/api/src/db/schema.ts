@@ -399,6 +399,34 @@ export const todos = pgTable(
 );
 
 export const selectTodosSchema = createSelectSchema(todos);
+
+export const mcpKeys = pgTable('mcp_keys', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 80 }).notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+    canWrite: boolean('can_write').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => [index('mcp_keys_user_idx').on(t.userId)]);
+
+export const mcpTodoRequests = pgTable('mcp_todo_requests', {
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    requestId: varchar('request_id', { length: 100 }).notNull(),
+    fingerprint: varchar('fingerprint', { length: 64 }).notNull(),
+    result: jsonb('result').$type<{
+        id: string
+        content: string
+        startDate: string
+        endDate: string
+        completed: boolean
+    }>().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => [
+    primaryKey({ columns: [t.userId, t.requestId] }),
+    index('mcp_todo_requests_expiry_idx').on(t.expiresAt),
+]);
+
 export const insertTodosSchema = createInsertSchema(todos)
     // userId 由 cookieAuth 中间件注入,不让客户端传 ——
     // 否则就是越权往别人名下写数据;而且它是 notNull,不 omit 掉校验必挂
