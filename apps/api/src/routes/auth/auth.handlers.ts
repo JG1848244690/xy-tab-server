@@ -23,6 +23,7 @@ import env from '../../env.js'
 import {
     clearAuthCookie,
     hashPassword,
+    ownsFileLibraries,
     setAuthCookie,
     signToken,
     verifyPassword,
@@ -46,6 +47,7 @@ function toUserResponse(row: typeof users.$inferSelect) {
         avatarPath: row.avatarPath,
         // role:前端拿来决定「审核工作台」入口显隐;权限边界在后端
         role: row.role,
+        fileLibraries: ownsFileLibraries(row.id, row.role),
         // null = 邮箱未验证;前端用它决定是否提示「去验证邮箱」
         emailVerifiedAt: row.emailVerifiedAt,
         createdAt: row.createdAt,

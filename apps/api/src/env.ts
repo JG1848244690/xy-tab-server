@@ -35,6 +35,10 @@ const EnvSchema = z.object({
     AUTH_COOKIE_MAX_AGE: z.coerce.number().default(86400),
     MCP_OAUTH_ISSUER: z.union([z.string().url(), z.literal('')]).default(''),
     MCP_OAUTH_RESOURCE_PATH: z.string().default('/api-hls/mcp'),
+    FILE_LIBRARY_OWNER_ID: z.union([z.string().uuid(), z.literal('')]).default(''),
+    STATIC_LIBRARY_ROOT: z.string().default(''),
+    STATIC_LIBRARY_UPLOAD_ROOT: z.string().default(''),
+    PRIVATE_GALLERY_ROOT: z.string().default(''),
 
     // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
     REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),

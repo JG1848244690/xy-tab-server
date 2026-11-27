@@ -12,6 +12,10 @@ import env from '../env.js'
 
 const secret = new TextEncoder().encode(env.JWT_SECRET)
 
+export function ownsFileLibraries(userId: string | undefined, role: string | undefined) {
+    return Boolean(env.FILE_LIBRARY_OWNER_ID && userId === env.FILE_LIBRARY_OWNER_ID && role === 'admin')
+}
+
 /** bcrypt cost。旧 Nest 项目用的是 10,保持一致以便搬存量数据时旧密码仍能登录 */
 const BCRYPT_ROUNDS = 10
 

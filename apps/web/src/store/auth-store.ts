@@ -8,6 +8,7 @@ export interface User {
   avatarPath?: string
   /** 后台权限:admin 才显示「审核工作台」;权限边界在后端 */
   role?: 'user' | 'admin'
+  fileLibraries?: boolean
   /** 邮箱验证时间;null/undefined = 未验证 */
   emailVerifiedAt?: string | null
   /** 注册时间(/auth/me 返回,设置页展示用) */

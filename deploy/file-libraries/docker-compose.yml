@@ -1,0 +1,25 @@
+services:
+  app:
+    environment:
+      FILE_LIBRARY_OWNER_ID: ${FILE_LIBRARY_OWNER_ID:?Set the UUID of the omen administrator}
+      STATIC_LIBRARY_ROOT: /library/static
+      STATIC_LIBRARY_UPLOAD_ROOT: /library/static-assets
+      PRIVATE_GALLERY_ROOT: /library/private-gallery
+    volumes:
+      - type: bind
+        source: /www/wwwroot/static
+        target: /library/static
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /www/wwwroot/static/assets
+        target: /library/static-assets
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /pic-pc/pic
+        target: /library/private-gallery
+        read_only: true
+        bind:
+          create_host_path: false

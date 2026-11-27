@@ -19,6 +19,7 @@ const userResponseSchema = selectUserSchema
          * (旧 Nest 的 auth.controller.ts 里显式做了 username -> name 的映射)
          */
         name: z.string().nullable(),
+        fileLibraries: z.boolean(),
     })
 
 const loginBodySchema = z.object({

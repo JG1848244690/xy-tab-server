@@ -267,4 +267,12 @@ nginx 走宝塔的 extension 钩子,不动 `html_kskbl.com.cn.conf` 本体:把�
 
 本地开发用 Vite 访问 SPA 时，将 API 的 `MCP_OAUTH_ISSUER` 设为当前 Vite 地址，例如 `http://localhost:3000`，通过该地址调用 MCP。个人设置里的「MCP 连接」提供 OpenCode、Claude Code、Codex 和内置 MCP 的 Pi 接入配置。浏览器授权默认只读，勾选后才允许创建和完成待办。访问令牌有效期 15 分钟，授权最长 30 天，可在设置页撤销。留空 issuer 会关闭 OAuth，原来的个人密钥仍可使用。
 
+### 资源管理与私人图库
+
+开启时，在服务器确认 `omen` 的账号 UUID 和管理员角色，在 `/opt/hls-api/.env` 设置 `FILE_LIBRARY_OWNER_ID=<该 UUID>`。同时用 `COMPOSE_FILE=docker-compose.yml:deploy/file-libraries/docker-compose.yml` 启用挂载。如果已经使用其他 Compose 覆盖文件，将新文件追加到现有列表中。
+
+部署前创建 `/www/wwwroot/static/assets`，赋予容器用户 UID 1001 写权限。把 `deploy/nginx/static-assets-uploads.conf` 引入 static 站点的文件扩展名规则之前，并在 hls 站点安装 `/api-hls/file-library/static/upload` 的专用上传路由，验证后重载 Nginx。资源管理从 static 站点根目录读文件，仅在 `assets/` 下开放上传和创建文件夹，单文件上限 48 MB。手机可从「我的」直接进入上传目录。原题库和文章图库继续处理编辑器引用。
+
+私人图库以只读方式挂载 `/pic-pc/pic`，容器用户需要读取和遍历权限。不要为此目录配置公网静态路由。图片、视频和下载都通过 hlsEdu API 校验会话、账号 UUID 和管理员角色，视频支持 Range 请求。
+
 > ⚠️ 服务器内存只有 1.6G,四套容器(app + PG)× 2 已占 ~150M,加镜像/构建缓存前先看 `df -h`。

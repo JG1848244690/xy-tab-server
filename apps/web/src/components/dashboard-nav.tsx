@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText, Activity } from 'lucide-react'
+import { Home, Settings, AlarmClockCheck, ListChecks, ChartSpline, Palette, ShieldCheck, Images, FileText, Activity, FolderOpen, LockKeyhole } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -9,6 +9,7 @@ interface NavItem {
   icon: typeof Home
   /** 仅 admin 可见(显隐在前,权限边界在后端 requireAdmin/adminOnly) */
   adminOnly?: boolean
+  fileLibraryOwnerOnly?: boolean
   children?: Record<string, { breadcrumb: (id: string) => string }>
 }
 
@@ -63,6 +64,8 @@ export const navItems: NavItem[] = [
     icon: Images,
     adminOnly: true,
   },
+  { title: '资源管理', href: '/resources', icon: FolderOpen, fileLibraryOwnerOnly: true },
+  { title: '私人图库', href: '/private-gallery', icon: LockKeyhole, fileLibraryOwnerOnly: true },
   {
     // 文章:原创 markdown + 外部荐文;合集是它下面的第二个 tab,不单独占菜单
     title: '文章',
@@ -85,7 +88,8 @@ export const navItems: NavItem[] = [
 export function DashboardNav({ expanded = false }: DashboardNavProps) {
   const { pathname } = useLocation()
   const role = useAuthStore((s) => s.user?.role)
-  const visibleItems = navItems.filter((item) => !item.adminOnly || role === 'admin')
+  const ownsFileLibraries = useAuthStore((s) => s.user?.fileLibraries)
+  const visibleItems = navItems.filter((item) => (!item.adminOnly || role === 'admin') && (!item.fileLibraryOwnerOnly || ownsFileLibraries))
 
   return (
     <nav className="grid items-start gap-0.5 px-2 text-sm">

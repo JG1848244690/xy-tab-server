@@ -19,6 +19,7 @@ const PracticePage = lazy(() => import('@/pages/test-center/practice/[id]/page')
 const ReviewPage = lazy(() => import('@/pages/review/page'))
 const MonitorPage = lazy(() => import('@/pages/monitor/page'))
 const MediaPage = lazy(() => import('@/pages/media/page'))
+const FileLibraryPage = lazy(() => import('@/pages/file-library/page'))
 const ArticlesPage = lazy(() => import('@/pages/articles/page'))
 const ArticleEditorPage = lazy(() => import('@/pages/articles/editor'))
 const StatisticsPage = lazy(() => import('@/pages/statistics/page'))
@@ -106,6 +107,8 @@ export const router = createBrowserRouter([
       { path: '/review', element: page(<ReviewPage />) },
       { path: '/system-monitor', element: page(<MonitorPage />) },
       { path: '/media', element: page(<MediaPage />) },
+      { path: '/resources', element: page(<FileLibraryPage key="static" library="static" />) },
+      { path: '/private-gallery', element: page(<FileLibraryPage key="private" library="private" />) },
       { path: '/articles', element: page(<ArticlesPage />) },
       { path: '/articles/:id', element: page(<ArticleEditorPage />) },
       // 合集已并入文章页,旧的直达链接重定向过去

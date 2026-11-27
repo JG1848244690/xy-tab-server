@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
-import { BadgeCheck, ChevronRight, Loader2, LogOut, Monitor, Moon, Sun, TriangleAlert } from 'lucide-react'
+import { BadgeCheck, ChevronRight, FolderOpen, Loader2, LockKeyhole, LogOut, Monitor, Moon, Sun, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -76,6 +76,27 @@ export default function MobileMe() {
           <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{user.email}</p>
         </div>
       </div>
+
+      {user.fileLibraries && (
+        <nav aria-label="文件与图库" className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border">
+          <Link to="/resources?folder=assets" className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-muted/50">
+            <FolderOpen className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">资源管理</span>
+              <span className="block text-xs text-muted-foreground">在电脑和手机间传文件</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+          <Link to="/private-gallery" className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-muted/50">
+            <LockKeyhole className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">私人图库</span>
+              <span className="block text-xs text-muted-foreground">浏览旧手机的照片和视频</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </nav>
+      )}
 
       <section className="mt-4">
         <p className="mb-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">外观</p>
