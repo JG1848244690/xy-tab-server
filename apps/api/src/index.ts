@@ -5,6 +5,8 @@ import db, { client } from './db/index.js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { startAuditRetention } from './lib/system-audit.js'
 import { startMcpRequestRetention } from './routes/mcp/mcp-todos.js'
+import { startOAuthRetention } from './routes/mcp/oauth/adapter.js'
+import { oauthProvider } from './routes/mcp/oauth/provider.js'
 import { MIGRATIONS_FOLDER, MIGRATIONS_SCHEMA, MIGRATIONS_TABLE } from './db/migrations-table.js'
 
 const port = env.PORT
@@ -26,11 +28,15 @@ async function main() {
   console.log('Migrations applied.')
   startAuditRetention()
   startMcpRequestRetention()
+  if (oauthProvider()) startOAuthRetention()
 
   const server = serve(
     {
       fetch: app.fetch,
       port,
+      // The OAuth provider writes to the native response. Keep Hono's response
+      // marker on the standard response path when that provider is enabled.
+      overrideGlobalObjects: !env.MCP_OAUTH_ISSUER,
     },
     (info) => {
       console.log(`Server is running on http://localhost:${info.port}`)

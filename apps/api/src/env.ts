@@ -33,6 +33,8 @@ const EnvSchema = z.object({
 
     // 登录态有效期(秒),默认 1 天,与旧 Nest 的 maxAge 一致
     AUTH_COOKIE_MAX_AGE: z.coerce.number().default(86400),
+    MCP_OAUTH_ISSUER: z.union([z.string().url(), z.literal('')]).default(''),
+    MCP_OAUTH_RESOURCE_PATH: z.string().default('/api-hls/mcp'),
 
     // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
     REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),

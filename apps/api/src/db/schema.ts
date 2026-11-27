@@ -410,6 +410,34 @@ export const mcpKeys = pgTable('mcp_keys', {
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 }, (t) => [index('mcp_keys_user_idx').on(t.userId)]);
 
+export const mcpOAuthGrants = pgTable('mcp_oauth_grants', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    grantId: text('grant_id').notNull().unique(),
+    interactionId: text('interaction_id').notNull().unique(),
+    clientId: text('client_id').notNull(),
+    clientName: text('client_name').notNull(),
+    scopes: text('scopes').array().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+}, (t) => [index('mcp_oauth_grants_user_idx').on(t.userId)]);
+
+export const mcpOAuthRecords = pgTable('mcp_oauth_records', {
+    model: text('model').notNull(),
+    idHash: text('id_hash').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    grantId: text('grant_id'),
+    uid: text('uid'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+}, (t) => [
+    primaryKey({ columns: [t.model, t.idHash] }),
+    index('mcp_oauth_records_grant_idx').on(t.grantId),
+    index('mcp_oauth_records_uid_idx').on(t.uid),
+    index('mcp_oauth_records_expiry_idx').on(t.expiresAt),
+]);
+
 export const mcpTodoRequests = pgTable('mcp_todo_requests', {
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     requestId: varchar('request_id', { length: 100 }).notNull(),

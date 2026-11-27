@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { authService } from '@/services/auth-service'
 import { useAuthStore } from '@/store/auth-store'
+import { env } from '@/lib/env'
 
 interface LoginFormProps {
   onSwitchToRegister: () => void
@@ -24,6 +25,14 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     onSuccess: async () => {
       const user = await authService.me()
       setUser(user)
+      const interaction = new URLSearchParams(window.location.search).get('mcp_oauth')
+      if (interaction && /^[A-Za-z0-9_-]{16,128}$/.test(interaction)) {
+        const resume = new URL(`${env.apiBase.replace(/\/$/, '')}/oauth/interaction/${interaction}`, window.location.origin)
+        if (resume.origin === window.location.origin) {
+          window.location.assign(resume.href)
+          return
+        }
+      }
       // 手机上直接进移动端题库,不先渲染桌面壳再跳转
       const mobile = window.matchMedia('(max-width: 767px)').matches
       navigate(mobile ? '/m/questions' : '/home')

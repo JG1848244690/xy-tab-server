@@ -17,6 +17,8 @@ export default defineConfig({
     port: 3000,
     host: true,
     proxy: {
+      '/.well-known/oauth-': process.env.VITE_DEV_BACKEND ?? 'http://127.0.0.1:9999',
+      '/.well-known/openid-configuration': process.env.VITE_DEV_BACKEND ?? 'http://127.0.0.1:9999',
       // 本地开发时模拟生产 nginx:剥掉 /api-hls 前缀再打后端
       '/api-hls': {
         target: process.env.VITE_DEV_BACKEND ?? 'http://127.0.0.1:9999',

@@ -261,4 +261,10 @@ nginx 走宝塔的 extension 钩子,不动 `html_kskbl.com.cn.conf` 本体:把�
 
 > ⚠️ `/api-hls/` 的 `proxy_pass` 末尾必须带 `/`(剥掉前缀),后端路由本身不带任何前缀。
 
+### MCP 浏览器授权
+
+生产部署时，在 `/opt/hls-api/.env` 设置 `MCP_OAUTH_ISSUER=https://hls.kskbl.com.cn`，安装 `deploy/nginx/hls.kskbl.com.cn.conf` 中的 OAuth 发现路由，再按现有流程发布和重载 Nginx。资源地址默认是 `https://hls.kskbl.com.cn/api-hls/mcp`。发布后检查 `/.well-known/oauth-protected-resource/api-hls/mcp` 和 `/.well-known/oauth-authorization-server` 都返回 JSON，并确认连接应用能打开授权页。
+
+本地开发用 Vite 访问 SPA 时，将 API 的 `MCP_OAUTH_ISSUER` 设为当前 Vite 地址，例如 `http://localhost:3000`，通过该地址调用 MCP。个人设置里的「MCP 连接」提供 OpenCode、Claude Code、Codex 和内置 MCP 的 Pi 接入配置。浏览器授权默认只读，勾选后才允许创建和完成待办。访问令牌有效期 15 分钟，授权最长 30 天，可在设置页撤销。留空 issuer 会关闭 OAuth，原来的个人密钥仍可使用。
+
 > ⚠️ 服务器内存只有 1.6G,四套容器(app + PG)× 2 已占 ~150M,加镜像/构建缓存前先看 `df -h`。

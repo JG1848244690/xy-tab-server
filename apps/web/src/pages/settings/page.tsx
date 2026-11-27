@@ -33,6 +33,7 @@ import { assetUrl } from '@/lib/env'
 import { authService } from '@/services/auth-service'
 import { cn } from '@/lib/utils'
 import McpKeysCard from './mcp-keys-card'
+import McpOAuthCard from './mcp-oauth-card'
 
 const CONTACT_EMAIL = 'dxy1848244690@gmail.com'
 const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? ''
@@ -183,6 +184,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <McpOAuthCard key={`oauth-${user.id}`} userId={user.id} />
           <McpKeysCard key={user.id} userId={user.id} />
 
           <Card>

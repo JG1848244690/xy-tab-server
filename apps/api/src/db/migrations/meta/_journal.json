@@ -99,6 +99,13 @@
       "when": 1795688257489,
       "tag": "0013_mcp_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795763110094,
+      "tag": "0014_mcp_oauth",
+      "breakpoints": true
     }
   ]
 }

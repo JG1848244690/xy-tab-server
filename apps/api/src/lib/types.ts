@@ -1,8 +1,9 @@
 ﻿import type { OpenAPIHono, RouteConfig, RouteHandler } from "@hono/zod-openapi"
 import type { PinoLogger } from "hono-pino"
+import type { IncomingMessage, ServerResponse } from 'node:http'
 
 export interface AppBindings {
-    Bindings: Record<string, never>
+    Bindings: { incoming?: IncomingMessage; outgoing?: ServerResponse }
     Variables: {
         // hono-pino 中间件运行时注入;中间件之前的阶段不存在,所以可空
         logger?: PinoLogger

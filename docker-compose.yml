@@ -76,6 +76,8 @@ services:
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       # 注册邮箱验证:发信通道。log = 只打日志(本地/演练),smtp = 真发信
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://hls.kskbl.com.cn}
+      MCP_OAUTH_ISSUER: ${MCP_OAUTH_ISSUER:-}
+      MCP_OAUTH_RESOURCE_PATH: ${MCP_OAUTH_RESOURCE_PATH:-/api-hls/mcp}
       MAIL_TRANSPORT: ${MAIL_TRANSPORT:-log}
       MAIL_FROM: ${MAIL_FROM:-noreply@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-序言}

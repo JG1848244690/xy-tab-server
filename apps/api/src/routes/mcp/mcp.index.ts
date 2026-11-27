@@ -8,6 +8,7 @@ import { rateLimit } from '../../middlewares/rate-limit.js'
 import { completeTodo } from '../todos/todos.service.js'
 import { authenticateMcpKey } from './mcp-keys.js'
 import { createMcpTodo, listMcpTodos } from './mcp-todos.js'
+import { authenticateOAuth, oauthChallenge } from './oauth/resource.js'
 
 const calendarDate = z.string().date()
 const todoOutput = z.object({
@@ -35,13 +36,23 @@ router.all('/mcp', rateLimit({ windowMs: 60_000, max: 120 }), bodyLimit({ maxSiz
         return c.json({ message: 'Origin not allowed' }, 403)
     }
 
-    const key = await authenticateMcpKey(c.req.header('Authorization'))
+    const authorization = c.req.header('Authorization')
+    const personalKey = /^Bearer hlse_mcp_/i.test(authorization ?? '')
+    const key = personalKey ? await authenticateMcpKey(authorization) : await authenticateOAuth(authorization)
     if (!key) {
-        c.header('WWW-Authenticate', 'Bearer realm="hlsedu-mcp"')
-        return c.json({ message: 'A valid hlsEdu MCP key is required' }, 401)
+        c.header('WWW-Authenticate', oauthChallenge(authorization ? 'invalid_token' : undefined))
+        return c.json({ message: 'A valid hlsEdu MCP credential is required' }, 401)
     }
     const { userId, id: keyId, canWrite } = key
     c.set('userId', userId)
+
+    if (!personalKey && !canWrite && c.req.method === 'POST') {
+        const rpc = await c.req.raw.clone().json().catch(() => undefined)
+        if (rpc?.method === 'tools/call' && ['create_todo', 'complete_todo'].includes(rpc.params?.name)) {
+            c.header('WWW-Authenticate', oauthChallenge('insufficient_scope'))
+            return c.json({ message: 'Authorize todos:write to modify todos' }, 403)
+        }
+    }
 
     const server = new McpServer({ name: 'hlsedu', version: '1.0.0' })
     function logCall(tool: string, outcome: string, targetId?: string) {

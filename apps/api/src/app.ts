@@ -16,6 +16,7 @@ import publicRoutes from './routes/public/public.index.js'
 import monitor from './routes/monitor/monitor.index.js'
 import mcp from './routes/mcp/mcp.index.js'
 import mcpKeys from './routes/mcp/mcp-keys.index.js'
+import mcpOAuth from './routes/mcp/oauth/routes.js'
 import { systemAudit } from './lib/system-audit.js'
 import { cookieAuth } from './middlewares/auth.js'
 import { requireAdmin } from './middlewares/admin.js'
@@ -120,6 +121,7 @@ const routes = [
     monitor,
     mcp,
     mcpKeys,
+    mcpOAuth,
 ] as const
 
 routes.forEach((route) => {
