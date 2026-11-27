@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { eq, inArray } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import sharp from 'sharp'
 import type { AppOpenAPI } from '../../lib/types.js'
 
 const users = [
@@ -20,15 +21,17 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('owner-only file libraries', () 
     let temp: string | undefined
     let publicRoot: string
     let archiveRoot: string
+    let privateUploads: string
     const publicHeader = { 'X-Hls-File-Library': '1' }
 
     beforeAll(async () => {
         temp = await mkdtemp(join(tmpdir(), 'hlse-library-test-'))
         publicRoot = join(temp, 'static')
         archiveRoot = join(temp, 'archive')
+        privateUploads = join(temp, 'private-uploads')
         const outsider = join(temp, 'outside')
         const assets = join(publicRoot, 'assets')
-        await Promise.all([mkdir(assets, { recursive: true }), mkdir(archiveRoot), mkdir(outsider)])
+        await Promise.all([mkdir(assets, { recursive: true }), mkdir(archiveRoot), mkdir(privateUploads), mkdir(outsider)])
         await Promise.all([
             writeFile(join(archiveRoot, '旧手机.mp4'), '0123456789abcdef'),
             writeFile(join(archiveRoot, '.secret.jpg'), 'fixture'),
@@ -40,6 +43,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('owner-only file libraries', () 
         process.env.STATIC_LIBRARY_ROOT = publicRoot
         process.env.STATIC_LIBRARY_UPLOAD_ROOT = assets
         process.env.PRIVATE_GALLERY_ROOT = archiveRoot
+        process.env.PRIVATE_GALLERY_UPLOAD_ROOT = privateUploads
         db = await import('../../db/index.js')
         const schema = await import('../../db/schema.js')
         const { MIGRATIONS_FOLDER, MIGRATIONS_SCHEMA, MIGRATIONS_TABLE } = await import('../../db/migrations-table.js')
@@ -90,6 +94,66 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('owner-only file libraries', () 
         finally {
             await db!.default.update(userTable).set({ role: 'admin' }).where(eq(userTable.id, owner.id))
         }
+    })
+
+    it('serves small, owner-only thumbnails and refreshes them when an original changes', async () => {
+        const photo = join(archiveRoot, 'thumbnail-test.png')
+        const source = sharp({ create: { width: 2400, height: 1600, channels: 3, background: '#2473ac' } })
+        const original = await source.png().toBuffer()
+        await writeFile(photo, original)
+        try {
+            const url = '/file-library/private/thumbnail?path=thumbnail-test.png'
+            expect((await app.request(url)).status).toBe(401)
+            expect((await req(app, other, url)).status).toBe(404)
+            const response = await req(app, owner, url)
+            expect(response.status).toBe(200)
+            expect(response.headers.get('cache-control')).toContain('no-store')
+            expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin')
+            expect(response.headers.get('content-type')).toBe('image/webp')
+            const bytes = Buffer.from(await response.arrayBuffer())
+            expect(bytes.length).toBeLessThan(original.length)
+            expect(await sharp(bytes).metadata()).toMatchObject({ format: 'webp', width: 360, height: 240 })
+
+            await source.resize(200, 100).png().toFile(photo)
+            const updated = await req(app, owner, url)
+            expect(await sharp(Buffer.from(await updated.arrayBuffer())).metadata())
+                .toMatchObject({ width: 200, height: 100 })
+            expect((await req(app, owner, '/file-library/private/thumbnail?path=../static/manual.pdf')).status).toBe(400)
+            expect((await req(app, owner, '/file-library/private/thumbnail?path=external/outside.png')).status).toBe(404)
+
+            await writeFile(photo, 'invalid png')
+            expect((await req(app, owner, url)).status).toBe(422)
+        } finally {
+            await rm(photo, { force: true })
+        }
+    })
+
+    it('allows uploading to private storage without exposing it in the public library or touching the archive', async () => {
+        const base = '/file-library/private-uploads'
+        const original = await sharp({ create: { width: 600, height: 400, channels: 3, background: '#14746f' } }).jpeg().toBuffer()
+        const upload = (path: string, user = owner) => req(app, user, base + '/upload?' + new URLSearchParams({ path, name: 'photo.jpg' }), {
+            method: 'POST', headers: publicHeader, body: new Uint8Array(original).buffer,
+        })
+        expect((await app.request(base + '/list')).status).toBe(401)
+        expect((await upload('', other)).status).toBe(404)
+        expect((await upload('../archive')).status).toBe(400)
+        expect((await req(app, owner, base + '/folder', {
+            method: 'POST', headers: publicHeader, body: JSON.stringify({ path: '', name: 'phone' }),
+        })).status).toBe(201)
+        expect((await upload('phone')).status).toBe(201)
+        expect((await upload('phone')).status).toBe(409)
+        expect(await readFile(join(privateUploads, 'phone', 'photo.jpg'))).toEqual(original)
+        expect(await (await req(app, owner, base + '/list?path=phone')).json())
+            .toMatchObject({ total: 1, items: [{ path: 'phone/photo.jpg', mime: 'image/jpeg' }] })
+        expect((await req(app, other, base + '/thumbnail?path=phone/photo.jpg')).status).toBe(404)
+        const preview = await req(app, owner, base + '/thumbnail?path=phone/photo.jpg')
+        expect(preview.headers.get('content-type')).toBe('image/webp')
+        await preview.arrayBuffer()
+        const file = await req(app, owner, base + '/file?path=phone/photo.jpg')
+        expect(file.headers.get('cache-control')).toContain('no-store')
+        expect(Buffer.from(await file.arrayBuffer())).toEqual(original)
+        expect((await req(app, owner, '/file-library/static/file?path=phone/photo.jpg')).status).toBe(404)
+        expect((await req(app, owner, '/file-library/private/file?path=phone/photo.jpg')).status).toBe(404)
     })
 
     it('publishes validated uploads under assets without overwriting or writing into existing directories', async () => {

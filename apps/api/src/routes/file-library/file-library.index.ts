@@ -4,10 +4,12 @@ import { createMiddleware } from 'hono/factory'
 import env from '../../env.js'
 import { ownsFileLibraries } from '../../lib/auth.js'
 import { createRouter } from '../../lib/create-app.js'
+import { AppError } from '../../lib/errors.js'
 import type { AppBindings } from '../../lib/types.js'
 import { cookieAuth } from '../../middlewares/auth.js'
 import { rateLimit } from '../../middlewares/rate-limit.js'
-import { createFolder, listFiles, sendFile, uploadFile, uploadLimit } from './files.js'
+import { createFolder, fileSegments, listFiles, sendFile, uploadFile, uploadLimit } from './files.js'
+import { sendThumbnail } from './thumbnails.js'
 
 const router = createRouter()
 const requireOwner = createMiddleware<AppBindings>(async (c, next) => {
@@ -23,7 +25,22 @@ const requireMutation = createMiddleware<AppBindings>(async (c, next) => {
     await next()
 })
 
-const roots = { static: env.STATIC_LIBRARY_ROOT, private: env.PRIVATE_GALLERY_ROOT } as const
+const roots = {
+    static: env.STATIC_LIBRARY_ROOT,
+    private: env.PRIVATE_GALLERY_ROOT,
+    'private-uploads': env.PRIVATE_GALLERY_UPLOAD_ROOT,
+} as const
+const libraryName = z.enum(['static', 'private', 'private-uploads'])
+
+function uploadDestination(library: string, path: string) {
+    const segments = fileSegments(path)
+    if (library === 'private-uploads') return { root: roots[library], segments }
+    if (library === 'static') {
+        if (segments[0] !== 'assets') throw new AppError('只可写入 assets 文件夹。', 403, 'FORBIDDEN')
+        return { root: env.STATIC_LIBRARY_UPLOAD_ROOT, segments: segments.slice(1) }
+    }
+    throw new AppError('上传目录不存在。', 404, 'NOT_FOUND')
+}
 const listQuery = z.object({
     path: z.string().default(''),
     q: z.string().trim().max(100).default(''),
@@ -32,32 +49,40 @@ const listQuery = z.object({
 
 router.use('/file-library/*', cookieAuth(), requireOwner)
 router.get('/file-library/:library/list', async (c) => {
-    const library = c.req.param('library')
-    if (library !== 'static' && library !== 'private') return c.notFound()
+    const library = libraryName.safeParse(c.req.param('library'))
+    if (!library.success) return c.notFound()
     const input = listQuery.safeParse(c.req.query())
     if (!input.success) return c.json({ message: '筛选条件无效。' }, 400)
     const { path, q, page } = input.data
-    return c.json(await listFiles(roots[library], path, q, page))
+    return c.json(await listFiles(roots[library.data], path, q, page))
 })
 
 router.get('/file-library/:library/file', async (c) => {
-    const library = c.req.param('library')
-    if (library !== 'static' && library !== 'private') return c.notFound()
-    return sendFile(roots[library], c.req.query('path') ?? '', c.req.query('preview') === '1', c.req.raw)
+    const library = libraryName.safeParse(c.req.param('library'))
+    if (!library.success) return c.notFound()
+    return sendFile(roots[library.data], c.req.query('path') ?? '', c.req.query('preview') === '1', c.req.raw)
 })
 
-router.post('/file-library/static/folder', requireMutation, bodyLimit({ maxSize: 4096 }), async (c) => {
+router.get('/file-library/:library/thumbnail', (c) => {
+    const library = c.req.param('library')
+    if (library !== 'private' && library !== 'private-uploads') return c.notFound()
+    return sendThumbnail(roots[library], c.req.query('path') ?? '', c.req.method === 'HEAD')
+})
+
+router.post('/file-library/:library{static|private-uploads}/folder', requireMutation, bodyLimit({ maxSize: 4096 }), async (c) => {
     const input = z.object({ path: z.string(), name: z.string() }).strict()
         .safeParse(await c.req.json().catch(() => undefined))
     if (!input.success) return c.json({ message: '文件夹信息无效。' }, 400)
-    await createFolder(env.STATIC_LIBRARY_UPLOAD_ROOT, input.data.path, input.data.name)
+    const { root, segments } = uploadDestination(c.req.param('library'), input.data.path)
+    await createFolder(root, segments, input.data.name)
     return c.body(null, 201)
 })
 
-router.post('/file-library/static/upload', requireMutation, rateLimit({ windowMs: 60_000, max: 30 }), async (c) => {
+router.post('/file-library/:library{static|private-uploads}/upload', requireMutation, rateLimit({ windowMs: 60_000, max: 30 }), async (c) => {
     const size = Number(c.req.header('Content-Length'))
     if (size > uploadLimit) return c.json({ message: '单个文件最多 48 MB。' }, 413)
-    await uploadFile(env.STATIC_LIBRARY_UPLOAD_ROOT, c.req.query('path') ?? '', c.req.query('name') ?? '', c.req.raw)
+    const { root, segments } = uploadDestination(c.req.param('library'), c.req.query('path') ?? '')
+    await uploadFile(root, segments, c.req.query('name') ?? '', c.req.raw)
     return c.body(null, 201)
 })
 

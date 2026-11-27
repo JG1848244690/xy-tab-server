@@ -37,7 +37,10 @@ FROM node:22-alpine AS runner
 ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 hono \
-    && adduser --system --uid 1001 -G hono hono
+    && adduser --system --uid 1001 -G hono hono \
+    && mkdir -p /library/private-uploads \
+    && chown 1001:1001 /library/private-uploads \
+    && chmod 700 /library/private-uploads
 
 WORKDIR /app
 # prod-deps 阶段已含:清单位置正确 + 生产 node_modules(root 与 apps/api 两层)

@@ -39,6 +39,7 @@ const EnvSchema = z.object({
     STATIC_LIBRARY_ROOT: z.string().default(''),
     STATIC_LIBRARY_UPLOAD_ROOT: z.string().default(''),
     PRIVATE_GALLERY_ROOT: z.string().default(''),
+    PRIVATE_GALLERY_UPLOAD_ROOT: z.string().default(''),
 
     // 是否开放注册。生产默认开;需要封口时在服务器 .env 改成 false 重启即可
     REGISTRATION_ENABLED: z.enum(['true', 'false']).default('true'),

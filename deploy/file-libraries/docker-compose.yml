@@ -5,6 +5,7 @@ services:
       STATIC_LIBRARY_ROOT: /library/static
       STATIC_LIBRARY_UPLOAD_ROOT: /library/static-assets
       PRIVATE_GALLERY_ROOT: /library/private-gallery
+      PRIVATE_GALLERY_UPLOAD_ROOT: /library/private-uploads
     volumes:
       - type: bind
         source: /www/wwwroot/static
@@ -23,3 +24,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - private-gallery-uploads:/library/private-uploads
+
+volumes:
+  private-gallery-uploads:

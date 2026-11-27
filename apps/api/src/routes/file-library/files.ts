@@ -30,7 +30,7 @@ export function fileSegments(path: string) {
     return path ? path.split('/').map(fileSegment) : []
 }
 
-async function within(root: string, segments: string[]) {
+export async function within(root: string, segments: string[]) {
     if (!root) throw missing()
     const realRoot = await realpath(resolve(root)).catch(() => { throw missing() })
     const target = join(realRoot, ...segments)
@@ -139,24 +139,18 @@ const uploadSignatures: Record<string, (bytes: Buffer) => boolean> = {
     'video/webm': (b) => b.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])),
 }
 
-export function publicUploadPath(path: string) {
-    const segments = fileSegments(path)
-    if (segments[0] !== 'assets') throw new AppError('只可写入 assets 文件夹。', 403, 'FORBIDDEN')
-    return segments.slice(1)
-}
-
-export async function createFolder(root: string, path: string, name: string) {
-    const target = join(await within(root, publicUploadPath(path)), fileSegment(name))
+export async function createFolder(root: string, segments: string[], name: string) {
+    const target = join(await within(root, segments), fileSegment(name))
     await mkdir(target).catch((error: NodeJS.ErrnoException) => {
         if (error.code === 'EEXIST') throw new AppError('同名文件或文件夹已存在。', 409, 'NAME_CONFLICT')
         throw error
     })
 }
 
-export async function uploadFile(root: string, path: string, name: string, request: Request) {
+export async function uploadFile(root: string, segments: string[], name: string, request: Request) {
     const verify = uploadSignatures[mimeOf(fileSegment(name))]
     if (!verify || !request.body) throw new AppError('请选择支持的图片、视频、PDF 或 ZIP 文件。', 415, 'UNSUPPORTED_MEDIA_TYPE')
-    const folder = await within(root, publicUploadPath(path))
+    const folder = await within(root, segments)
     const temporary = join(folder, '.upload-' + randomUUID())
     const prefix = Buffer.alloc(16)
     let total = 0
